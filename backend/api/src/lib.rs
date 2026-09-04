@@ -30,10 +30,22 @@ pub fn router(state: SharedState) -> Router {
             "/api/v1/services/{service_key}",
             get(get_service).patch(patch_service),
         )
-        .route("/api/v1/services/{service_key}/approve", post(approve_service))
-        .route("/api/v1/services/{service_key}/disable", post(disable_service))
-        .route("/api/v1/services/{service_key}/retire", post(retire_service))
-        .route("/api/v1/branding/revisions", get(list_revisions).post(create_draft))
+        .route(
+            "/api/v1/services/{service_key}/approve",
+            post(approve_service),
+        )
+        .route(
+            "/api/v1/services/{service_key}/disable",
+            post(disable_service),
+        )
+        .route(
+            "/api/v1/services/{service_key}/retire",
+            post(retire_service),
+        )
+        .route(
+            "/api/v1/branding/revisions",
+            get(list_revisions).post(create_draft),
+        )
         .route(
             "/api/v1/branding/revisions/{revision}/publish",
             post(publish_revision),
@@ -59,10 +71,7 @@ async fn health_ready(State(state): State<SharedState>) -> Response {
 
 // ─── Runtime branding ────────────────────────────────────────────────────────
 
-async fn runtime_branding(
-    State(state): State<SharedState>,
-    headers: HeaderMap,
-) -> Response {
+async fn runtime_branding(State(state): State<SharedState>, headers: HeaderMap) -> Response {
     let Ok(Some(published)) = state.branding.find_published().await else {
         return error_response(
             StatusCode::NOT_FOUND,
@@ -122,7 +131,7 @@ async fn get_service(
             let version = entry.version;
             (
                 StatusCode::OK,
-                [( "ETag", format!("\"service-v{version}\"") )],
+                [("ETag", format!("\"service-v{version}\""))],
                 Json(json!({ "service": entry, "declarations": declarations })),
             )
                 .into_response()
@@ -203,9 +212,7 @@ async fn create_service(
             Json(json!({ "service": entry, "declaration": declaration })),
         )
             .into_response(),
-        Err(admin_panel_domain::DomainError::Conflict(msg)) => {
-            conflict(&msg)
-        }
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(err) => internal(err),
     }
 }
@@ -222,7 +229,13 @@ async fn patch_service(
     headers: HeaderMap,
     Json(req): Json<PatchServiceRequest>,
 ) -> Response {
-    let Some(current) = state.registry.find_by_key(&service_key).await.ok().flatten() else {
+    let Some(current) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
         return not_found(&service_key);
     };
     let Some(expected_version) = match_if_match(&headers, current.version) else {
@@ -260,7 +273,13 @@ async fn approve_service(
     headers: HeaderMap,
     Json(req): Json<ApproveRequest>,
 ) -> Response {
-    let Some(current) = state.registry.find_by_key(&service_key).await.ok().flatten() else {
+    let Some(current) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
         return not_found(&service_key);
     };
     let Some(expected_version) = match_if_match(&headers, current.version) else {
@@ -304,7 +323,13 @@ async fn disable_service(
     axum::extract::Path(service_key): axum::extract::Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    change_status(state, service_key, headers, admin_panel_domain::ServiceStatus::Disabled).await
+    change_status(
+        state,
+        service_key,
+        headers,
+        admin_panel_domain::ServiceStatus::Disabled,
+    )
+    .await
 }
 
 async fn retire_service(
@@ -312,7 +337,13 @@ async fn retire_service(
     axum::extract::Path(service_key): axum::extract::Path<String>,
     headers: HeaderMap,
 ) -> Response {
-    change_status(state, service_key, headers, admin_panel_domain::ServiceStatus::Retired).await
+    change_status(
+        state,
+        service_key,
+        headers,
+        admin_panel_domain::ServiceStatus::Retired,
+    )
+    .await
 }
 
 async fn change_status(
@@ -321,13 +352,23 @@ async fn change_status(
     headers: HeaderMap,
     target: admin_panel_domain::ServiceStatus,
 ) -> Response {
-    let Some(current) = state.registry.find_by_key(&service_key).await.ok().flatten() else {
+    let Some(current) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
         return not_found(&service_key);
     };
     let Some(expected_version) = match_if_match(&headers, current.version) else {
         return precondition_failed();
     };
-    match state.registry.set_status(&service_key, target, expected_version).await {
+    match state
+        .registry
+        .set_status(&service_key, target, expected_version)
+        .await
+    {
         Ok(entry) => (
             StatusCode::OK,
             [("ETag", format!("\"service-v{}\"", entry.version))],
@@ -377,11 +418,7 @@ async fn create_draft(
         based_on_revision: None,
     };
     match state.branding.insert_draft(&revision).await {
-        Ok(()) => (
-            StatusCode::CREATED,
-            Json(json!({ "revision": revision })),
-        )
-            .into_response(),
+        Ok(()) => (StatusCode::CREATED, Json(json!({ "revision": revision }))).into_response(),
         Err(err) => internal(err),
     }
 }
@@ -396,7 +433,11 @@ async fn publish_revision(
     if !draft.can_publish() {
         return conflict("revision is not a draft");
     }
-    let etag = format!("branding-r{}-{}", draft.revision, &draft.document_hash[..12.min(draft.document_hash.len())]);
+    let etag = format!(
+        "branding-r{}-{}",
+        draft.revision,
+        &draft.document_hash[..12.min(draft.document_hash.len())]
+    );
     match state.branding.publish(revision, "admin", &etag).await {
         Ok(published) => {
             let _ = state
@@ -482,11 +523,19 @@ fn error_response(status: StatusCode, code: &str, message: &str) -> Response {
 
 fn internal(err: impl std::fmt::Display) -> Response {
     tracing::error!(error = %err, "internal error");
-    error_response(StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error")
+    error_response(
+        StatusCode::INTERNAL_SERVER_ERROR,
+        "INTERNAL_ERROR",
+        "internal server error",
+    )
 }
 
 fn not_found(entity: &str) -> Response {
-    error_response(StatusCode::NOT_FOUND, "NOT_FOUND", &format!("{entity} not found"))
+    error_response(
+        StatusCode::NOT_FOUND,
+        "NOT_FOUND",
+        &format!("{entity} not found"),
+    )
 }
 
 fn conflict(message: &str) -> Response {

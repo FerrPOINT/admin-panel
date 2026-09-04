@@ -82,8 +82,7 @@ impl AccessStore {
                 .fetch_optional(&self.pool)
                 .await?;
                 if let Some(role) = role {
-                    let parsed =
-                        PanelRole::parse(&role).unwrap_or(PanelRole::PlatformViewer);
+                    let parsed = PanelRole::parse(&role).unwrap_or(PanelRole::PlatformViewer);
                     if best.map(|b| parsed > b).unwrap_or(true) {
                         best = Some(parsed);
                     }
@@ -111,11 +110,9 @@ impl From<BindingRow> for RoleBinding {
             id: row.id,
             claim_name: row.claim_name,
             claim_value: row.claim_value,
-            panel_role: PanelRole::parse(&row.role_text)
-                .unwrap_or(PanelRole::PlatformViewer),
+            panel_role: PanelRole::parse(&row.role_text).unwrap_or(PanelRole::PlatformViewer),
             created_by_subject: row.created_by_subject,
             created_at: row.created_at,
         }
     }
 }
-

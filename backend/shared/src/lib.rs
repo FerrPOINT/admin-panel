@@ -87,8 +87,6 @@ impl AppConfig {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn parses_port_from_string_env() {
         let port: u16 = "7771".parse().unwrap();

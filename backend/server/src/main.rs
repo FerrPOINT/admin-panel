@@ -10,8 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .json()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -22,8 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&config.database.url)
         .await?;
     let migrations = sqlx::migrate::Migrator::new(std::path::Path::new(
-        &std::env::var("ADMINP_MIGRATIONS_DIR")
-            .unwrap_or_else(|_| "migration/migrations".into()),
+        &std::env::var("ADMINP_MIGRATIONS_DIR").unwrap_or_else(|_| "migration/migrations".into()),
     ))
     .await?;
     migrations.run(&pool).await?;
@@ -48,11 +46,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_origin(
             allow_origins
                 .iter()
-                .filter_map(|origin| origin.parse::<axum::http::HeaderValue>().ok().map(axum::http::HeaderValue::from))
+                .filter_map(|origin| origin.parse::<axum::http::HeaderValue>().ok())
                 .collect::<Vec<_>>(),
         )
-        .allow_methods([axum::http::Method::GET, axum::http::Method::POST, axum::http::Method::PATCH, axum::http::Method::DELETE])
-        .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::IF_NONE_MATCH, axum::http::header::IF_MATCH]);
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PATCH,
+            axum::http::Method::DELETE,
+        ])
+        .allow_headers([
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::IF_NONE_MATCH,
+            axum::http::header::IF_MATCH,
+        ]);
 
     let app = admin_panel_api::router(state)
         .layer(cors)

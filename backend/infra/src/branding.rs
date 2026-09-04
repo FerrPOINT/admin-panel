@@ -1,8 +1,6 @@
 //! Branding revisions persistence.
 
-use admin_panel_domain::{
-    BrandingDocument, BrandingRevision, DomainError, RevisionState,
-};
+use admin_panel_domain::{BrandingDocument, BrandingRevision, DomainError, RevisionState};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -18,11 +16,10 @@ impl BrandingStore {
     }
 
     pub async fn next_revision_number(&self) -> Result<i64, DomainError> {
-        let max: Option<i64> =
-            sqlx::query_scalar("SELECT max(revision) FROM branding_revisions")
-                .fetch_one(&self.pool)
-                .await
-                .map_err(db)?;
+        let max: Option<i64> = sqlx::query_scalar("SELECT max(revision) FROM branding_revisions")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db)?;
         Ok(max.unwrap_or(0) + 1)
     }
 
@@ -62,16 +59,20 @@ impl BrandingStore {
     }
 
     pub async fn find_published(&self) -> Result<Option<BrandingRevision>, sqlx::Error> {
-        sqlx::query_as::<_, RevisionRow>(&(String::from(select_sql()) + " WHERE state = 'published'"))
-            .fetch_optional(&self.pool)
-            .await
-            .map(|row| row.map(Into::into))
+        sqlx::query_as::<_, RevisionRow>(
+            &(String::from(select_sql()) + " WHERE state = 'published'"),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map(|row| row.map(Into::into))
     }
 
     pub async fn list(&self) -> Result<Vec<BrandingRevision>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, RevisionRow>(&(String::from(select_sql()) + " ORDER BY revision DESC"))
-            .fetch_all(&self.pool)
-            .await?;
+        let rows = sqlx::query_as::<_, RevisionRow>(
+            &(String::from(select_sql()) + " ORDER BY revision DESC"),
+        )
+        .fetch_all(&self.pool)
+        .await?;
         Ok(rows.into_iter().map(Into::into).collect())
     }
 
@@ -108,12 +109,10 @@ impl BrandingStore {
         etag: &str,
     ) -> Result<BrandingRevision, DomainError> {
         let mut tx = self.pool.begin().await.map_err(db)?;
-        sqlx::query(
-            "UPDATE branding_revisions SET state = 'superseded' WHERE state = 'published'",
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(db)?;
+        sqlx::query("UPDATE branding_revisions SET state = 'superseded' WHERE state = 'published'")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
         let row = sqlx::query_as::<_, RevisionRow>(
             &(String::from(select_sql()) + " WHERE revision = $1 AND state = 'draft' FOR UPDATE"),
         )
@@ -186,5 +185,3 @@ impl From<RevisionRow> for BrandingRevision {
         }
     }
 }
-
-

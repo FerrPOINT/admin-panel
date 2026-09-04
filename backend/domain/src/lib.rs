@@ -156,11 +156,15 @@ pub fn known_capability(key: &str) -> bool {
 
 pub fn validate_capabilities(caps: &[String]) -> DomainResult<()> {
     if caps.is_empty() {
-        return Err(DomainError::Validation("capabilities must not be empty".into()));
+        return Err(DomainError::Validation(
+            "capabilities must not be empty".into(),
+        ));
     }
     for cap in caps {
         if !known_capability(cap) {
-            return Err(DomainError::Validation(format!("unknown capability: {cap}")));
+            return Err(DomainError::Validation(format!(
+                "unknown capability: {cap}"
+            )));
         }
     }
     let unique: std::collections::HashSet<&String> = caps.iter().collect();
@@ -172,7 +176,7 @@ pub fn validate_capabilities(caps: &[String]) -> DomainResult<()> {
 
 // ─── Branding ────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct BrandingDocument {
     pub product_name: String,
     pub product_short_name: String,
@@ -190,11 +194,7 @@ pub struct BrandingDocument {
 
 pub fn valid_hex_color(value: &str) -> bool {
     let bytes = value.as_bytes();
-    bytes.len() == 7
-        && bytes[0] == b'#'
-        && bytes[1..]
-            .iter()
-            .all(|b| b.is_ascii_hexdigit())
+    bytes.len() == 7 && bytes[0] == b'#' && bytes[1..].iter().all(|b| b.is_ascii_hexdigit())
 }
 
 /// https public URL without credentials.
@@ -203,25 +203,12 @@ pub fn valid_public_url(value: &str) -> bool {
     !rest.is_empty() && !rest.contains('@') && !rest.contains('\\')
 }
 
-impl Default for BrandingDocument {
-    fn default() -> Self {
-        Self {
-            product_name: String::new(),
-            product_short_name: String::new(),
-            logo_url: None,
-            favicon_url: None,
-            support_url: None,
-            primary_color: String::new(),
-            accent_color: String::new(),
-            surface_color: None,
-        }
-    }
-}
-
 impl BrandingDocument {
     pub fn validate(&self) -> DomainResult<()> {
         if self.product_name.trim().is_empty() || self.product_name.len() > 80 {
-            return Err(DomainError::Validation("product_name must be 1..=80 chars".into()));
+            return Err(DomainError::Validation(
+                "product_name must be 1..=80 chars".into(),
+            ));
         }
         if self.product_short_name.trim().is_empty() || self.product_short_name.len() > 24 {
             return Err(DomainError::Validation(
@@ -229,14 +216,20 @@ impl BrandingDocument {
             ));
         }
         if !valid_hex_color(&self.primary_color) {
-            return Err(DomainError::Validation("primary_color must be #RRGGBB".into()));
+            return Err(DomainError::Validation(
+                "primary_color must be #RRGGBB".into(),
+            ));
         }
         if !valid_hex_color(&self.accent_color) {
-            return Err(DomainError::Validation("accent_color must be #RRGGBB".into()));
+            return Err(DomainError::Validation(
+                "accent_color must be #RRGGBB".into(),
+            ));
         }
         if let Some(surface) = &self.surface_color {
             if !valid_hex_color(surface) {
-                return Err(DomainError::Validation("surface_color must be #RRGGBB".into()));
+                return Err(DomainError::Validation(
+                    "surface_color must be #RRGGBB".into(),
+                ));
             }
         }
         for (field, url) in [
@@ -246,7 +239,9 @@ impl BrandingDocument {
         ] {
             if let Some(url) = url {
                 if !valid_public_url(url) {
-                    return Err(DomainError::Validation(format!("{field} must be a public https URL")));
+                    return Err(DomainError::Validation(format!(
+                        "{field} must be a public https URL"
+                    )));
                 }
             }
         }
@@ -407,7 +402,9 @@ mod tests {
 
     #[test]
     fn integration_url_requires_https_origin_only() {
-        assert!(valid_integration_base_url("https://service.example.internal"));
+        assert!(valid_integration_base_url(
+            "https://service.example.internal"
+        ));
         assert!(!valid_integration_base_url("http://insecure.example"));
         assert!(!valid_integration_base_url("https://user:pass@example.com"));
         assert!(!valid_integration_base_url("https://example.com/path"));
@@ -418,9 +415,7 @@ mod tests {
         assert!(validate_capabilities(&["health.read".into()]).is_ok());
         assert!(validate_capabilities(&["execute".into()]).is_err());
         assert!(validate_capabilities(&[]).is_err());
-        assert!(
-            validate_capabilities(&["health.read".into(), "health.read".into()]).is_err()
-        );
+        assert!(validate_capabilities(&["health.read".into(), "health.read".into()]).is_err());
     }
 
     #[test]

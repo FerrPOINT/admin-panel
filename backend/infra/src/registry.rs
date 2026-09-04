@@ -1,8 +1,6 @@
 //! Service registry + declarations persistence.
 
-use admin_panel_domain::{
-    ApprovalStatus, Declaration, DomainError, RegistryEntry, ServiceStatus,
-};
+use admin_panel_domain::{ApprovalStatus, Declaration, DomainError, RegistryEntry, ServiceStatus};
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -25,7 +23,8 @@ impl RegistryStore {
     pub async fn migrate(&self) -> Result<(), sqlx::migrate::MigrateError> {
         // Migration files live in the migration crate; resolved via env at runtime.
         let migrations = sqlx::migrate::Migrator::new(std::path::Path::new(
-            &std::env::var("ADMINP_MIGRATIONS_DIR").unwrap_or_else(|_| "migration/migrations".into()),
+            &std::env::var("ADMINP_MIGRATIONS_DIR")
+                .unwrap_or_else(|_| "migration/migrations".into()),
         ))
         .await?;
         migrations.run(&self.pool).await
@@ -208,10 +207,7 @@ impl RegistryStore {
         Ok(())
     }
 
-    pub async fn find_declaration(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<Declaration>, sqlx::Error> {
+    pub async fn find_declaration(&self, id: Uuid) -> Result<Option<Declaration>, sqlx::Error> {
         sqlx::query_as::<_, DeclarationRow>(
             "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
@@ -224,10 +220,7 @@ impl RegistryStore {
         .map(|row| row.map(Into::into))
     }
 
-    pub async fn list_declarations(
-        &self,
-        entry_id: Uuid,
-    ) -> Result<Vec<Declaration>, sqlx::Error> {
+    pub async fn list_declarations(&self, entry_id: Uuid) -> Result<Vec<Declaration>, sqlx::Error> {
         let rows = sqlx::query_as::<_, DeclarationRow>(
             "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
@@ -350,5 +343,3 @@ impl From<DeclarationRow> for Declaration {
         }
     }
 }
-
-
