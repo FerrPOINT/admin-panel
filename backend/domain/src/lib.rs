@@ -225,24 +225,24 @@ impl BrandingDocument {
                 "accent_color must be #RRGGBB".into(),
             ));
         }
-        if let Some(surface) = &self.surface_color {
-            if !valid_hex_color(surface) {
-                return Err(DomainError::Validation(
-                    "surface_color must be #RRGGBB".into(),
-                ));
-            }
+        if let Some(surface) = &self.surface_color
+            && !valid_hex_color(surface)
+        {
+            return Err(DomainError::Validation(
+                "surface_color must be #RRGGBB".into(),
+            ));
         }
         for (field, url) in [
             ("logo_url", &self.logo_url),
             ("favicon_url", &self.favicon_url),
             ("support_url", &self.support_url),
         ] {
-            if let Some(url) = url {
-                if !valid_public_url(url) {
-                    return Err(DomainError::Validation(format!(
-                        "{field} must be a public https URL"
-                    )));
-                }
+            if let Some(url) = url
+                && !valid_public_url(url)
+            {
+                return Err(DomainError::Validation(format!(
+                    "{field} must be a public https URL"
+                )));
             }
         }
         Ok(())
