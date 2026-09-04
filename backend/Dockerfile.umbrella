@@ -1,0 +1,39 @@
+# Umbrella build for the SDLC fleet root compose (context = /opt/dev/sdlc).
+# Same layout as backend/Dockerfile.dev but with workspace-prefixed COPY paths.
+FROM rust:1.88-slim-bookworm AS builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY admin-panel/backend/Cargo.toml admin-panel/backend/Cargo.lock* ./
+COPY admin-panel/backend/api/Cargo.toml api/
+COPY admin-panel/backend/app/Cargo.toml app/
+COPY admin-panel/backend/domain/Cargo.toml domain/
+COPY admin-panel/backend/infra/Cargo.toml infra/
+COPY admin-panel/backend/shared/Cargo.toml shared/
+COPY admin-panel/backend/server/Cargo.toml server/
+COPY admin-panel/backend/migration/Cargo.toml migration/
+COPY admin-panel/backend/migration/migrations migration/migrations
+RUN mkdir -p api/src app/src domain/src infra/src shared/src server/src migration/src \
+    && echo 'pub fn stub() {}' > api/src/lib.rs \
+    && echo 'pub fn stub() {}' > app/src/lib.rs \
+    && echo 'pub fn stub() {}' > domain/src/lib.rs \
+    && echo 'pub fn stub() {}' > infra/src/lib.rs \
+    && echo 'pub fn stub() {}' > shared/src/lib.rs \
+    && echo 'fn main() {}' > server/src/main.rs \
+    && echo 'pub fn stub() {}' > migration/src/lib.rs \
+    && cargo build --bin admin-panel-server || true
+COPY admin-panel/backend/api/src api/src
+COPY admin-panel/backend/app/src app/src
+COPY admin-panel/backend/domain/src domain/src
+COPY admin-panel/backend/infra/src infra/src
+COPY admin-panel/backend/shared/src shared/src
+COPY admin-panel/backend/server/src server/src
+RUN find api app domain infra shared server migration -name '*.rs' -exec touch {} + \
+    && cargo build --release --bin admin-panel-server
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /build/target/release/admin-panel-server /usr/local/bin/admin-panel-server
+COPY admin-panel/backend/migration/migrations /app/migration/migrations
+EXPOSE 7771
+ENTRYPOINT ["admin-panel-server"]

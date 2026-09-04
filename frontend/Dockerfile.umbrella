@@ -14,6 +14,8 @@ RUN pnpm config set --location project onlyBuiltDependencies '["esbuild"]' || tr
     && pnpm rebuild esbuild
 
 COPY admin-panel/frontend/ ./
+ARG VITE_PLATFORM_BRANDING_URL=""
+ENV VITE_PLATFORM_BRANDING_URL=${VITE_PLATFORM_BRANDING_URL}
 RUN COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm build
 
 FROM nginx:1.29-alpine
