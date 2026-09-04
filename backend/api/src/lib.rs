@@ -80,15 +80,15 @@ async fn runtime_branding(State(state): State<SharedState>, headers: HeaderMap) 
         );
     };
     let etag = format!("\"{}\"", published.etag);
-    if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok()) {
-        if if_none_match == etag {
-            return Response::builder()
-                .status(StatusCode::NOT_MODIFIED)
-                .header("ETag", etag)
-                .header("Cache-Control", "public, max-age=60, must-revalidate")
-                .body(axum::body::Body::empty())
-                .unwrap();
-        }
+    if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok())
+        && if_none_match == etag
+    {
+        return Response::builder()
+            .status(StatusCode::NOT_MODIFIED)
+            .header("ETag", etag)
+            .header("Cache-Control", "public, max-age=60, must-revalidate")
+            .body(axum::body::Body::empty())
+            .unwrap();
     }
     let body = json!({
         "revision": published.revision,
