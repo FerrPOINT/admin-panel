@@ -1,0 +1,23 @@
+[package]
+name = "admin-panel-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "admin-panel-server"
+path = "src/main.rs"
+
+[dependencies]
+admin-panel-api = { path = "../api" }
+admin-panel-infra = { path = "../infra" }
+admin-panel-shared = { path = "../shared" }
+sqlx = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+serde_json = { workspace = true }

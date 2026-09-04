@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: adminpanel
+      POSTGRES_PASSWORD: adminpanel_local
+      POSTGRES_DB: adminpanel
+    ports:
+      - "127.0.0.1:7773:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U adminpanel -d adminpanel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: admin-panel-frontend-dev
+    build:
+      context: ..
+      dockerfile: admin-panel/frontend/Dockerfile.umbrella
+    ports:
+      - "127.0.0.1:7772:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    image: admin-panel-api-dev
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.dev
+    environment:
+      ADMINP_DATABASE_URL: postgres://adminpanel:adminpanel_local@postgres:5432/adminpanel
+      ADMINP_BIND_ADDRESS: 0.0.0.0
+      ADMINP_BIND_PORT: "7771"
+      ADMINP_MIGRATIONS_DIR: /app/migration/migrations
+      ADMINP_CORS_ALLOWED_ORIGINS: "http://localhost:7772,http://localhost:7712,http://localhost:7722,http://localhost:7732,http://localhost:7742"
+      RUST_LOG: info
+    ports:
+      - "127.0.0.1:7771:7771"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:7771/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

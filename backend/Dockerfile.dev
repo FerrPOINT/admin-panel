@@ -1,0 +1,39 @@
+FROM rust:1.88-slim-bookworm AS builder
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY backend/Cargo.toml backend/Cargo.lock* ./
+COPY backend/api/Cargo.toml api/
+COPY backend/app/Cargo.toml app/
+COPY backend/domain/Cargo.toml domain/
+COPY backend/infra/Cargo.toml infra/
+COPY backend/shared/Cargo.toml shared/
+COPY backend/server/Cargo.toml server/
+COPY backend/migration/Cargo.toml migration/
+COPY backend/migration/migrations migration/migrations
+# Pre-build stubs for dependency caching, then overlay real sources.
+RUN mkdir -p api/src app/src domain/src infra/src shared/src server/src migration/src \
+    && echo 'pub fn stub() {}' > api/src/lib.rs \
+    && echo 'pub fn stub() {}' > app/src/lib.rs \
+    && echo 'pub fn stub() {}' > domain/src/lib.rs \
+    && echo 'pub fn stub() {}' > infra/src/lib.rs \
+    && echo 'pub fn stub() {}' > shared/src/lib.rs \
+    && echo 'fn main() {}' > server/src/main.rs \
+    && echo 'pub fn stub() {}' > migration/src/lib.rs \
+    && cargo build --bin admin-panel-server || true
+COPY backend/api/src api/src
+COPY backend/app/src app/src
+COPY backend/domain/src domain/src
+COPY backend/infra/src infra/src
+COPY backend/shared/src shared/src
+COPY backend/server/src server/src
+COPY backend/migration/migrations migration/migrations
+RUN find api app domain infra shared server migration -name '*.rs' -exec touch {} + \
+    && cargo build --release --bin admin-panel-server
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /build/target/release/admin-panel-server /usr/local/bin/admin-panel-server
+COPY backend/migration/migrations /app/migration/migrations
+EXPOSE 7771
+ENTRYPOINT ["admin-panel-server"]
