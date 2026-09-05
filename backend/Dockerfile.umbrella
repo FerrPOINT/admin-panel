@@ -1,6 +1,6 @@
 # Umbrella build for the SDLC fleet root compose (context = /opt/dev/sdlc).
 # Same layout as backend/Dockerfile.dev but with workspace-prefixed COPY paths.
-FROM rust:1.88-slim-bookworm AS builder
+FROM rust:1.98-slim-bookworm AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY admin-panel/backend/Cargo.toml admin-panel/backend/Cargo.lock* ./
