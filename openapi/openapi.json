@@ -1,0 +1,558 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Base Admin Panel API",
+    "description": "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/audit": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "operationId": "list_audit",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "max events (default 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "audit events"
+          }
+        }
+      }
+    },
+    "/api/v1/branding/revisions": {
+      "get": {
+        "tags": [
+          "branding"
+        ],
+        "operationId": "list_revisions",
+        "responses": {
+          "200": {
+            "description": "revisions"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "branding"
+        ],
+        "operationId": "create_draft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "draft created"
+          },
+          "422": {
+            "description": "validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/branding/revisions/{id}/publish": {
+      "post": {
+        "tags": [
+          "branding"
+        ],
+        "operationId": "publish_revision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "published"
+          },
+          "409": {
+            "description": "not a draft / already published"
+          }
+        }
+      }
+    },
+    "/api/v1/role-bindings": {
+      "get": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "list_role_bindings",
+        "responses": {
+          "200": {
+            "description": "role bindings"
+          },
+          "403": {
+            "description": "admin role required"
+          }
+        }
+      }
+    },
+    "/api/v1/runtime/branding": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "operationId": "runtime_branding",
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETag for conditional GET",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "published branding document"
+          },
+          "304": {
+            "description": "not modified"
+          },
+          "404": {
+            "description": "no published revision"
+          }
+        }
+      }
+    },
+    "/api/v1/runtime/services": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "summary": "Public, cacheable service catalog for fleet consumers (switcher UIs).\nOnly active services with an approved declaration are exposed.",
+        "operationId": "runtime_services",
+        "parameters": [
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "description": "ETag for conditional GET",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "public service catalog"
+          }
+        }
+      }
+    },
+    "/api/v1/services": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "list_services",
+        "responses": {
+          "200": {
+            "description": "registered services"
+          },
+          "401": {
+            "description": "missing/invalid bearer"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "create_service",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateServiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "created"
+          },
+          "409": {
+            "description": "duplicate"
+          },
+          "422": {
+            "description": "validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/services/{service_key}": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "get_service",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "description": "kebab-case service key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "service with declarations"
+          },
+          "404": {
+            "description": "unknown service"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "patch_service",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "expected version ETag",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchServiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "updated"
+          },
+          "412": {
+            "description": "version mismatch"
+          }
+        }
+      }
+    },
+    "/api/v1/services/{service_key}/approve": {
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "approve_service",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "declaration approved and activated"
+          },
+          "409": {
+            "description": "already approved / conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/services/{service_key}/disable": {
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "disable_service",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "disabled"
+          }
+        }
+      }
+    },
+    "/api/v1/services/{service_key}/retire": {
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "retire_service",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "retired"
+          }
+        }
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "health_live",
+        "responses": {
+          "200": {
+            "description": "alive"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "health_ready",
+        "responses": {
+          "200": {
+            "description": "ready"
+          },
+          "503": {
+            "description": "not ready"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApproveRequest": {
+        "type": "object",
+        "required": [
+          "declaration_id"
+        ],
+        "properties": {
+          "declaration_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateServiceRequest": {
+        "type": "object",
+        "required": [
+          "service_key",
+          "display_name",
+          "owner_team",
+          "declaration"
+        ],
+        "properties": {
+          "declaration": {
+            "$ref": "#/components/schemas/DeclarationInput"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "owner_team": {
+            "type": "string"
+          },
+          "service_key": {
+            "type": "string"
+          }
+        }
+      },
+      "DeclarationInput": {
+        "type": "object",
+        "required": [
+          "declaration_version",
+          "integration_base_url",
+          "service_contract_version",
+          "capabilities"
+        ],
+        "properties": {
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "declaration_version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "integration_base_url": {
+            "type": "string"
+          },
+          "requested_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "service_contract_version": {
+            "type": "string"
+          }
+        }
+      },
+      "PatchServiceRequest": {
+        "type": "object",
+        "properties": {
+          "declaration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeclarationInput"
+              }
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner_team": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Liveness/readiness"
+    },
+    {
+      "name": "runtime",
+      "description": "Public runtime endpoints (no auth)"
+    },
+    {
+      "name": "services",
+      "description": "Service registry management (auth required)"
+    },
+    {
+      "name": "branding",
+      "description": "Branding revisions (auth required)"
+    },
+    {
+      "name": "access",
+      "description": "Role bindings (admin only)"
+    },
+    {
+      "name": "audit",
+      "description": "Audit events (operator+)"
+    }
+  ]
+}
