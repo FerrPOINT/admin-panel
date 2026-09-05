@@ -147,6 +147,10 @@ pub fn router(state: SharedState) -> Router {
             "/api/v1/branding/revisions/{revision}/publish",
             post(publish_revision),
         )
+        .route(
+            "/api/v1/branding/revisions/{revision}/withdraw",
+            post(withdraw_revision),
+        )
         .route("/api/v1/audit-events", get(list_audit))
         .with_state(state.clone())
         .route_layer(middleware::from_fn(require_operator))
@@ -200,6 +204,7 @@ pub fn router(state: SharedState) -> Router {
         retire_service,
         list_revisions,
         create_draft,
+        withdraw_revision,
         publish_revision,
         list_role_bindings,
         create_role_binding,
@@ -737,6 +742,13 @@ async fn create_draft(
         return internal("cannot allocate revision");
     };
     let document_hash = content_hash(&[&serde_json::to_string(&req).unwrap()]);
+    let based_on = state
+        .branding
+        .find_published()
+        .await
+        .ok()
+        .flatten()
+        .map(|published| published.revision);
     let revision = admin_panel_domain::BrandingRevision {
         id: uuid::Uuid::now_v7(),
         revision: revision_number,
@@ -748,7 +760,7 @@ async fn create_draft(
         created_at: chrono::Utc::now(),
         published_by_subject: None,
         published_at: None,
-        based_on_revision: None,
+        based_on_revision: based_on,
     };
     match state.branding.insert_draft(&revision).await {
         Ok(()) => (StatusCode::CREATED, Json(json!({ "revision": revision }))).into_response(),
@@ -757,7 +769,7 @@ async fn create_draft(
     }
 }
 
-#[utoipa::path(post, path = "/api/v1/branding/revisions/{id}/publish",
+#[utoipa::path(post, path = "/api/v1/branding/revisions/{revision}/publish",
     tag = "branding",
     params(("id" = uuid::Uuid, Path), ("If-Match" = String, Header)),
     responses((status = 200, description = "published"),
@@ -799,6 +811,43 @@ async fn publish_revision(
                 })
                 .await;
             (StatusCode::OK, Json(json!({ "revision": published }))).into_response()
+        }
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
+        Err(err) => internal(err),
+    }
+}
+
+#[utoipa::path(post, path = "/api/v1/branding/revisions/{revision}/withdraw",
+    tag = "branding",
+    params(("id" = i64, Path)),
+    responses((status = 200, description = "withdrawn"),
+              (status = 409, description = "not a draft")))]
+async fn withdraw_revision(
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
+    State(state): State<SharedState>,
+    axum::extract::Path(revision): axum::extract::Path<i64>,
+) -> Response {
+    match state.branding.withdraw_revision(revision).await {
+        Ok(()) => {
+            let _ = state
+                .audit
+                .append(&admin_panel_domain::AuditEvent {
+                    id: uuid::Uuid::now_v7(),
+                    occurred_at: chrono::Utc::now(),
+                    request_id: uuid::Uuid::now_v7(),
+                    actor_subject: Some(caller.subject.clone()),
+                    actor_role: Some(caller.role),
+                    action: "branding.withdrawn".into(),
+                    entity_type: "branding_revision".into(),
+                    entity_id: Some(uuid::Uuid::now_v7()),
+                    metadata: json!({ "revision": revision }),
+                })
+                .await;
+            (
+                StatusCode::OK,
+                Json(json!({ "revision": revision, "state": "withdrawn" })),
+            )
+                .into_response()
         }
         Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(err) => internal(err),

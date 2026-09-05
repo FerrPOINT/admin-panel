@@ -101,6 +101,22 @@ impl BrandingStore {
         Ok(())
     }
 
+    /// Marks a draft as withdrawn (never-published cleanup).
+    pub async fn withdraw_revision(&self, revision: i64) -> Result<(), DomainError> {
+        let result = sqlx::query(
+            "UPDATE branding_revisions SET state = 'withdrawn' \
+             WHERE revision = $1 AND state = 'draft'",
+        )
+        .bind(revision)
+        .execute(&self.pool)
+        .await
+        .map_err(db)?;
+        if result.rows_affected() != 1 {
+            return Err(DomainError::Conflict("revision is not a draft".into()));
+        }
+        Ok(())
+    }
+
     /// Atomically publishes a draft: previous published -> superseded.
     pub async fn publish(
         &self,

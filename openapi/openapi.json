@@ -113,7 +113,7 @@
         }
       }
     },
-    "/api/v1/branding/revisions/{id}/publish": {
+    "/api/v1/branding/revisions/{revision}/publish": {
       "post": {
         "tags": [
           "branding"
@@ -136,6 +136,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -144,6 +153,42 @@
           },
           "409": {
             "description": "not a draft / already published"
+          }
+        }
+      }
+    },
+    "/api/v1/branding/revisions/{revision}/withdraw": {
+      "post": {
+        "tags": [
+          "branding"
+        ],
+        "operationId": "withdraw_revision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "withdrawn"
+          },
+          "409": {
+            "description": "not a draft"
           }
         }
       }

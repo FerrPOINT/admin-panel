@@ -319,6 +319,11 @@ impl BrandingRevision {
     pub fn can_publish(&self) -> bool {
         self.state == RevisionState::Draft
     }
+
+    /// A draft that was never published may be withdrawn by its author side.
+    pub fn can_withdraw(&self) -> bool {
+        self.state == RevisionState::Draft
+    }
 }
 
 // ─── Panel roles ─────────────────────────────────────────────────────────────
