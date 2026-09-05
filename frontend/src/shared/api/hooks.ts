@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 
 export type ServiceStatus = 'pending' | 'active' | 'disabled' | 'retired'
@@ -97,5 +97,73 @@ export function useAuditEvents(action?: string) {
   return useQuery({
     queryKey: ['audit-events', action ?? 'all'],
     queryFn: () => api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events${params}`),
+  })
+}
+
+
+// ─── Mutations ───────────────────────────────────────────────────────────────
+
+export interface DeclarationInput {
+  declaration_version: number
+  integration_base_url: string
+  service_contract_version: string
+  capabilities: string[]
+}
+
+export function useCreateService() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: {
+      service_key: string
+      display_name: string
+      owner_team: string
+      declaration: DeclarationInput
+    }) => api.post<{ service: RegistryEntry }>('/api/v1/services', body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] }),
+  })
+}
+
+export function usePatchService(serviceKey: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      version,
+      body,
+    }: {
+      version: number
+      body: { display_name?: string; owner_team?: string; declaration?: DeclarationInput }
+    }) => api.patch(`/api/v1/services/${serviceKey}`, body, String(version)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['services'] })
+      void queryClient.invalidateQueries({ queryKey: ['service', serviceKey] })
+    },
+  })
+}
+
+export function useApproveService(serviceKey: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ declarationId, version }: { declarationId: string; version: number }) =>
+      api.post(
+        `/api/v1/services/${serviceKey}/approve`,
+        { declaration_id: declarationId },
+        String(version),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['services'] })
+      void queryClient.invalidateQueries({ queryKey: ['service', serviceKey] })
+    },
+  })
+}
+
+export function useChangeServiceStatus(serviceKey: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ action, version }: { action: 'disable' | 'retire'; version: number }) =>
+      api.post(`/api/v1/services/${serviceKey}/${action}`, undefined, String(version)),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['services'] })
+      void queryClient.invalidateQueries({ queryKey: ['service', serviceKey] })
+    },
   })
 }

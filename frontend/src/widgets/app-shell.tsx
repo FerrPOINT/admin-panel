@@ -9,10 +9,13 @@ import {
   Settings,
   SlidersHorizontal,
   Table2,
+  Shield,
   X,
 } from 'lucide-react'
 import { Button } from '@sdlc/ui/ui'
 import { ServiceSwitcher } from '@sdlc/ui/ui'
+import { LogOut } from 'lucide-react'
+import { useAuth } from '@/shared/auth/auth-context'
 
 type NavItem = {
   to: string
@@ -28,6 +31,7 @@ const navItems: NavItem[] = [
   { to: '/audit', icon: History, label: 'Аудит' },
   { to: '/runtime', icon: SlidersHorizontal, label: 'Runtime' },
   { to: '/settings', icon: Settings, label: 'Локальные настройки' },
+  { to: '/role-bindings', icon: Shield, label: 'Привязки ролей' },
 ]
 
 function SidebarLink({
@@ -62,6 +66,7 @@ function SidebarLink({
 export function AppShell() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { session, logout } = useAuth()
 
   const isActive = (to: string) =>
     to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
@@ -79,8 +84,17 @@ export function AppShell() {
           onClick={() => setMobileMenuOpen(false)}
         />
       ))}
-      <div className="mt-auto pt-3">
+      <div className="mt-auto space-y-2 pt-3">
         <ServiceSwitcher currentKey="admin-panel" />
+        <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-xs">
+          <div className="min-w-0">
+            <p className="truncate text-text-primary">{session?.email ?? session?.subject}</p>
+            <p className="text-text-muted">{session?.panelRole}</p>
+          </div>
+          <Button variant="ghost" size="sm" aria-label="Выйти" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </nav>
   )

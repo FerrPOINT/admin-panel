@@ -10,7 +10,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub struct AppState {
@@ -26,6 +26,15 @@ pub type SharedState = Arc<AppState>;
 /// Effective caller role resolved by the auth middleware.
 #[derive(Clone)]
 pub struct CallerRole(pub admin_panel_domain::PanelRole);
+
+/// Identity + effective role inserted by `bearer_auth`.
+#[derive(Clone)]
+pub struct Caller {
+    pub subject: String,
+    pub email: Option<String>,
+    pub central_role: Option<String>,
+    pub role: admin_panel_domain::PanelRole,
+}
 
 async fn require_role(
     required: admin_panel_domain::PanelRole,
@@ -59,8 +68,6 @@ async fn bearer_auth(
     mut req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    use admin_panel_domain::PanelRole;
-
     let token = req
         .headers()
         .get("authorization")
@@ -68,7 +75,7 @@ async fn bearer_auth(
         .and_then(|v| v.strip_prefix("Bearer ").map(str::to_string))
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    let resolved: PanelRole = match auth::check_token(&token).await {
+    let caller = match auth::check_token(&token).await {
         auth::CentralCheck::Validated(ctx) => {
             let central = auth::panel_role_for(&ctx);
             // Local role_bindings may elevate the central claim (claim_name=user_id).
@@ -78,12 +85,18 @@ async fn bearer_auth(
             {
                 best = local;
             }
-            best
+            Caller {
+                subject: ctx.user_id.clone(),
+                email: ctx.email.clone(),
+                central_role: ctx.role.clone(),
+                role: best,
+            }
         }
         auth::CentralCheck::Expired => return Err(StatusCode::UNAUTHORIZED),
         auth::CentralCheck::FallThrough => return Err(StatusCode::UNAUTHORIZED),
     };
-    req.extensions_mut().insert(CallerRole(resolved));
+    req.extensions_mut().insert(CallerRole(caller.role));
+    req.extensions_mut().insert(caller);
     Ok(next.run(req).await)
 }
 
@@ -101,6 +114,7 @@ async fn resolve_local_role(
 
 pub fn router(state: SharedState) -> Router {
     let public = Router::new()
+        .route("/api/v1/auth/login", post(auth_login))
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/api/v1/runtime/branding", get(runtime_branding))
@@ -138,13 +152,28 @@ pub fn router(state: SharedState) -> Router {
         .route_layer(middleware::from_fn(require_operator))
         .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
 
+    let authenticated = Router::new()
+        .route("/api/v1/auth/me", get(auth_me))
+        .with_state(state.clone())
+        .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
+
     let admin_gated = Router::new()
-        .route("/api/v1/role-bindings", get(list_role_bindings))
+        .route(
+            "/api/v1/role-bindings",
+            get(list_role_bindings).post(create_role_binding),
+        )
+        .route(
+            "/api/v1/role-bindings/{id}",
+            axum::routing::delete(delete_role_binding),
+        )
         .with_state(state.clone())
         .route_layer(middleware::from_fn(require_admin))
         .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
 
-    public.merge(operator_gated).merge(admin_gated)
+    public
+        .merge(authenticated)
+        .merge(operator_gated)
+        .merge(admin_gated)
 }
 
 /// OpenAPI contract for the Base Admin Panel API (v1).
@@ -156,6 +185,8 @@ pub fn router(state: SharedState) -> Router {
         description = "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit."
     ),
     paths(
+        auth_login,
+        auth_me,
         health_live,
         health_ready,
         runtime_branding,
@@ -171,9 +202,12 @@ pub fn router(state: SharedState) -> Router {
         create_draft,
         publish_revision,
         list_role_bindings,
+        create_role_binding,
+        delete_role_binding,
         list_audit,
     ),
     tags(
+        (name = "auth", description = "Login proxy and caller identity"),
         (name = "health", description = "Liveness/readiness"),
         (name = "runtime", description = "Public runtime endpoints (no auth)"),
         (name = "services", description = "Service registry management (auth required)"),
@@ -762,6 +796,121 @@ struct ListAuditQuery {
     limit: Option<i64>,
 }
 
+// ─── Auth session endpoints ──────────────────────────────────────────────────
+
+#[derive(Deserialize, utoipa::ToSchema)]
+struct LoginRequest {
+    email: String,
+    password: String,
+}
+
+#[derive(Serialize)]
+struct LoginSession {
+    access_token: String,
+    token_type: String,
+    expires_in: Option<u64>,
+    subject: String,
+    central_role: Option<String>,
+    panel_role: String,
+}
+
+/// Proxies credentials to the central auth-server. The panel never stores
+/// passwords; a central rejection maps onto a uniform 401 without details.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/login",
+    tag = "auth",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Central token issued", description = "session issued"),
+        (status = 401, description = "Rejected by central auth or not configured"),
+    )
+)]
+async fn auth_login(State(state): State<SharedState>, Json(req): Json<LoginRequest>) -> Response {
+    if req.email.trim().is_empty() || req.password.is_empty() {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "VALIDATION_ERROR",
+            "email and password are required",
+        );
+    }
+    match auth::BRIDGE.try_login(&req.email, &req.password).await {
+        Ok(Some(pair)) => {
+            // Validate the fresh token through the same bridge so the session
+            // carries the effective panel role (central + local bindings).
+            match auth::check_token(&pair.access_token).await {
+                auth::CentralCheck::Validated(ctx) => {
+                    let central = auth::panel_role_for(&ctx);
+                    let mut role = central;
+                    if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await
+                        && local > role
+                    {
+                        role = local;
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(LoginSession {
+                            access_token: pair.access_token,
+                            token_type: pair.token_type.unwrap_or_else(|| "Bearer".into()),
+                            expires_in: pair.expires_in,
+                            subject: ctx.user_id.clone(),
+                            central_role: ctx.role.clone(),
+                            panel_role: role.as_str().to_string(),
+                        }),
+                    )
+                        .into_response()
+                }
+                _ => error_response(
+                    StatusCode::UNAUTHORIZED,
+                    "INVALID_CREDENTIALS",
+                    "central auth rejected the credentials",
+                ),
+            }
+        }
+        Ok(None) => error_response(
+            StatusCode::UNAUTHORIZED,
+            "INVALID_CREDENTIALS",
+            "central auth rejected the credentials",
+        ),
+        Err(error) => {
+            tracing::warn!(%error, "central login proxy failed");
+            error_response(
+                StatusCode::BAD_GATEWAY,
+                "CENTRAL_AUTH_UNAVAILABLE",
+                "central auth is unreachable",
+            )
+        }
+    }
+}
+
+/// Identity snapshot for the SPA: who the caller is and what the panel
+/// allows. Local `role_bindings` may elevate the central claim.
+#[utoipa::path(
+    get,
+    path = "/api/v1/auth/me",
+    tag = "auth",
+    responses(
+        (status = 200, description = "Caller identity", description = "caller identity"),
+        (status = 401, description = "Missing or invalid bearer"),
+    )
+)]
+async fn auth_me(axum::extract::Extension(caller): axum::extract::Extension<Caller>) -> Response {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "subject": caller.subject,
+            "email": caller.email,
+            "central_role": caller.central_role,
+            "panel_role": caller.role.as_str(),
+            "capabilities": {
+                "mutate": caller.role.allows(admin_panel_domain::PanelRole::PlatformOperator),
+                "manage_bindings": caller.role.allows(admin_panel_domain::PanelRole::PlatformAdmin),
+            },
+        })),
+    )
+        .into_response()
+}
+
 #[utoipa::path(get, path = "/api/v1/role-bindings",
     tag = "access",
     responses((status = 200, description = "role bindings"),
@@ -773,6 +922,74 @@ async fn list_role_bindings(State(state): State<SharedState>) -> Result<Response
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(json!({ "bindings": bindings })).into_response())
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+struct CreateRoleBindingRequest {
+    claim_name: String,
+    claim_value: String,
+    panel_role: String,
+}
+
+#[utoipa::path(post,
+    path = "/api/v1/role-bindings",
+    tag = "access",
+    request_body = CreateRoleBindingRequest,
+    responses(
+        (status = 201, description = "binding created"),
+        (status = 422, description = "validation error"),
+        (status = 409, description = "duplicate binding"),
+    )
+)]
+async fn create_role_binding(
+    State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
+    Json(req): Json<CreateRoleBindingRequest>,
+) -> Response {
+    let role = match req.panel_role.as_str() {
+        "platform_viewer" => admin_panel_domain::PanelRole::PlatformViewer,
+        "platform_operator" => admin_panel_domain::PanelRole::PlatformOperator,
+        "platform_admin" => admin_panel_domain::PanelRole::PlatformAdmin,
+        other => {
+            return validation("panel_role", &format!("unknown panel role: {other}"));
+        }
+    };
+    if !matches!(req.claim_name.as_str(), "user_id" | "email" | "role") {
+        return validation("claim_name", "must be one of user_id, email, role");
+    }
+    if req.claim_value.trim().is_empty() {
+        return validation("claim_value", "must not be empty");
+    }
+    let binding = admin_panel_domain::RoleBinding {
+        id: uuid::Uuid::now_v7(),
+        claim_name: req.claim_name,
+        claim_value: req.claim_value.trim().to_string(),
+        panel_role: role,
+        created_by_subject: caller.subject,
+        created_at: chrono::Utc::now(),
+    };
+    match state.access.insert(&binding).await {
+        Ok(()) => (StatusCode::CREATED, Json(json!({ "binding": binding }))).into_response(),
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
+        Err(_) => internal("cannot insert role binding"),
+    }
+}
+
+#[utoipa::path(delete,
+    path = "/api/v1/role-bindings/{id}",
+    tag = "access",
+    params(("id" = Uuid, Path, description = "binding id")),
+    responses((status = 204, description = "binding deleted"), (status = 404, description = "not found"))
+)]
+async fn delete_role_binding(
+    State(state): State<SharedState>,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+) -> Response {
+    match state.access.delete(id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(admin_panel_domain::DomainError::NotFound(_)) => not_found("role binding"),
+        Err(_) => internal("cannot delete role binding"),
+    }
 }
 
 #[utoipa::path(get, path = "/api/v1/audit-events",

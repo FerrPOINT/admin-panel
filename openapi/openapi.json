@@ -32,6 +32,50 @@
         }
       }
     },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Proxies credentials to the central auth-server. The panel never stores\npasswords; a central rejection maps onto a uniform 401 without details.",
+        "operationId": "auth_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "session issued"
+          },
+          "401": {
+            "description": "Rejected by central auth or not configured"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Identity snapshot for the SPA: who the caller is and what the panel\nallows. Local `role_bindings` may elevate the central claim.",
+        "operationId": "auth_me",
+        "responses": {
+          "200": {
+            "description": "caller identity"
+          },
+          "401": {
+            "description": "Missing or invalid bearer"
+          }
+        }
+      }
+    },
     "/api/v1/branding/revisions": {
       "get": {
         "tags": [
@@ -116,6 +160,61 @@
           },
           "403": {
             "description": "admin role required"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "create_role_binding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleBindingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "binding created"
+          },
+          "409": {
+            "description": "duplicate binding"
+          },
+          "422": {
+            "description": "validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/role-bindings/{id}": {
+      "delete": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "delete_role_binding",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "binding id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "binding deleted"
+          },
+          "404": {
+            "description": "not found"
           }
         }
       }
@@ -444,6 +543,25 @@
           }
         }
       },
+      "CreateRoleBindingRequest": {
+        "type": "object",
+        "required": [
+          "claim_name",
+          "claim_value",
+          "panel_role"
+        ],
+        "properties": {
+          "claim_name": {
+            "type": "string"
+          },
+          "claim_value": {
+            "type": "string"
+          },
+          "panel_role": {
+            "type": "string"
+          }
+        }
+      },
       "CreateServiceRequest": {
         "type": "object",
         "required": [
@@ -500,6 +618,21 @@
           }
         }
       },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
       "PatchServiceRequest": {
         "type": "object",
         "properties": {
@@ -530,6 +663,10 @@
     }
   },
   "tags": [
+    {
+      "name": "auth",
+      "description": "Login proxy and caller identity"
+    },
     {
       "name": "health",
       "description": "Liveness/readiness"

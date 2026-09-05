@@ -127,6 +127,30 @@ async function installApiMocks(page: Page) {
         ],
       })
     }
+    if (method === 'POST' && path === '/auth/login') {
+      const body = request.postDataJSON() as { email?: string; password?: string }
+      if (body?.password === 'wrong') {
+        return routeJson(route, { error: { code: 'INVALID_CREDENTIALS', message: 'central auth rejected the credentials' } }, 401)
+      }
+      return routeJson(route, { access_token: 'e2e-token', token_type: 'Bearer', expires_in: 900, subject: 'u-e2e', central_role: 'member', panel_role: 'platform_admin' })
+    }
+    if (method === 'GET' && path === '/auth/me') {
+      const auth = request.headers()['authorization'] ?? ''
+      if (auth !== 'Bearer e2e-token' && auth !== 'Bearer stored-token') {
+        return routeJson(route, { error: { code: 'UNAUTHORIZED', message: 'missing bearer' } }, 401)
+      }
+      return routeJson(route, { subject: 'u-e2e', email: 'admin@base.local', central_role: 'member', panel_role: 'platform_admin', capabilities: { mutate: true, manage_bindings: true } })
+    }
+    if (method === 'GET' && path === '/role-bindings') {
+      return routeJson(route, {
+        bindings: [
+          { id: '55555555-5555-7555-8555-555555555551', claim_name: 'user_id', claim_value: 'u-admin', panel_role: 'platform_admin', created_by_subject: 'bootstrap', created_at: now },
+        ],
+      })
+    }
+    if (method === 'GET' && path === '/health/ready') {
+      return routeJson(route, { status: 'ok', database: 'up' })
+    }
     if (method === 'GET' && path === '/audit-events') {
       return routeJson(route, { events: auditEvents, total: auditEvents.length })
     }
@@ -147,6 +171,9 @@ async function installApiMocks(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await installApiMocks(page)
+  // Every authenticated test starts with a stored session; login flow test
+  // clears it explicitly.
+  await page.addInitScript(() => sessionStorage.setItem('base.admin.token', 'stored-token'))
 })
 
 test('overview renders platform summary', async ({ page }) => {
@@ -207,4 +234,34 @@ test('service switcher links to other products', async ({ page }) => {
     // catalog collapsed by default in sidebar footer: link exists in DOM
     await expect(catalogLink).toBeAttached()
   }
+})
+
+
+test('login flow: wrong password shows error, valid login navigates to overview', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.removeItem('base.admin.token'))
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/login$/)
+
+  await page.getByLabel('Email').fill('admin@base.local')
+  await page.getByLabel('Пароль').fill('wrong')
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page.getByRole('alert')).toContainText(/rejected|Не удалось/i)
+
+  await page.getByLabel('Пароль').fill('correct-password')
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page).toHaveURL(/http:\/\/localhost:\d+\/$/)
+  await expect(page.getByRole('heading', { name: /обзор/i })).toBeVisible()
+})
+
+test('role bindings page lists bindings for admin', async ({ page }) => {
+  await page.goto('/role-bindings')
+  await expect(page.getByRole('heading', { name: /привязки ролей/i })).toBeVisible()
+  await expect(page.getByText('u-admin').first()).toBeVisible()
+  await expect(page.getByText('platform_admin').first()).toBeVisible()
+})
+
+test('protected routes redirect anonymous visitors to login', async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.removeItem('base.admin.token'))
+  await page.goto('/services')
+  await expect(page).toHaveURL(/\/login$/)
 })
