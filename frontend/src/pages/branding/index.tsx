@@ -5,8 +5,8 @@ import { api } from '@/shared/api/client'
 import { type BrandingDocument, useBrandingRevisions } from '@/shared/api/hooks'
 
 const DEFAULT_BRANDING: BrandingDocument = {
-  product_name: 'SDLC Platform',
-  product_short_name: 'SDLC',
+  product_name: 'Base Platform',
+  product_short_name: 'Base',
   logo_url: null,
   favicon_url: null,
   support_url: null,
