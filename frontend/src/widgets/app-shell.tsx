@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@sdlc/ui/ui'
 import { ServiceSwitcher } from '@sdlc/ui/ui'
+import { PlatformMark } from '@sdlc/ui/ui'
 import { LogOut } from 'lucide-react'
 import { useAuth } from '@/shared/auth/auth-context'
 
@@ -73,8 +74,8 @@ export function AppShell() {
 
   const sidebar = (
     <nav className="flex h-full w-60 flex-col gap-1 border-r border-border bg-surface p-3">
-      <div className="mb-4 px-3 py-2 text-sm font-semibold tracking-wide text-text-primary">
-        Admin Panel
+      <div className="mb-4 px-3 py-2">
+        <PlatformMark />
       </div>
       {navItems.map((item) => (
         <SidebarLink
@@ -120,7 +121,7 @@ export function AppShell() {
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          <span className="text-sm font-semibold">Admin Panel</span>
+          <PlatformMark size="sm" />
           <span className="w-9" />
         </header>
 
