@@ -8,6 +8,8 @@
 
 ### Added
 
+- UI: вход через central auth (login-прокси + `AuthProvider`), мутации сервисов (создание, approve, декларации, disable/retire), страница привязок ролей, живые локальные настройки; README со скриншотами интерфейса.
+- API: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, CRUD `/api/v1/role-bindings`; actor identity мутаций и аудита — реальный central-субъект.
 - Опубликован OpenAPI 3.1 контракт (`openapi/openapi.json`, gen-openapi bin, CI drift-gate).
 
 ## [1.0.0] — 2026-09-05
