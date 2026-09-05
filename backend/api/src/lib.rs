@@ -104,6 +104,7 @@ pub fn router(state: SharedState) -> Router {
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/api/v1/runtime/branding", get(runtime_branding))
+        .route("/api/v1/runtime/services", get(runtime_services))
         .with_state(state.clone());
 
     let operator_gated = Router::new()
@@ -198,6 +199,68 @@ async fn runtime_branding(State(state): State<SharedState>, headers: HeaderMap) 
 
 // ─── Services ────────────────────────────────────────────────────────────────
 
+// ─── Public runtime catalog ──────────────────────────────────────────────────
+
+/// Public, cacheable service catalog for fleet consumers (switcher UIs).
+/// Only active services with an approved declaration are exposed.
+async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) -> Response {
+    let entries = match state.registry.list().await {
+        Ok(entries) => entries,
+        Err(err) => return internal(err),
+    };
+    let mut catalog: Vec<serde_json::Value> = Vec::new();
+    let mut max_version: i64 = 0;
+    for entry in entries {
+        if !matches!(entry.status, admin_panel_domain::ServiceStatus::Active) {
+            continue;
+        }
+        max_version = max_version.max(entry.version);
+        let Some(decl_id) = entry.active_declaration_id else {
+            continue;
+        };
+        let Ok(Some(decl)) = state.registry.find_declaration(decl_id).await else {
+            continue;
+        };
+        if !matches!(
+            decl.approval_status,
+            admin_panel_domain::ApprovalStatus::Approved
+        ) {
+            continue;
+        }
+        catalog.push(json!({
+            "key": entry.service_key,
+            "label": entry.display_name,
+            "url": decl.integration_base_url,
+            "capabilities": decl.capabilities,
+            "contract_version": decl.service_contract_version,
+        }));
+    }
+    let etag = format!("\"services-v{max_version}-{}\"", catalog.len());
+    if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok())
+        && if_none_match == etag
+    {
+        return Response::builder()
+            .status(StatusCode::NOT_MODIFIED)
+            .header("ETag", etag)
+            .header("Cache-Control", "public, max-age=60, must-revalidate")
+            .body(axum::body::Body::empty())
+            .unwrap();
+    }
+    let headers = [
+        ("ETag", etag),
+        (
+            "Cache-Control",
+            "public, max-age=60, must-revalidate".to_string(),
+        ),
+    ];
+    (
+        StatusCode::OK,
+        headers,
+        Json(json!({ "services": catalog })),
+    )
+        .into_response()
+}
+
 async fn list_services(State(state): State<SharedState>) -> Response {
     match state.registry.list().await {
         Ok(entries) => (
@@ -247,6 +310,7 @@ struct DeclarationInput {
     integration_base_url: String,
     service_contract_version: String,
     capabilities: Vec<String>,
+    requested_by: Option<String>,
 }
 
 async fn create_service(
@@ -313,6 +377,7 @@ async fn create_service(
 struct PatchServiceRequest {
     display_name: Option<String>,
     owner_team: Option<String>,
+    declaration: Option<DeclarationInput>,
 }
 
 async fn patch_service(
@@ -333,6 +398,41 @@ async fn patch_service(
     let Some(expected_version) = match_if_match(&headers, current.version) else {
         return precondition_failed();
     };
+    if let Some(decl) = req.declaration {
+        if !admin_panel_domain::valid_integration_base_url(&decl.integration_base_url) {
+            return validation("integration_base_url", "must_be_https_origin");
+        }
+        if let Err(err) = admin_panel_domain::validate_capabilities(&decl.capabilities) {
+            return validation("capabilities", &err.to_string());
+        }
+        let mut capabilities = decl.capabilities.clone();
+        capabilities.sort();
+        let content_hash = content_hash(&[
+            &decl.integration_base_url,
+            &serde_json::to_string(&capabilities).unwrap(),
+            &decl.service_contract_version,
+        ]);
+        let declaration = admin_panel_domain::Declaration {
+            id: uuid::Uuid::now_v7(),
+            registry_entry_id: current.id,
+            declaration_version: decl.declaration_version,
+            integration_base_url: decl.integration_base_url,
+            capabilities,
+            service_contract_version: decl.service_contract_version,
+            declared_by_subject: decl.requested_by.unwrap_or_else(|| "api".to_string()),
+            declared_at: chrono::Utc::now(),
+            approval_status: admin_panel_domain::ApprovalStatus::Pending,
+            approved_by_subject: None,
+            approved_at: None,
+            content_hash,
+        };
+        match state.registry.insert_declaration(&declaration).await {
+            Ok(()) => {}
+            // Same content already declared (idempotent PATCH): reuse it.
+            Err(admin_panel_domain::DomainError::Conflict(_)) => {}
+            Err(err) => return internal(err),
+        }
+    }
     match state
         .registry
         .update_metadata(

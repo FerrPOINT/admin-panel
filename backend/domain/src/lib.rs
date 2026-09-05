@@ -85,7 +85,17 @@ pub fn valid_service_key(key: &str) -> bool {
 
 /// HTTPS origin without userinfo, path, query or fragment.
 pub fn valid_integration_base_url(url: &str) -> bool {
-    let rest = url.strip_prefix("https://").unwrap_or("");
+    // Local fleet stand: http allowed for loopback hosts only (same rule as
+    // valid_public_url); https for everything else.
+    let rest = if let Some(rest) = url.strip_prefix("http://") {
+        let host = rest.split([':', '/']).next().unwrap_or("");
+        if !(host == "localhost" || host == "127.0.0.1") {
+            return false;
+        }
+        rest
+    } else {
+        url.strip_prefix("https://").unwrap_or("")
+    };
     !rest.is_empty()
         && !rest.contains('/')
         && !rest.contains('?')
@@ -199,6 +209,12 @@ pub fn valid_hex_color(value: &str) -> bool {
 
 /// https public URL without credentials.
 pub fn valid_public_url(value: &str) -> bool {
+    // Local fleet stand: plain http is allowed only for loopback hosts.
+    if let Some(rest) = value.strip_prefix("http://") {
+        let host = rest.split([':', '/']).next().unwrap_or("");
+        let is_loopback = host == "localhost" || host == "127.0.0.1";
+        return is_loopback && !rest.contains('@') && !rest.contains('\\');
+    }
     let rest = value.strip_prefix("https://").unwrap_or("");
     !rest.is_empty() && !rest.contains('@') && !rest.contains('\\')
 }
@@ -385,6 +401,36 @@ pub struct CheckRun {
     pub http_status: Option<i16>,
     pub summary: String,
     pub request_id: Uuid,
+}
+
+#[cfg(test)]
+mod url_tests {
+    use super::valid_public_url;
+
+    #[test]
+    fn https_public_hosts_are_valid() {
+        assert!(valid_public_url("https://ci.example.com"));
+        assert!(valid_public_url("https://tools.example.com/base"));
+    }
+
+    #[test]
+    fn loopback_http_is_valid_for_local_stand() {
+        assert!(valid_public_url("http://localhost:7712"));
+        assert!(valid_public_url("http://127.0.0.1:7772"));
+    }
+
+    #[test]
+    fn plain_http_on_public_hosts_is_rejected() {
+        assert!(!valid_public_url("http://ci.example.com"));
+        assert!(!valid_public_url("http://192.168.1.10:8080"));
+    }
+
+    #[test]
+    fn credentials_and_garbage_are_rejected() {
+        assert!(!valid_public_url("https://user:pw@example.com"));
+        assert!(!valid_public_url("ftp://example.com"));
+        assert!(!valid_public_url(""));
+    }
 }
 
 #[cfg(test)]

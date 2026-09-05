@@ -88,7 +88,7 @@ impl RegistryStore {
         let row = sqlx::query_as::<_, RegistryEntryRow>(
             "UPDATE service_registry_entries \
              SET display_name = $2, owner_team = $3, updated_at = now(), version = version + 1 \
-             WHERE service_key = $1 AND version = $5 \
+             WHERE service_key = $1 AND version = $4 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
              active_declaration_id, created_at, updated_at, version",
         )
