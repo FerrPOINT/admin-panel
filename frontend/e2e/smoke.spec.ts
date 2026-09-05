@@ -100,10 +100,10 @@ async function installApiMocks(page: Page) {
     const path = url.pathname.replace('/api/v1', '')
     const method = request.method()
 
-    if (method === 'GET' && (path === '/branding/revisions' || path === '/branding-revisions')) {
+    if (method === 'GET' && (path === '/branding/revisions' || path.split('?')[0] === '/branding-revisions')) {
       return routeJson(route, { revisions, total: revisions.length })
     }
-    if (method === 'GET' && path === '/services') {
+    if (method === 'GET' && path.split('?')[0] === '/services') {
       return routeJson(route, { services, total: services.length })
     }
     if (method === 'GET' && path === '/services/ci-cd') {
@@ -141,7 +141,7 @@ async function installApiMocks(page: Page) {
       }
       return routeJson(route, { subject: 'u-e2e', email: 'admin@base.local', central_role: 'member', panel_role: 'platform_admin', capabilities: { mutate: true, manage_bindings: true } })
     }
-    if (method === 'GET' && path === '/role-bindings') {
+    if (method === 'GET' && path.split('?')[0] === '/role-bindings') {
       return routeJson(route, {
         bindings: [
           { id: '55555555-5555-7555-8555-555555555551', claim_name: 'user_id', claim_value: 'u-admin', panel_role: 'platform_admin', created_by_subject: 'bootstrap', created_at: now },
@@ -151,7 +151,7 @@ async function installApiMocks(page: Page) {
     if (method === 'GET' && path === '/health/ready') {
       return routeJson(route, { status: 'ok', database: 'up' })
     }
-    if (method === 'GET' && path === '/audit-events') {
+    if (method === 'GET' && path.split('?')[0] === '/audit-events') {
       return routeJson(route, { events: auditEvents, total: auditEvents.length })
     }
     if (method === 'GET' && path === '/runtime/branding') {
