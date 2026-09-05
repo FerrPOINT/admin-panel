@@ -775,7 +775,7 @@ async fn list_role_bindings(State(state): State<SharedState>) -> Result<Response
     Ok(Json(json!({ "bindings": bindings })).into_response())
 }
 
-#[utoipa::path(get, path = "/api/v1/audit",
+#[utoipa::path(get, path = "/api/v1/audit-events",
     tag = "audit",
     params(("limit" = Option<u32>, Query, description = "max events (default 100)")),
     responses((status = 200, description = "audit events")))]

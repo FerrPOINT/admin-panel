@@ -6,7 +6,7 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/api/v1/audit": {
+    "/api/v1/audit-events": {
       "get": {
         "tags": [
           "audit"
