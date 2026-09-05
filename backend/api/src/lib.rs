@@ -417,6 +417,7 @@ struct DeclarationInput {
               (status = 409, description = "duplicate")))]
 async fn create_service(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     Json(req): Json<CreateServiceRequest>,
 ) -> Response {
     if !admin_panel_domain::valid_service_key(&req.service_key) {
@@ -453,7 +454,7 @@ async fn create_service(
         integration_base_url: req.declaration.integration_base_url.clone(),
         capabilities,
         service_contract_version: req.declaration.service_contract_version.clone(),
-        declared_by_subject: "api".into(),
+        declared_by_subject: caller.subject.clone(),
         declared_at: chrono::Utc::now(),
         approval_status: admin_panel_domain::ApprovalStatus::Pending,
         approved_by_subject: None,
@@ -489,6 +490,7 @@ struct PatchServiceRequest {
     responses((status = 200, description = "updated"), (status = 412, description = "version mismatch")))]
 async fn patch_service(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
     headers: HeaderMap,
     Json(req): Json<PatchServiceRequest>,
@@ -526,7 +528,7 @@ async fn patch_service(
             integration_base_url: decl.integration_base_url,
             capabilities,
             service_contract_version: decl.service_contract_version,
-            declared_by_subject: decl.requested_by.unwrap_or_else(|| "api".to_string()),
+            declared_by_subject: decl.requested_by.unwrap_or_else(|| caller.subject.clone()),
             declared_at: chrono::Utc::now(),
             approval_status: admin_panel_domain::ApprovalStatus::Pending,
             approved_by_subject: None,
@@ -574,6 +576,7 @@ struct ApproveRequest {
               (status = 409, description = "already approved / conflict")))]
 async fn approve_service(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
     headers: HeaderMap,
     Json(req): Json<ApproveRequest>,
@@ -592,7 +595,12 @@ async fn approve_service(
     };
     match state
         .registry
-        .approve_declaration(&service_key, req.declaration_id, "admin", expected_version)
+        .approve_declaration(
+            &service_key,
+            req.declaration_id,
+            &caller.subject,
+            expected_version,
+        )
         .await
     {
         Ok((entry, declaration)) => {
@@ -602,8 +610,8 @@ async fn approve_service(
                     id: uuid::Uuid::now_v7(),
                     occurred_at: chrono::Utc::now(),
                     request_id: uuid::Uuid::now_v7(),
-                    actor_subject: Some("admin".into()),
-                    actor_role: Some(admin_panel_domain::PanelRole::PlatformAdmin),
+                    actor_subject: Some(caller.subject.clone()),
+                    actor_role: Some(caller.role),
                     action: "service.approved".into(),
                     entity_type: "service".into(),
                     entity_id: Some(entry.id),
@@ -716,6 +724,7 @@ async fn list_revisions(State(state): State<SharedState>) -> Response {
               (status = 422, description = "validation error")))]
 async fn create_draft(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     Json(req): Json<admin_panel_domain::BrandingDocument>,
 ) -> Response {
     if let Err(err) = req.validate() {
@@ -732,7 +741,7 @@ async fn create_draft(
         document: req,
         document_hash: document_hash.clone(),
         etag: format!("draft-{document_hash}"),
-        created_by_subject: "operator".into(),
+        created_by_subject: caller.subject.clone(),
         created_at: chrono::Utc::now(),
         published_by_subject: None,
         published_at: None,
@@ -740,6 +749,7 @@ async fn create_draft(
     };
     match state.branding.insert_draft(&revision).await {
         Ok(()) => (StatusCode::CREATED, Json(json!({ "revision": revision }))).into_response(),
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(err) => internal(err),
     }
 }
@@ -750,6 +760,7 @@ async fn create_draft(
     responses((status = 200, description = "published"),
               (status = 409, description = "not a draft / already published")))]
 async fn publish_revision(
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     State(state): State<SharedState>,
     axum::extract::Path(revision): axum::extract::Path<i64>,
 ) -> Response {
@@ -764,7 +775,11 @@ async fn publish_revision(
         draft.revision,
         &draft.document_hash[..12.min(draft.document_hash.len())]
     );
-    match state.branding.publish(revision, "admin", &etag).await {
+    match state
+        .branding
+        .publish(revision, &caller.subject, &etag)
+        .await
+    {
         Ok(published) => {
             let _ = state
                 .audit
@@ -772,8 +787,8 @@ async fn publish_revision(
                     id: uuid::Uuid::now_v7(),
                     occurred_at: chrono::Utc::now(),
                     request_id: uuid::Uuid::now_v7(),
-                    actor_subject: Some("admin".into()),
-                    actor_role: Some(admin_panel_domain::PanelRole::PlatformAdmin),
+                    actor_subject: Some(caller.subject.clone()),
+                    actor_role: Some(caller.role),
                     action: "branding.published".into(),
                     entity_type: "branding_revision".into(),
                     entity_id: Some(published.id),

@@ -149,6 +149,11 @@ fn select_sql() -> &'static str {
 }
 
 fn db(err: sqlx::Error) -> DomainError {
+    if let sqlx::Error::Database(db_err) = &err
+        && db_err.code().as_deref() == Some("23505")
+    {
+        return DomainError::Conflict("identical draft already exists".into());
+    }
     DomainError::Conflict(err.to_string())
 }
 
