@@ -26,7 +26,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "derive"] }
 # auth
 jsonwebtoken = "9.3"
-# time pinned: newer requires rustc 1.88; fleet toolchain is 1.86
+# time pinned: newer releases require a newer rustc than the pinned 1.88 toolchain
 time = "=0.3.41"
 sha2 = "0.10"
 hex = "0.4"

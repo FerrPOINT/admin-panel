@@ -59,3 +59,19 @@
 ## Очистка
 
 Перед удалением локальной БД остановить процессы и убедиться, что адрес относится к development-среде. Удаление данных, контейнеров или томов выполняется осознанно и никогда не направляется на shared/staging/production окружение.
+
+## Переменные окружения
+
+Шаблон — `.env.example` в корне репозитория. Ключевые переменные:
+
+| Переменная | Назначение |
+|---|---|
+| `ADMINP_POSTGRES_PASSWORD` | пароль PostgreSQL (секрет) |
+| `ADMINP_DATABASE_URL` | DSN до `adminpanel` |
+| `ADMINP_BIND_ADDRESS/PORT` | адрес API (по умолчанию `0.0.0.0:7771`) |
+| `ADMINP_CORS_ALLOWED_ORIGINS` | allowlist origin-ов продуктов |
+| `ADMINP_AUTH__CENTRAL_JWKS_URI` | JWKS auth-server (7701) для проверки bearer |
+| `ADMINP_AUTH__CENTRAL_ISSUER` | ожидаемый `iss` central-токена |
+| `VITE_PLATFORM_BRANDING_URL` | runtime-брендинг для сборки фронта |
+| `VITE_PLATFORM_SERVICES_URL` | runtime-каталог сервисов для фронта |
+

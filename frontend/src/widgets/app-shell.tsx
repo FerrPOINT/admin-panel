@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '@sdlc/ui/ui'
+import { ServiceSwitcher } from '@sdlc/ui/ui'
 
 type NavItem = {
   to: string
@@ -78,6 +79,9 @@ export function AppShell() {
           onClick={() => setMobileMenuOpen(false)}
         />
       ))}
+      <div className="mt-auto pt-3">
+        <ServiceSwitcher currentKey="admin-panel" />
+      </div>
     </nav>
   )
 

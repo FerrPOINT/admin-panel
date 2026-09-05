@@ -8,18 +8,26 @@
 
 ### Added
 
-- Создана начальная документация и правила управления проектом Admin Panel.
-- Зафиксированы предметные границы: собственные данные брендинга, конфигурации, каталога и контрактов интеграции.
-- Зарезервирована планируемая локальная топология портов `7771`, `7772` и `7773`; central auth на `7701` определена как внешняя зависимость для identity и roles.
+- Опубликован OpenAPI 3.1 контракт (`openapi/openapi.json`, gen-openapi bin, CI drift-gate).
 
-### Changed
+## [1.0.0] — 2026-09-05
 
-- Нет.
+### Added
 
-### Fixed
-
-- Нет.
+- Backend v1 (Rust workspace: api/app/domain/infra/shared/server/migration): health live/ready,
+  branding revisions (draft→publish, ETag/If-Match), service registry CRUD с approvals
+  и версионированием, role bindings, audit events, миграции 0001–0002.
+- Публичный runtime-контракт для продуктов платформы: `GET /api/v1/runtime/branding`
+  (ETag, max-age=60, 304) и `GET /api/v1/runtime/services` (каталог активных сервисов).
+- Central auth: JWKS-проверка bearer-токенов (auth-server 7701), fail-closed middleware;
+  мутации — PlatformOperator+, role-bindings/статусы — PlatformAdmin; локальные
+  role_bindings как мост при отсутствии роли в central token.
+- Frontend v1 (React 19 + @sdlc/ui): overview, branding, revisions, services,
+  audit, runtime, settings; ServiceSwitcher в сайдбаре.
+- Docker: umbrella-сборка (context /opt/dev/sdlc), зонтик 7771/7772/7773.
+- CI: fmt/clippy/test backend, lint/typecheck/test/build frontend, compose-config gate.
 
 ### Security
 
+- Мутации admin API без валидного central-токена отклоняются (401/403).
 - Опубликована политика ответственного раскрытия уязвимостей.
