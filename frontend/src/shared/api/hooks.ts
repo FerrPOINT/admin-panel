@@ -13,6 +13,9 @@ export interface RegistryEntry {
   created_at: string
   updated_at: string
   version: number
+  health_status?: 'healthy' | 'unreachable' | string | null
+  health_checked_at?: string | null
+  health_detail?: string | null
 }
 
 export interface Declaration {

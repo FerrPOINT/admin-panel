@@ -33,7 +33,8 @@ impl RegistryStore {
     pub async fn list(&self) -> Result<Vec<RegistryEntry>, sqlx::Error> {
         let rows = sqlx::query_as::<_, RegistryEntryRow>(
             "SELECT id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version \
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail \
              FROM service_registry_entries ORDER BY updated_at DESC, service_key ASC",
         )
         .fetch_all(&self.pool)
@@ -44,13 +45,49 @@ impl RegistryStore {
     pub async fn find_by_key(&self, key: &str) -> Result<Option<RegistryEntry>, sqlx::Error> {
         sqlx::query_as::<_, RegistryEntryRow>(
             "SELECT id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version \
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail \
              FROM service_registry_entries WHERE service_key = $1",
         )
         .bind(key)
         .fetch_optional(&self.pool)
         .await
         .map(|row| row.map(Into::into))
+    }
+
+    /// Persist the outcome of a background health probe.
+    pub async fn set_health(
+        &self,
+        key: &str,
+        status: &str,
+        detail: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE service_registry_entries \
+             SET health_status = $1, health_checked_at = now(), health_detail = $2 \
+             WHERE service_key = $3",
+        )
+        .bind(status)
+        .bind(detail)
+        .bind(key)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Active entries with an approved declaration that declares health.read.
+    pub async fn list_health_targets(&self) -> Result<Vec<(String, String)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT e.service_key, d.integration_base_url \
+             FROM service_registry_entries e \
+             JOIN service_declarations d ON d.id = e.active_declaration_id \
+             WHERE e.status = 'active' AND d.approval_status = 'approved' \
+             AND d.capabilities @> '\"health.read\"'::jsonb \
+             ORDER BY e.service_key",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
     }
 
     pub async fn insert_entry(
@@ -113,7 +150,8 @@ impl RegistryStore {
         let mut tx = self.pool.begin().await.map_err(db)?;
         let entry = sqlx::query_as::<_, RegistryEntryRow>(
             "SELECT id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version \
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail \
              FROM service_registry_entries WHERE service_key = $1 FOR UPDATE",
         )
         .bind(service_key)
@@ -289,6 +327,9 @@ struct RegistryEntryRow {
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
     version: i64,
+    health_status: Option<String>,
+    health_checked_at: Option<chrono::DateTime<Utc>>,
+    health_detail: Option<String>,
 }
 
 impl From<RegistryEntryRow> for RegistryEntry {
@@ -303,6 +344,9 @@ impl From<RegistryEntryRow> for RegistryEntry {
             created_at: row.created_at,
             updated_at: row.updated_at,
             version: row.version,
+            health_status: row.health_status,
+            health_checked_at: row.health_checked_at,
+            health_detail: row.health_detail,
         }
     }
 }

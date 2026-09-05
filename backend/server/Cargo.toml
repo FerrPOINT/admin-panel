@@ -17,6 +17,7 @@ admin-panel-shared = { path = "../shared" }
 sqlx = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
+reqwest = "0.12"
 tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

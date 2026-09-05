@@ -69,6 +69,10 @@ pub struct RegistryEntry {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
+    /// Last background health.read probe outcome.
+    pub health_status: Option<String>,
+    pub health_checked_at: Option<DateTime<Utc>>,
+    pub health_detail: Option<String>,
 }
 
 /// kebab-case key, e.g. `task-tracker`.

@@ -5,6 +5,8 @@ use std::sync::Arc;
 use admin_panel_api::{AppState, SharedState};
 use admin_panel_shared::AppConfig;
 
+mod health_worker;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -60,6 +62,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::header::IF_NONE_MATCH,
             axum::http::header::IF_MATCH,
         ]);
+
+    health_worker::spawn(state.registry.clone());
 
     let app = admin_panel_api::router(state)
         .layer(cors)

@@ -439,6 +439,9 @@ async fn create_service(
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         version: 1,
+        health_status: None,
+        health_checked_at: None,
+        health_detail: None,
     };
     let mut capabilities = req.declaration.capabilities.clone();
     capabilities.sort();

@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router'
 import { Plus, Server } from 'lucide-react'
+import { Activity } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Input } from '@sdlc/ui/ui'
 import { useServices, useCreateService } from '@/shared/api/hooks'
@@ -108,16 +109,20 @@ export function ServicesPage() {
       )}
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="hidden grid-cols-[1.4fr_1fr_1fr_auto] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-text-muted md:grid">
-          <span>Сервис</span><span>Команда</span><span>Обновлён</span><span>Состояние</span>
+        <div className="hidden grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-text-muted md:grid">
+          <span>Сервис</span><span>Команда</span><span>Обновлён</span><span>Health</span><span>Состояние</span>
         </div>
         {services.isLoading ? <div className="p-5 text-sm text-text-muted">Загрузка реестра...</div> : null}
         {services.isError ? <div className="p-5 text-sm text-danger">Не удалось загрузить сервисы.</div> : null}
         {services.data?.services.map((service) => (
-          <Link key={service.id} to={`/services/${service.service_key}`} className="grid gap-1 border-b border-border px-4 py-4 text-sm transition-colors last:border-0 hover:bg-surface-raised md:grid-cols-[1.4fr_1fr_1fr_auto] md:items-center md:gap-4">
+          <Link key={service.id} to={`/services/${service.service_key}`} className="grid gap-1 border-b border-border px-4 py-4 text-sm transition-colors last:border-0 hover:bg-surface-raised md:grid-cols-[1.4fr_1fr_1fr_auto_auto] md:items-center md:gap-4">
             <span className="flex items-center gap-2 font-medium"><Server className="h-4 w-4 text-accent" />{service.display_name}</span>
             <span className="text-text-secondary">{service.owner_team}</span>
             <span className="text-text-muted">{new Date(service.updated_at).toLocaleString('ru-RU')}</span>
+            <span className={`inline-flex items-center gap-1.5 ${service.health_status === 'healthy' ? 'text-success' : service.health_status === 'unreachable' ? 'text-danger' : 'text-text-muted'}`} title={service.health_detail ?? 'нет данных проверки'}>
+              <Activity className="h-3.5 w-3.5" />
+              {service.health_status ?? 'unknown'}
+            </span>
             <span className={service.status === 'active' ? 'text-success' : service.status === 'pending' ? 'text-warning' : 'text-text-muted'}>{service.status}</span>
           </Link>
         ))}
