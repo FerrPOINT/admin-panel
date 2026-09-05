@@ -12,6 +12,7 @@ admin-panel-app = { path = "../app" }
 admin-panel-shared = { path = "../shared" }
 admin-panel-infra = { path = "../infra" }
 sdlc-auth-core = { path = "../../../services-base/crates/sdlc-auth-core" }
+utoipa = { version = "5", features = ["axum_extras", "uuid"] }
 sqlx = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }
@@ -28,3 +29,7 @@ jsonwebtoken = { workspace = true }
 reqwest = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
+
+[[bin]]
+name = "gen-openapi"
+path = "src/bin/gen_openapi.rs"

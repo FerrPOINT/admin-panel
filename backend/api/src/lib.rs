@@ -147,10 +147,53 @@ pub fn router(state: SharedState) -> Router {
     public.merge(operator_gated).merge(admin_gated)
 }
 
+/// OpenAPI contract for the Base Admin Panel API (v1).
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    info(
+        title = "Base Admin Panel API",
+        version = "1.0.0",
+        description = "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit."
+    ),
+    paths(
+        health_live,
+        health_ready,
+        runtime_branding,
+        runtime_services,
+        list_services,
+        get_service,
+        create_service,
+        patch_service,
+        approve_service,
+        disable_service,
+        retire_service,
+        list_revisions,
+        create_draft,
+        publish_revision,
+        list_role_bindings,
+        list_audit,
+    ),
+    tags(
+        (name = "health", description = "Liveness/readiness"),
+        (name = "runtime", description = "Public runtime endpoints (no auth)"),
+        (name = "services", description = "Service registry management (auth required)"),
+        (name = "branding", description = "Branding revisions (auth required)"),
+        (name = "access", description = "Role bindings (admin only)"),
+        (name = "audit", description = "Audit events (operator+)"),
+    )
+)]
+pub struct ApiDoc;
+
+#[utoipa::path(get, path = "/health/live",
+    tag = "health",
+    responses((status = 200, description = "alive")))]
 async fn health_live() -> StatusCode {
     StatusCode::OK
 }
 
+#[utoipa::path(get, path = "/health/ready",
+    tag = "health",
+    responses((status = 200, description = "ready"), (status = 503, description = "not ready")))]
 async fn health_ready(State(state): State<SharedState>) -> Response {
     match sqlx::query("SELECT 1").execute(state.registry.pool()).await {
         Ok(_) => StatusCode::OK.into_response(),
@@ -164,6 +207,12 @@ async fn health_ready(State(state): State<SharedState>) -> Response {
 
 // ─── Runtime branding ────────────────────────────────────────────────────────
 
+#[utoipa::path(get, path = "/api/v1/runtime/branding",
+    tag = "runtime",
+    params(("If-None-Match" = Option<String>, Header, description = "ETag for conditional GET")),
+    responses((status = 200, description = "published branding document"),
+              (status = 304, description = "not modified"),
+              (status = 404, description = "no published revision")))]
 async fn runtime_branding(State(state): State<SharedState>, headers: HeaderMap) -> Response {
     let Ok(Some(published)) = state.branding.find_published().await else {
         return error_response(
@@ -203,6 +252,10 @@ async fn runtime_branding(State(state): State<SharedState>, headers: HeaderMap) 
 
 /// Public, cacheable service catalog for fleet consumers (switcher UIs).
 /// Only active services with an approved declaration are exposed.
+#[utoipa::path(get, path = "/api/v1/runtime/services",
+    tag = "runtime",
+    params(("If-None-Match" = Option<String>, Header, description = "ETag for conditional GET")),
+    responses((status = 200, description = "public service catalog")))]
 async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) -> Response {
     let entries = match state.registry.list().await {
         Ok(entries) => entries,
@@ -261,6 +314,10 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
         .into_response()
 }
 
+#[utoipa::path(get, path = "/api/v1/services",
+    tag = "services",
+    responses((status = 200, description = "registered services"),
+              (status = 401, description = "missing/invalid bearer")))]
 async fn list_services(State(state): State<SharedState>) -> Response {
     match state.registry.list().await {
         Ok(entries) => (
@@ -272,6 +329,11 @@ async fn list_services(State(state): State<SharedState>) -> Response {
     }
 }
 
+#[utoipa::path(get, path = "/api/v1/services/{service_key}",
+    tag = "services",
+    params(("service_key" = String, Path, description = "kebab-case service key")),
+    responses((status = 200, description = "service with declarations"),
+              (status = 404, description = "unknown service")))]
 async fn get_service(
     State(state): State<SharedState>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
@@ -296,7 +358,7 @@ async fn get_service(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 struct CreateServiceRequest {
     service_key: String,
     display_name: String,
@@ -304,7 +366,7 @@ struct CreateServiceRequest {
     declaration: DeclarationInput,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 struct DeclarationInput {
     declaration_version: i32,
     integration_base_url: String,
@@ -313,6 +375,12 @@ struct DeclarationInput {
     requested_by: Option<String>,
 }
 
+#[utoipa::path(post, path = "/api/v1/services",
+    tag = "services",
+    request_body = CreateServiceRequest,
+    responses((status = 201, description = "created"),
+              (status = 422, description = "validation error"),
+              (status = 409, description = "duplicate")))]
 async fn create_service(
     State(state): State<SharedState>,
     Json(req): Json<CreateServiceRequest>,
@@ -373,13 +441,18 @@ async fn create_service(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 struct PatchServiceRequest {
     display_name: Option<String>,
     owner_team: Option<String>,
     declaration: Option<DeclarationInput>,
 }
 
+#[utoipa::path(patch, path = "/api/v1/services/{service_key}",
+    tag = "services",
+    request_body = PatchServiceRequest,
+    params(("service_key" = String, Path), ("If-Match" = String, Header, description = "expected version ETag")),
+    responses((status = 200, description = "updated"), (status = 412, description = "version mismatch")))]
 async fn patch_service(
     State(state): State<SharedState>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
@@ -454,11 +527,17 @@ async fn patch_service(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 struct ApproveRequest {
     declaration_id: uuid::Uuid,
 }
 
+#[utoipa::path(post, path = "/api/v1/services/{service_key}/approve",
+    tag = "services",
+    request_body = ApproveRequest,
+    params(("service_key" = String, Path), ("If-Match" = String, Header)),
+    responses((status = 200, description = "declaration approved and activated"),
+              (status = 409, description = "already approved / conflict")))]
 async fn approve_service(
     State(state): State<SharedState>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
@@ -510,6 +589,10 @@ async fn approve_service(
     }
 }
 
+#[utoipa::path(post, path = "/api/v1/services/{service_key}/disable",
+    tag = "services",
+    params(("service_key" = String, Path), ("If-Match" = String, Header)),
+    responses((status = 200, description = "disabled")))]
 async fn disable_service(
     State(state): State<SharedState>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
@@ -524,6 +607,10 @@ async fn disable_service(
     .await
 }
 
+#[utoipa::path(post, path = "/api/v1/services/{service_key}/retire",
+    tag = "services",
+    params(("service_key" = String, Path), ("If-Match" = String, Header)),
+    responses((status = 200, description = "retired")))]
 async fn retire_service(
     State(state): State<SharedState>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
@@ -574,6 +661,9 @@ async fn change_status(
 
 // ─── Branding revisions ──────────────────────────────────────────────────────
 
+#[utoipa::path(get, path = "/api/v1/branding/revisions",
+    tag = "branding",
+    responses((status = 200, description = "revisions")))]
 async fn list_revisions(State(state): State<SharedState>) -> Response {
     match state.branding.list().await {
         Ok(revisions) => (
@@ -585,6 +675,11 @@ async fn list_revisions(State(state): State<SharedState>) -> Response {
     }
 }
 
+#[utoipa::path(post, path = "/api/v1/branding/revisions",
+    tag = "branding",
+    request_body = Object,
+    responses((status = 201, description = "draft created"),
+              (status = 422, description = "validation error")))]
 async fn create_draft(
     State(state): State<SharedState>,
     Json(req): Json<admin_panel_domain::BrandingDocument>,
@@ -615,6 +710,11 @@ async fn create_draft(
     }
 }
 
+#[utoipa::path(post, path = "/api/v1/branding/revisions/{id}/publish",
+    tag = "branding",
+    params(("id" = uuid::Uuid, Path), ("If-Match" = String, Header)),
+    responses((status = 200, description = "published"),
+              (status = 409, description = "not a draft / already published")))]
 async fn publish_revision(
     State(state): State<SharedState>,
     axum::extract::Path(revision): axum::extract::Path<i64>,
@@ -655,13 +755,17 @@ async fn publish_revision(
 
 // ─── Audit ───────────────────────────────────────────────────────────────────
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::ToSchema)]
 struct ListAuditQuery {
     action: Option<String>,
     entity_type: Option<String>,
     limit: Option<i64>,
 }
 
+#[utoipa::path(get, path = "/api/v1/access/role-bindings",
+    tag = "access",
+    responses((status = 200, description = "role bindings"),
+              (status = 403, description = "admin role required")))]
 async fn list_role_bindings(State(state): State<SharedState>) -> Result<Response, StatusCode> {
     let bindings = state
         .access
@@ -671,6 +775,10 @@ async fn list_role_bindings(State(state): State<SharedState>) -> Result<Response
     Ok(Json(json!({ "bindings": bindings })).into_response())
 }
 
+#[utoipa::path(get, path = "/api/v1/audit",
+    tag = "audit",
+    params(("limit" = Option<u32>, Query, description = "max events (default 100)")),
+    responses((status = 200, description = "audit events")))]
 async fn list_audit(
     State(state): State<SharedState>,
     axum::extract::Query(query): axum::extract::Query<ListAuditQuery>,

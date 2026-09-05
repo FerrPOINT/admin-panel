@@ -36,6 +36,16 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: cargo test
         run: cargo test --workspace
+      - name: OpenAPI spec is up to date
+        run: |
+          cargo run -p admin-panel-api --bin gen-openapi > /tmp/openapi.generated.json
+          python3 - <<'PYEOF'
+          import json
+          gen = json.load(open('/tmp/openapi.generated.json'))
+          gen['info'].pop('license', None)
+          committed = json.load(open('openapi/openapi.json'))
+          assert gen == committed, 'openapi/openapi.json is stale — regenerate with gen-openapi'
+          PYEOF
 
   frontend:
     runs-on: ubuntu-latest
