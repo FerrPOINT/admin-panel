@@ -762,7 +762,7 @@ struct ListAuditQuery {
     limit: Option<i64>,
 }
 
-#[utoipa::path(get, path = "/api/v1/access/role-bindings",
+#[utoipa::path(get, path = "/api/v1/role-bindings",
     tag = "access",
     responses((status = 200, description = "role bindings"),
               (status = 403, description = "admin role required")))]

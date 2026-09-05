@@ -6,22 +6,6 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/api/v1/access/role-bindings": {
-      "get": {
-        "tags": [
-          "access"
-        ],
-        "operationId": "list_role_bindings",
-        "responses": {
-          "200": {
-            "description": "role bindings"
-          },
-          "403": {
-            "description": "admin role required"
-          }
-        }
-      }
-    },
     "/api/v1/audit": {
       "get": {
         "tags": [
@@ -116,6 +100,22 @@
           },
           "409": {
             "description": "not a draft / already published"
+          }
+        }
+      }
+    },
+    "/api/v1/role-bindings": {
+      "get": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "list_role_bindings",
+        "responses": {
+          "200": {
+            "description": "role bindings"
+          },
+          "403": {
+            "description": "admin role required"
           }
         }
       }
