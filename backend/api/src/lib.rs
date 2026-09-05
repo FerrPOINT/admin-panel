@@ -73,10 +73,10 @@ async fn bearer_auth(
             let central = auth::panel_role_for(&ctx);
             // Local role_bindings may elevate the central claim (claim_name=user_id).
             let mut best = central;
-            if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await {
-                if local > best {
-                    best = local;
-                }
+            if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await
+                && local > best
+            {
+                best = local;
             }
             best
         }
