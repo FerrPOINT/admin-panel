@@ -11,7 +11,7 @@ admin-panel-domain = { path = "../domain" }
 admin-panel-app = { path = "../app" }
 admin-panel-shared = { path = "../shared" }
 admin-panel-infra = { path = "../infra" }
-sdlc-auth-core = { path = "../../../services-base/crates/sdlc-auth-core" }
+sdlc-auth-core = { path = "/services-base/crates/sdlc-auth-core" }
 sqlx = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }

@@ -4,7 +4,11 @@ FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY admin-panel/backend/Cargo.toml admin-panel/backend/Cargo.lock* ./
+COPY services-base/Cargo.toml /services-base/Cargo.toml
+COPY services-base/Cargo.lock* /services-base/
+COPY services-base/crates/sdlc-auth-core/Cargo.toml /services-base/crates/sdlc-auth-core/Cargo.toml
 COPY admin-panel/backend/api/Cargo.toml api/
+RUN sed -i 's|path = "../../../services-base/crates/sdlc-auth-core"|path = "/services-base/crates/sdlc-auth-core"|' api/Cargo.toml
 COPY admin-panel/backend/app/Cargo.toml app/
 COPY admin-panel/backend/domain/Cargo.toml domain/
 COPY admin-panel/backend/infra/Cargo.toml infra/
@@ -12,7 +16,9 @@ COPY admin-panel/backend/shared/Cargo.toml shared/
 COPY admin-panel/backend/server/Cargo.toml server/
 COPY admin-panel/backend/migration/Cargo.toml migration/
 COPY admin-panel/backend/migration/migrations migration/migrations
-RUN mkdir -p api/src app/src domain/src infra/src shared/src server/src migration/src \
+RUN mkdir -p /services-base/crates/sdlc-auth-core/src \
+    && echo "pub fn stub() {}" > /services-base/crates/sdlc-auth-core/src/lib.rs \
+    && mkdir -p api/src app/src domain/src infra/src shared/src server/src migration/src \
     && echo 'pub fn stub() {}' > api/src/lib.rs \
     && echo 'pub fn stub() {}' > app/src/lib.rs \
     && echo 'pub fn stub() {}' > domain/src/lib.rs \
@@ -21,6 +27,7 @@ RUN mkdir -p api/src app/src domain/src infra/src shared/src server/src migratio
     && echo 'fn main() {}' > server/src/main.rs \
     && echo 'pub fn stub() {}' > migration/src/lib.rs \
     && cargo build --bin admin-panel-server || true
+COPY services-base/crates/sdlc-auth-core/src /services-base/crates/sdlc-auth-core/src
 COPY admin-panel/backend/api/src api/src
 COPY admin-panel/backend/app/src app/src
 COPY admin-panel/backend/domain/src domain/src

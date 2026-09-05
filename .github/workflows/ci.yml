@@ -16,6 +16,13 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: admin-panel
+      - name: Check out services-base sibling (sdlc-auth-core path dep)
+        uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: main
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
