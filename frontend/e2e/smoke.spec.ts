@@ -208,7 +208,7 @@ test('audit page lists branding.published event', async ({ page }) => {
   await page.goto('/audit')
   await expect(page.getByText('branding.published').first()).toBeVisible()
   await expect(page.getByText('admin@base.local').first()).toBeVisible()
-  await expect(page.getByText('branding_revision').first()).toBeVisible()
+  await expect(page.locator('article', { hasText: 'branding.published' })).toContainText('branding_revision')
 })
 
 test('runtime page probes branding endpoint status and etag', async ({ page }) => {
