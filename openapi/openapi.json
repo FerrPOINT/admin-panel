@@ -482,6 +482,69 @@
         }
       }
     },
+    "/api/v1/services/{service_key}/checks": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "list_service_checks",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "check run history"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "run_service_check",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "check run accepted and executed"
+          },
+          "404": {
+            "description": "unknown service"
+          },
+          "409": {
+            "description": "not active or capability not declared"
+          },
+          "422": {
+            "description": "unknown capability"
+          }
+        }
+      }
+    },
     "/api/v1/services/{service_key}/disable": {
       "post": {
         "tags": [
@@ -702,6 +765,17 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "RunCheckRequest": {
+        "type": "object",
+        "required": [
+          "capability"
+        ],
+        "properties": {
+          "capability": {
+            "type": "string"
           }
         }
       }

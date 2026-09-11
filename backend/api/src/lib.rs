@@ -140,6 +140,10 @@ pub fn router(state: SharedState) -> Router {
             post(retire_service),
         )
         .route(
+            "/api/v1/services/{service_key}/checks",
+            get(list_service_checks).post(run_service_check),
+        )
+        .route(
             "/api/v1/branding/revisions",
             get(list_revisions).post(create_draft),
         )
@@ -202,6 +206,8 @@ pub fn router(state: SharedState) -> Router {
         approve_service,
         disable_service,
         retire_service,
+        run_service_check,
+        list_service_checks,
         list_revisions,
         create_draft,
         withdraw_revision,
@@ -705,6 +711,169 @@ async fn change_status(
         )
             .into_response(),
         Err(admin_panel_domain::DomainError::PreconditionFailed(_)) => precondition_failed(),
+        Err(err) => internal(err),
+    }
+}
+
+// ─── Capability checks (docs/API.md §5.5) ────────────────────────────────────
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct RunCheckRequest {
+    capability: String,
+}
+
+#[utoipa::path(post, path = "/api/v1/services/{service_key}/checks",
+    tag = "services",
+    request_body = RunCheckRequest,
+    params(("service_key" = String, Path)),
+    responses(
+        (status = 202, description = "check run accepted and executed"),
+        (status = 404, description = "unknown service"),
+        (status = 409, description = "not active or capability not declared"),
+        (status = 422, description = "unknown capability"),
+    ))]
+async fn run_service_check(
+    State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
+    axum::extract::Path(service_key): axum::extract::Path<String>,
+    Json(req): Json<RunCheckRequest>,
+) -> Response {
+    let Some(entry) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
+        return not_found(&service_key);
+    };
+    if entry.status != admin_panel_domain::ServiceStatus::Active {
+        return conflict("service is not active");
+    }
+    // Capability must be declared by the active approved declaration.
+    let Ok(Some(declaration)) = state.registry.active_declaration(entry.id).await else {
+        return conflict("no active approved declaration");
+    };
+    let declared = declaration
+        .capabilities
+        .iter()
+        .any(|c| c == &req.capability);
+    if !declared {
+        return conflict(&format!("capability {} is not declared", req.capability));
+    }
+    // The server builds the request from the local capability catalog.
+    let Ok(Some((method, fixed_path))) = state.registry.capability(&req.capability).await else {
+        return validation("capability", "unknown capability");
+    };
+    let base = declaration
+        .integration_base_url
+        .trim_end_matches('/')
+        .replace("://localhost:", "://host.docker.internal:")
+        .replace("://127.0.0.1:", "://host.docker.internal:");
+    let path = if fixed_path.starts_with('/') {
+        fixed_path.clone()
+    } else {
+        format!("/{fixed_path}")
+    };
+    let url = format!("{base}{path}");
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build();
+    let run_id = uuid::Uuid::now_v7();
+    let (outcome, http_status, summary) = match client {
+        Ok(client) if method.eq_ignore_ascii_case("GET") => match client.get(&url).send().await {
+            Ok(response) => {
+                let code = response.status().as_u16() as i16;
+                if response.status().is_success() {
+                    ("success", Some(code), format!("HTTP {code}"))
+                } else {
+                    (
+                        "invalid_response",
+                        Some(code),
+                        format!("HTTP {code} from {path}"),
+                    )
+                }
+            }
+            Err(err) => ("unreachable", None, err.to_string()),
+        },
+        Ok(_) => (
+            "invalid_response",
+            None,
+            format!("catalog method {method} is not supported by the checker"),
+        ),
+        Err(err) => ("internal_error", None, err.to_string()),
+    };
+    let summary: String = summary.chars().take(500).collect();
+    let _ = state
+        .registry
+        .insert_check_run(admin_panel_infra::registry::CheckRunParams {
+            id: run_id,
+            registry_entry_id: entry.id,
+            declaration_id: declaration.id,
+            capability_key: &req.capability,
+            triggered_by_subject: &caller.subject,
+            outcome,
+            http_status,
+            summary: &summary,
+        })
+        .await;
+    let _ = state
+        .audit
+        .append(&admin_panel_domain::AuditEvent {
+            id: uuid::Uuid::now_v7(),
+            occurred_at: chrono::Utc::now(),
+            request_id: uuid::Uuid::now_v7(),
+            actor_subject: Some(caller.subject.clone()),
+            actor_role: Some(caller.role),
+            action: "service.checked".into(),
+            entity_type: "service".into(),
+            entity_id: Some(entry.id),
+            metadata: json!({
+                "capability": req.capability,
+                "outcome": outcome,
+                "check_run_id": run_id,
+            }),
+        })
+        .await;
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "check_run": {
+                "id": run_id,
+                "service_key": service_key,
+                "capability": req.capability,
+                "outcome": outcome,
+                "http_status": http_status,
+                "summary": summary,
+            }
+        })),
+    )
+        .into_response()
+}
+
+#[utoipa::path(get, path = "/api/v1/services/{service_key}/checks",
+    tag = "services",
+    params(("service_key" = String, Path)),
+    responses((status = 200, description = "check run history")))]
+async fn list_service_checks(
+    State(state): State<SharedState>,
+    axum::extract::Path(service_key): axum::extract::Path<String>,
+) -> Response {
+    let Some(entry) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
+        return not_found(&service_key);
+    };
+    match state.registry.list_check_runs(entry.id, 50).await {
+        Ok(runs) => (
+            StatusCode::OK,
+            Json(json!({ "checks": runs, "total": runs.len() })),
+        )
+            .into_response(),
         Err(err) => internal(err),
     }
 }
