@@ -1,7 +1,8 @@
 //! Background health probe for registered services.
 //!
 //! For every active registry entry whose approved declaration grants
-//! `health.read`, periodically GET `<base_url>/health/live` and persist the
+//! `health.read`, periodically GET `<base_url><catalog fixed_path>` (the
+//! capability catalog pins `health.read` to `GET /health`) and persist the
 //! outcome. The dashboard badge reads these columns; nothing here mutates
 //! service state.
 
@@ -38,14 +39,19 @@ async fn probe_all(store: &RegistryStore) {
             return;
         }
     };
-    for (key, base_url) in targets {
+    for (key, base_url, fixed_path) in targets {
         // Registry URLs are user-facing (localhost). From inside the container
         // the host frontends are reachable via host.docker.internal.
         let base = base_url
             .trim_end_matches('/')
             .replace("://localhost:", "://host.docker.internal:")
             .replace("://127.0.0.1:", "://host.docker.internal:");
-        let url = format!("{base}/health/live");
+        let path = if fixed_path.starts_with('/') {
+            fixed_path.clone()
+        } else {
+            format!("/{fixed_path}")
+        };
+        let url = format!("{base}{path}");
         let (status, detail) = match client.get(&url).send().await {
             Ok(response) => {
                 let code = response.status().as_u16();

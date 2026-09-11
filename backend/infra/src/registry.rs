@@ -75,12 +75,14 @@ impl RegistryStore {
         Ok(())
     }
 
-    /// Active entries with an approved declaration that declares health.read.
-    pub async fn list_health_targets(&self) -> Result<Vec<(String, String)>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (String, String)>(
-            "SELECT e.service_key, d.integration_base_url \
+    /// Active entries with an approved declaration that declares health.read,
+    /// together with the catalog-fixed probe path for `health.read`.
+    pub async fn list_health_targets(&self) -> Result<Vec<(String, String, String)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, String, String)>(
+            "SELECT e.service_key, d.integration_base_url, c.fixed_path \
              FROM service_registry_entries e \
              JOIN service_declarations d ON d.id = e.active_declaration_id \
+             JOIN capability_catalog c ON c.key = 'health.read' AND c.is_active \
              WHERE e.status = 'active' AND d.approval_status = 'approved' \
              AND d.capabilities @> '\"health.read\"'::jsonb \
              ORDER BY e.service_key",
@@ -127,7 +129,8 @@ impl RegistryStore {
              SET display_name = $2, owner_team = $3, updated_at = now(), version = version + 1 \
              WHERE service_key = $1 AND version = $4 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version",
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail",
         )
         .bind(key)
         .bind(display_name)
@@ -193,7 +196,8 @@ impl RegistryStore {
              SET status = 'active', active_declaration_id = $2, updated_at = $3, version = version + 1 \
              WHERE id = $1 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version",
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail",
         )
         .bind(entry.id)
         .bind(declaration_id)
@@ -215,7 +219,8 @@ impl RegistryStore {
             "UPDATE service_registry_entries SET status = $2, updated_at = $3, version = version + 1 \
              WHERE service_key = $1 AND version = $4 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version",
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail",
         )
         .bind(service_key)
         .bind(status.as_str())
