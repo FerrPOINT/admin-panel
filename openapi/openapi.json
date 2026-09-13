@@ -3,9 +3,6 @@
   "info": {
     "title": "Base Admin Panel API",
     "description": "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit.",
-    "license": {
-      "name": ""
-    },
     "version": "1.0.0"
   },
   "paths": {
