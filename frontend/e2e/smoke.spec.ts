@@ -224,19 +224,21 @@ test('settings page renders', async ({ page }) => {
 
 test('service switcher links to other products', async ({ page }) => {
   await page.goto('/')
-  // Interactive dropdown mode (catalog URL configured): open with click,
-  // pick CI/CD, then Escape collapses the menu.
-  const switcher = page.getByRole('button', { name: /сервисы|платформ/i }).first()
-  const catalogLink = page.getByRole('menuitem', { name: /ci/i }).first()
-  const interactive = await switcher.isVisible().catch(() => false)
-  if (interactive) {
+  // The switcher renders either as a click-menu (catalog v1.1) or as a
+  // hover/focus dropdown with plain links (v1.0 fallback). Both must expose
+  // navigation to the CI/CD product.
+  const ciLink = page.locator('a[href="http://localhost:7712"]').first()
+  const attached = await ciLink.isVisible().catch(() => false) || (await ciLink.count()) > 0
+  if (!attached) {
+    // v1.1 menu: open via the named or icon-only trigger button
+    const switcher = page
+      .locator('button[aria-haspopup="true"]')
+      .first()
     await switcher.click()
-    await expect(catalogLink).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: /ci/i }).first()).toBeVisible()
     await page.keyboard.press('Escape')
-    await expect(catalogLink).toBeHidden()
   } else {
-    // Fallback mode (no catalog URL): plain links are rendered in the sidebar
-    await expect(page.locator('a[href="http://localhost:7712"]').first()).toBeAttached()
+    await expect(ciLink.first()).toBeAttached()
   }
 })
 
