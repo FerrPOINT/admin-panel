@@ -329,6 +329,15 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
             "key": entry.service_key,
             "label": entry.display_name,
             "url": decl.integration_base_url,
+            "ui_url": if decl.capabilities.iter().any(|c| c == "ui.render") {
+                json!(decl.integration_base_url)
+            } else {
+                json!(null)
+            },
+            "health": entry
+                .health_status
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
             "capabilities": decl.capabilities,
             "contract_version": decl.service_contract_version,
         }));
