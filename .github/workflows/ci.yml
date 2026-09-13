@@ -114,8 +114,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: admin-panel/frontend/pnpm-lock.yaml
-      - run: pnpm install --no-frozen-lockfile
+          cache-dependency-path: |
+            admin-panel/frontend/pnpm-lock.yaml
+            services-base/frontend/pnpm-lock.yaml
+      - run: pnpm install --no-frozen-lockfile --force
         env:
           CI: "true"
       - run: pnpm build
