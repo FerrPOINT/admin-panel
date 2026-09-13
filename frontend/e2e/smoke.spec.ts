@@ -224,15 +224,19 @@ test('settings page renders', async ({ page }) => {
 
 test('service switcher links to other products', async ({ page }) => {
   await page.goto('/')
-  const switcher = page.getByRole('button', { name: /сервисы/i }).first()
-  const catalogLink = page.locator('a[href="http://localhost:7712"]').first()
-  const visible = await switcher.isVisible().catch(() => false)
-  if (visible) {
-    await switcher.hover()
+  // Interactive dropdown mode (catalog URL configured): open with click,
+  // pick CI/CD, then Escape collapses the menu.
+  const switcher = page.getByRole('button', { name: /сервисы|платформ/i }).first()
+  const catalogLink = page.getByRole('menuitem', { name: /ci/i }).first()
+  const interactive = await switcher.isVisible().catch(() => false)
+  if (interactive) {
+    await switcher.click()
     await expect(catalogLink).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(catalogLink).toBeHidden()
   } else {
-    // catalog collapsed by default in sidebar footer: link exists in DOM
-    await expect(catalogLink).toBeAttached()
+    // Fallback mode (no catalog URL): plain links are rendered in the sidebar
+    await expect(page.locator('a[href="http://localhost:7712"]').first()).toBeAttached()
   }
 })
 
