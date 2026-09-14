@@ -715,6 +715,12 @@
           "integration_base_url": {
             "type": "string"
           },
+          "public_ui_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "requested_by": {
             "type": [
               "string",

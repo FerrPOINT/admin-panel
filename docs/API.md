@@ -238,9 +238,11 @@ Content-Type: application/json
 }
 ```
 
-- `ui_url` — `integration_base_url` декларации, если активная approved-декларация
-  имеет capability `ui.render`; иначе `null` (сервис без UI — навигация не
-  предлагает переход).
+- `ui_url` — `public_ui_url` декларации (ADR-0007), иначе `integration_base_url`,
+  если активная approved-декларация имеет capability `ui.render`; иначе `null`
+  (сервис без UI — навигация не предлагает переход). `public_ui_url` задаёт
+  оператор инсталляции для фасадных URL (например TLS `*.base.localhost:7743`);
+  опционален, валидируется как http(s)-origin без credentials/path.
 - `health` — последний статус фонового health-worker: `healthy` | `unreachable`
   | `unknown` (нет данных / миграция). Не является realtime-пробом: точность
   ограничена интервалом worker-а.

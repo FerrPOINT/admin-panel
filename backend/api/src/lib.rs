@@ -330,7 +330,10 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
             "label": entry.display_name,
             "url": decl.integration_base_url,
             "ui_url": if decl.capabilities.iter().any(|c| c == "ui.render") {
-                json!(decl.integration_base_url)
+                json!(decl
+                    .public_ui_url
+                    .as_deref()
+                    .unwrap_or(&decl.integration_base_url))
             } else {
                 json!(null)
             },
@@ -424,6 +427,8 @@ struct CreateServiceRequest {
 struct DeclarationInput {
     declaration_version: i32,
     integration_base_url: String,
+    #[serde(default)]
+    public_ui_url: Option<String>,
     service_contract_version: String,
     capabilities: Vec<String>,
     requested_by: Option<String>,
@@ -445,6 +450,11 @@ async fn create_service(
     }
     if !admin_panel_domain::valid_integration_base_url(&req.declaration.integration_base_url) {
         return validation("integration_base_url", "must_be_https_origin");
+    }
+    if let Err(msg) =
+        admin_panel_domain::validate_public_ui_url(req.declaration.public_ui_url.as_ref())
+    {
+        return validation("public_ui_url", &msg);
     }
     if let Err(err) = admin_panel_domain::validate_capabilities(&req.declaration.capabilities) {
         return validation("capabilities", &err.to_string());
@@ -475,6 +485,11 @@ async fn create_service(
         registry_entry_id: entry.id,
         declaration_version: req.declaration.declaration_version,
         integration_base_url: req.declaration.integration_base_url.clone(),
+        public_ui_url: req
+            .declaration
+            .public_ui_url
+            .clone()
+            .filter(|u| !u.is_empty()),
         capabilities,
         service_contract_version: req.declaration.service_contract_version.clone(),
         declared_by_subject: caller.subject.clone(),
@@ -534,6 +549,9 @@ async fn patch_service(
         if !admin_panel_domain::valid_integration_base_url(&decl.integration_base_url) {
             return validation("integration_base_url", "must_be_https_origin");
         }
+        if let Err(msg) = admin_panel_domain::validate_public_ui_url(decl.public_ui_url.as_ref()) {
+            return validation("public_ui_url", &msg);
+        }
         if let Err(err) = admin_panel_domain::validate_capabilities(&decl.capabilities) {
             return validation("capabilities", &err.to_string());
         }
@@ -549,6 +567,7 @@ async fn patch_service(
             registry_entry_id: current.id,
             declaration_version: decl.declaration_version,
             integration_base_url: decl.integration_base_url,
+            public_ui_url: decl.public_ui_url.clone().filter(|u| !u.is_empty()),
             capabilities,
             service_contract_version: decl.service_contract_version,
             declared_by_subject: decl.requested_by.unwrap_or_else(|| caller.subject.clone()),

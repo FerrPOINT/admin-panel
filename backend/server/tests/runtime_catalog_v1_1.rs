@@ -38,3 +38,34 @@ fn ui_url_logic_is_capability_driven() {
         "no hardcoded per-service ports in the catalog builder"
     );
 }
+
+// Catalog v1.2 (ADR-0007): ui_url prefers the declaration's public_ui_url
+// over integration_base_url when set, so facade installs keep the service
+// switcher on the public origin.
+#[test]
+fn catalog_v1_2_prefers_public_ui_url() {
+    let src = include_str!("../../api/src/lib.rs");
+    assert!(
+        src.contains(".unwrap_or(&decl.integration_base_url)"),
+        "ui_url must prefer declaration.public_ui_url with integration_base_url fallback"
+    );
+}
+
+#[test]
+fn public_ui_url_is_validated_and_optional() {
+    let domain = include_str!("../../domain/src/lib.rs");
+    assert!(
+        domain.contains("pub fn validate_public_ui_url"),
+        "domain must expose validate_public_ui_url"
+    );
+    // Empty string normalizes to None (no public override).
+    assert!(
+        src_normalize_optional(),
+        "api must filter empty public_ui_url to None"
+    );
+}
+
+fn src_normalize_optional() -> bool {
+    let src = include_str!("../../api/src/lib.rs");
+    src.contains(".filter(|u| !u.is_empty())")
+}

@@ -264,7 +264,7 @@ impl RegistryStore {
 
     pub async fn find_declaration(&self, id: Uuid) -> Result<Option<Declaration>, sqlx::Error> {
         sqlx::query_as::<_, DeclarationRow>(
-            "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
+            "SELECT id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
              approval_status::text, approved_by_subject, approved_at, content_hash \
              FROM service_declarations WHERE id = $1",
@@ -281,7 +281,7 @@ impl RegistryStore {
         entry_id: Uuid,
     ) -> Result<Option<Declaration>, sqlx::Error> {
         sqlx::query_as::<_, DeclarationRow>(
-            "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
+            "SELECT id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
              approval_status::text, approved_by_subject, approved_at, content_hash \
              FROM service_declarations WHERE registry_entry_id = $1 \
@@ -388,7 +388,7 @@ impl RegistryStore {
 
     pub async fn list_declarations(&self, entry_id: Uuid) -> Result<Vec<Declaration>, sqlx::Error> {
         let rows = sqlx::query_as::<_, DeclarationRow>(
-            "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
+            "SELECT id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
              approval_status::text, approved_by_subject, approved_at, content_hash \
              FROM service_declarations WHERE registry_entry_id = $1 \
@@ -407,14 +407,15 @@ pub async fn insert_declaration_tx(
 ) -> Result<(), DomainError> {
     sqlx::query(
         "INSERT INTO service_declarations \
-         (id, registry_entry_id, declaration_version, integration_base_url, capabilities, \
+         (id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, capabilities, \
          service_contract_version, declared_by_subject, declared_at, approval_status, content_hash) \
-         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)",
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)",
     )
     .bind(declaration.id)
     .bind(declaration.registry_entry_id)
     .bind(declaration.declaration_version)
     .bind(&declaration.integration_base_url)
+    .bind(declaration.public_ui_url.as_deref())
     .bind(serde_json::to_string(&declaration.capabilities).unwrap())
     .bind(&declaration.service_contract_version)
     .bind(&declaration.declared_by_subject)
@@ -485,6 +486,7 @@ struct DeclarationRow {
     registry_entry_id: Uuid,
     declaration_version: i32,
     integration_base_url: String,
+    public_ui_url: Option<String>,
     capabilities: serde_json::Value,
     service_contract_version: String,
     declared_by_subject: String,
@@ -503,6 +505,7 @@ impl From<DeclarationRow> for Declaration {
             registry_entry_id: row.registry_entry_id,
             declaration_version: row.declaration_version,
             integration_base_url: row.integration_base_url,
+            public_ui_url: row.public_ui_url,
             capabilities: serde_json::from_value(row.capabilities).unwrap_or_default(),
             service_contract_version: row.service_contract_version,
             declared_by_subject: row.declared_by_subject,
