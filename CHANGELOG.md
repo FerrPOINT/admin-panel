@@ -8,6 +8,8 @@
 
 ### Added
 
+- Каталог v1.1: `GET /api/v1/runtime/services` отдаёт `ui_url` (capability `ui.render`; `null` для сервисов без UI) и `health` (статус health-worker: `healthy`/`unreachable`/`unknown`) — источник для платформенного переключателя сервисов. Миграция `0004`, план `docs/plans/009-runtime-catalog-health-ui-url.md`, тест `runtime_catalog_v1_1`.
+
 - UI: вход через central auth (login-прокси + `AuthProvider`), мутации сервисов (создание, approve, декларации, disable/retire), страница привязок ролей, живые локальные настройки; README со скриншотами интерфейса.
 - API: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, CRUD `/api/v1/role-bindings`; actor identity мутаций и аудита — реальный central-субъект.
 - Опубликован OpenAPI 3.1 контракт (`openapi/openapi.json`, gen-openapi bin, CI drift-gate).
