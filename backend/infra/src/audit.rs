@@ -39,17 +39,19 @@ impl AuditStore {
         action: Option<&str>,
         entity_type: Option<&str>,
         limit: i64,
+        offset: i64,
     ) -> Result<Vec<AuditEvent>, sqlx::Error> {
         let rows = sqlx::query_as::<_, AuditRow>(
             "SELECT id, occurred_at, request_id, actor_subject, actor_role, action, \
              entity_type, entity_id, metadata FROM audit_events \
              WHERE ($1::text IS NULL OR action = $1) \
              AND ($2::text IS NULL OR entity_type = $2) \
-             ORDER BY occurred_at DESC LIMIT $3",
+             ORDER BY occurred_at DESC LIMIT $3 OFFSET $4",
         )
         .bind(action)
         .bind(entity_type)
         .bind(limit)
+        .bind(offset)
         .fetch_all(&self.pool)
         .await?;
         Ok(rows.into_iter().map(Into::into).collect())

@@ -5,6 +5,18 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+/// Parameters of a capability check run to persist.
+pub struct CheckRunParams<'a> {
+    pub id: Uuid,
+    pub registry_entry_id: Uuid,
+    pub declaration_id: Uuid,
+    pub capability_key: &'a str,
+    pub triggered_by_subject: &'a str,
+    pub outcome: &'a str,
+    pub http_status: Option<i16>,
+    pub summary: &'a str,
+}
+
 #[derive(Clone)]
 pub struct RegistryStore {
     pool: PgPool,
@@ -33,7 +45,8 @@ impl RegistryStore {
     pub async fn list(&self) -> Result<Vec<RegistryEntry>, sqlx::Error> {
         let rows = sqlx::query_as::<_, RegistryEntryRow>(
             "SELECT id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version \
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail \
              FROM service_registry_entries ORDER BY updated_at DESC, service_key ASC",
         )
         .fetch_all(&self.pool)
@@ -44,13 +57,51 @@ impl RegistryStore {
     pub async fn find_by_key(&self, key: &str) -> Result<Option<RegistryEntry>, sqlx::Error> {
         sqlx::query_as::<_, RegistryEntryRow>(
             "SELECT id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version \
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail \
              FROM service_registry_entries WHERE service_key = $1",
         )
         .bind(key)
         .fetch_optional(&self.pool)
         .await
         .map(|row| row.map(Into::into))
+    }
+
+    /// Persist the outcome of a background health probe.
+    pub async fn set_health(
+        &self,
+        key: &str,
+        status: &str,
+        detail: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE service_registry_entries \
+             SET health_status = $1, health_checked_at = now(), health_detail = $2 \
+             WHERE service_key = $3",
+        )
+        .bind(status)
+        .bind(detail)
+        .bind(key)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Active entries with an approved declaration that declares health.read,
+    /// together with the catalog-fixed probe path for `health.read`.
+    pub async fn list_health_targets(&self) -> Result<Vec<(String, String, String)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, String, String)>(
+            "SELECT e.service_key, d.integration_base_url, c.fixed_path \
+             FROM service_registry_entries e \
+             JOIN service_declarations d ON d.id = e.active_declaration_id \
+             JOIN capability_catalog c ON c.key = 'health.read' AND c.is_active \
+             WHERE e.status = 'active' AND d.approval_status = 'approved' \
+             AND d.capabilities @> '\"health.read\"'::jsonb \
+             ORDER BY e.service_key",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
     }
 
     pub async fn insert_entry(
@@ -90,7 +141,8 @@ impl RegistryStore {
              SET display_name = $2, owner_team = $3, updated_at = now(), version = version + 1 \
              WHERE service_key = $1 AND version = $4 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version",
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail",
         )
         .bind(key)
         .bind(display_name)
@@ -113,7 +165,8 @@ impl RegistryStore {
         let mut tx = self.pool.begin().await.map_err(db)?;
         let entry = sqlx::query_as::<_, RegistryEntryRow>(
             "SELECT id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version \
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail \
              FROM service_registry_entries WHERE service_key = $1 FOR UPDATE",
         )
         .bind(service_key)
@@ -155,7 +208,8 @@ impl RegistryStore {
              SET status = 'active', active_declaration_id = $2, updated_at = $3, version = version + 1 \
              WHERE id = $1 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version",
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail",
         )
         .bind(entry.id)
         .bind(declaration_id)
@@ -177,7 +231,8 @@ impl RegistryStore {
             "UPDATE service_registry_entries SET status = $2, updated_at = $3, version = version + 1 \
              WHERE service_key = $1 AND version = $4 \
              RETURNING id, service_key, display_name, owner_team, status::text, \
-             active_declaration_id, created_at, updated_at, version",
+             active_declaration_id, created_at, updated_at, version, \
+             health_status, health_checked_at, health_detail",
         )
         .bind(service_key)
         .bind(status.as_str())
@@ -209,7 +264,7 @@ impl RegistryStore {
 
     pub async fn find_declaration(&self, id: Uuid) -> Result<Option<Declaration>, sqlx::Error> {
         sqlx::query_as::<_, DeclarationRow>(
-            "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
+            "SELECT id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
              approval_status::text, approved_by_subject, approved_at, content_hash \
              FROM service_declarations WHERE id = $1",
@@ -220,9 +275,120 @@ impl RegistryStore {
         .map(|row| row.map(Into::into))
     }
 
+    /// Active approved declaration of an entry (for capability checks).
+    pub async fn active_declaration(
+        &self,
+        entry_id: Uuid,
+    ) -> Result<Option<Declaration>, sqlx::Error> {
+        sqlx::query_as::<_, DeclarationRow>(
+            "SELECT id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
+             capabilities, service_contract_version, declared_by_subject, declared_at, \
+             approval_status::text, approved_by_subject, approved_at, content_hash \
+             FROM service_declarations WHERE registry_entry_id = $1 \
+             AND approval_status = 'approved' ORDER BY approved_at DESC LIMIT 1",
+        )
+        .bind(entry_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map(|row| row.map(Into::into))
+    }
+
+    /// Catalog row for a capability key (fixed method + path).
+    pub async fn capability(&self, key: &str) -> Result<Option<(String, String)>, sqlx::Error> {
+        sqlx::query_as::<_, (String, String)>(
+            "SELECT fixed_method, fixed_path FROM capability_catalog \
+             WHERE key = $1 AND is_active",
+        )
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    /// Append a capability check run and return it.
+    pub async fn insert_check_run(&self, run: CheckRunParams<'_>) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO service_check_runs \
+             (id, registry_entry_id, declaration_id, capability_key, \
+              triggered_by_subject, started_at, finished_at, outcome, http_status, summary, \
+              request_id) \
+             VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9, $1)",
+        )
+        .bind(run.id)
+        .bind(run.registry_entry_id)
+        .bind(run.declaration_id)
+        .bind(run.capability_key)
+        .bind(run.triggered_by_subject)
+        .bind(Utc::now())
+        .bind(run.outcome)
+        .bind(run.http_status)
+        .bind(run.summary)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    /// Check-run history for an entry (newest first).
+    pub async fn list_check_runs(
+        &self,
+        registry_entry_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<serde_json::Value>, sqlx::Error> {
+        let rows = sqlx::query_as::<
+            _,
+            (
+                Uuid,
+                Uuid,
+                String,
+                String,
+                chrono::DateTime<Utc>,
+                Option<chrono::DateTime<Utc>>,
+                String,
+                Option<i16>,
+                String,
+            ),
+        >(
+            "SELECT id, declaration_id, capability_key, triggered_by_subject, \
+             started_at, finished_at, outcome, http_status, summary \
+             FROM service_check_runs WHERE registry_entry_id = $1 \
+             ORDER BY started_at DESC LIMIT $2",
+        )
+        .bind(registry_entry_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    declaration_id,
+                    capability,
+                    subject,
+                    started,
+                    finished,
+                    outcome,
+                    http,
+                    summary,
+                )| {
+                    serde_json::json!({
+                        "id": id,
+                        "declaration_id": declaration_id,
+                        "capability": capability,
+                        "triggered_by_subject": subject,
+                        "started_at": started,
+                        "finished_at": finished,
+                        "outcome": outcome,
+                        "http_status": http,
+                        "summary": summary,
+                    })
+                },
+            )
+            .collect())
+    }
+
     pub async fn list_declarations(&self, entry_id: Uuid) -> Result<Vec<Declaration>, sqlx::Error> {
         let rows = sqlx::query_as::<_, DeclarationRow>(
-            "SELECT id, registry_entry_id, declaration_version, integration_base_url, \
+            "SELECT id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
              approval_status::text, approved_by_subject, approved_at, content_hash \
              FROM service_declarations WHERE registry_entry_id = $1 \
@@ -241,14 +407,15 @@ pub async fn insert_declaration_tx(
 ) -> Result<(), DomainError> {
     sqlx::query(
         "INSERT INTO service_declarations \
-         (id, registry_entry_id, declaration_version, integration_base_url, capabilities, \
+         (id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, capabilities, \
          service_contract_version, declared_by_subject, declared_at, approval_status, content_hash) \
-         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)",
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11)",
     )
     .bind(declaration.id)
     .bind(declaration.registry_entry_id)
     .bind(declaration.declaration_version)
     .bind(&declaration.integration_base_url)
+    .bind(declaration.public_ui_url.as_deref())
     .bind(serde_json::to_string(&declaration.capabilities).unwrap())
     .bind(&declaration.service_contract_version)
     .bind(&declaration.declared_by_subject)
@@ -289,6 +456,9 @@ struct RegistryEntryRow {
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
     version: i64,
+    health_status: Option<String>,
+    health_checked_at: Option<chrono::DateTime<Utc>>,
+    health_detail: Option<String>,
 }
 
 impl From<RegistryEntryRow> for RegistryEntry {
@@ -303,6 +473,9 @@ impl From<RegistryEntryRow> for RegistryEntry {
             created_at: row.created_at,
             updated_at: row.updated_at,
             version: row.version,
+            health_status: row.health_status,
+            health_checked_at: row.health_checked_at,
+            health_detail: row.health_detail,
         }
     }
 }
@@ -313,6 +486,7 @@ struct DeclarationRow {
     registry_entry_id: Uuid,
     declaration_version: i32,
     integration_base_url: String,
+    public_ui_url: Option<String>,
     capabilities: serde_json::Value,
     service_contract_version: String,
     declared_by_subject: String,
@@ -331,6 +505,7 @@ impl From<DeclarationRow> for Declaration {
             registry_entry_id: row.registry_entry_id,
             declaration_version: row.declaration_version,
             integration_base_url: row.integration_base_url,
+            public_ui_url: row.public_ui_url,
             capabilities: serde_json::from_value(row.capabilities).unwrap_or_default(),
             service_contract_version: row.service_contract_version,
             declared_by_subject: row.declared_by_subject,
