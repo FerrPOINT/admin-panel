@@ -8,6 +8,9 @@ on:
 
 jobs:
   backend:
+    # Dependabot runs do not receive repository secrets, so the
+    # services-base checkout token is unavailable — skip full builds there.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -48,6 +51,7 @@ jobs:
           PYEOF
 
   frontend:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     defaults:
       run:
