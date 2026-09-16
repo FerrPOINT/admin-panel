@@ -1,3 +1,5 @@
+import { authToken } from '@/shared/auth/auth-context'
+
 const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
 export class ApiError extends Error {
@@ -11,13 +13,18 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = authToken()
   const response = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   })
+  if (response.status === 401 && path !== '/api/v1/auth/me') {
+    window.dispatchEvent(new Event('base-admin:unauthorized'))
+  }
   if (!response.ok) {
     let code = 'HTTP_ERROR'
     let message = `HTTP ${response.status}`
@@ -36,12 +43,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }),
+  post: <T>(path: string, body?: unknown, etag?: string) =>
+    request<T>(path, {
+      method: 'POST',
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: etag ? { 'If-Match': etag } : undefined,
+    }),
   patch: <T>(path: string, body: unknown, etag?: string) =>
     request<T>(path, {
       method: 'PATCH',
       body: JSON.stringify(body),
       headers: etag ? { 'If-Match': etag } : undefined,
     }),
+  delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 }

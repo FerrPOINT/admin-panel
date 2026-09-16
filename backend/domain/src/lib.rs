@@ -69,6 +69,10 @@ pub struct RegistryEntry {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: i64,
+    /// Last background health.read probe outcome.
+    pub health_status: Option<String>,
+    pub health_checked_at: Option<DateTime<Utc>>,
+    pub health_detail: Option<String>,
 }
 
 /// kebab-case key, e.g. `task-tracker`.
@@ -107,6 +111,23 @@ pub fn valid_integration_base_url(url: &str) -> bool {
         && !rest.ends_with('.')
 }
 
+/// Optional public UI URL (ADR-0007): http(s) origin without userinfo,
+/// path, query or fragment; same shape rules as integration_base_url.
+pub fn valid_public_ui_url(url: &str) -> bool {
+    valid_integration_base_url(url)
+}
+
+pub fn validate_public_ui_url(url: Option<&String>) -> Result<(), String> {
+    match url {
+        None => Ok(()),
+        Some(u) if u.is_empty() => Ok(()),
+        Some(u) if valid_public_ui_url(u) => Ok(()),
+        Some(_) => {
+            Err("public_ui_url must be an http(s) origin without credentials or path".into())
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApprovalStatus {
@@ -143,6 +164,10 @@ pub struct Declaration {
     pub registry_entry_id: Uuid,
     pub declaration_version: i32,
     pub integration_base_url: String,
+    /// Optional user-facing URL behind a facade (ADR-0007); the runtime
+    /// catalog prefers it over integration_base_url when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_ui_url: Option<String>,
     pub capabilities: Vec<String>,
     pub service_contract_version: String,
     pub declared_by_subject: String,
@@ -313,6 +338,11 @@ pub struct BrandingRevision {
 impl BrandingRevision {
     /// Only a draft may transition towards publication.
     pub fn can_publish(&self) -> bool {
+        self.state == RevisionState::Draft
+    }
+
+    /// A draft that was never published may be withdrawn by its author side.
+    pub fn can_withdraw(&self) -> bool {
         self.state == RevisionState::Draft
     }
 }

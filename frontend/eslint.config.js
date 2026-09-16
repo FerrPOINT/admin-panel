@@ -3,7 +3,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules'] },
+  { ignores: ['dist', 'node_modules', 'scripts', 'playwright.config.ts', 'e2e'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: {
