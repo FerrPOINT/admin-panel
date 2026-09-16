@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
+import { AuthProvider } from '@/shared/auth/auth-context'
 import { AppShell } from './app-shell'
 
 function withProviders(ui: React.ReactElement) {
@@ -10,7 +11,9 @@ function withProviders(ui: React.ReactElement) {
   })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/services']}>{ui}</MemoryRouter>
+      <AuthProvider>
+        <MemoryRouter initialEntries={['/services']}>{ui}</MemoryRouter>
+      </AuthProvider>
     </QueryClientProvider>,
   )
 }

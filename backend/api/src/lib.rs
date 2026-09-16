@@ -10,7 +10,7 @@ use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub struct AppState {
@@ -26,6 +26,15 @@ pub type SharedState = Arc<AppState>;
 /// Effective caller role resolved by the auth middleware.
 #[derive(Clone)]
 pub struct CallerRole(pub admin_panel_domain::PanelRole);
+
+/// Identity + effective role inserted by `bearer_auth`.
+#[derive(Clone)]
+pub struct Caller {
+    pub subject: String,
+    pub email: Option<String>,
+    pub central_role: Option<String>,
+    pub role: admin_panel_domain::PanelRole,
+}
 
 async fn require_role(
     required: admin_panel_domain::PanelRole,
@@ -59,8 +68,6 @@ async fn bearer_auth(
     mut req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    use admin_panel_domain::PanelRole;
-
     let token = req
         .headers()
         .get("authorization")
@@ -68,22 +75,28 @@ async fn bearer_auth(
         .and_then(|v| v.strip_prefix("Bearer ").map(str::to_string))
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    let resolved: PanelRole = match auth::check_token(&token).await {
+    let caller = match auth::check_token(&token).await {
         auth::CentralCheck::Validated(ctx) => {
             let central = auth::panel_role_for(&ctx);
             // Local role_bindings may elevate the central claim (claim_name=user_id).
             let mut best = central;
-            if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await {
-                if local > best {
-                    best = local;
-                }
+            if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await
+                && local > best
+            {
+                best = local;
             }
-            best
+            Caller {
+                subject: ctx.user_id.clone(),
+                email: ctx.email.clone(),
+                central_role: ctx.role.clone(),
+                role: best,
+            }
         }
         auth::CentralCheck::Expired => return Err(StatusCode::UNAUTHORIZED),
         auth::CentralCheck::FallThrough => return Err(StatusCode::UNAUTHORIZED),
     };
-    req.extensions_mut().insert(CallerRole(resolved));
+    req.extensions_mut().insert(CallerRole(caller.role));
+    req.extensions_mut().insert(caller);
     Ok(next.run(req).await)
 }
 
@@ -101,6 +114,7 @@ async fn resolve_local_role(
 
 pub fn router(state: SharedState) -> Router {
     let public = Router::new()
+        .route("/api/v1/auth/login", post(auth_login))
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/api/v1/runtime/branding", get(runtime_branding))
@@ -126,6 +140,10 @@ pub fn router(state: SharedState) -> Router {
             post(retire_service),
         )
         .route(
+            "/api/v1/services/{service_key}/checks",
+            get(list_service_checks).post(run_service_check),
+        )
+        .route(
             "/api/v1/branding/revisions",
             get(list_revisions).post(create_draft),
         )
@@ -133,18 +151,37 @@ pub fn router(state: SharedState) -> Router {
             "/api/v1/branding/revisions/{revision}/publish",
             post(publish_revision),
         )
+        .route(
+            "/api/v1/branding/revisions/{revision}/withdraw",
+            post(withdraw_revision),
+        )
         .route("/api/v1/audit-events", get(list_audit))
         .with_state(state.clone())
         .route_layer(middleware::from_fn(require_operator))
         .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
 
+    let authenticated = Router::new()
+        .route("/api/v1/auth/me", get(auth_me))
+        .with_state(state.clone())
+        .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
+
     let admin_gated = Router::new()
-        .route("/api/v1/role-bindings", get(list_role_bindings))
+        .route(
+            "/api/v1/role-bindings",
+            get(list_role_bindings).post(create_role_binding),
+        )
+        .route(
+            "/api/v1/role-bindings/{id}",
+            axum::routing::delete(delete_role_binding),
+        )
         .with_state(state.clone())
         .route_layer(middleware::from_fn(require_admin))
         .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
 
-    public.merge(operator_gated).merge(admin_gated)
+    public
+        .merge(authenticated)
+        .merge(operator_gated)
+        .merge(admin_gated)
 }
 
 /// OpenAPI contract for the Base Admin Panel API (v1).
@@ -156,6 +193,8 @@ pub fn router(state: SharedState) -> Router {
         description = "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit."
     ),
     paths(
+        auth_login,
+        auth_me,
         health_live,
         health_ready,
         runtime_branding,
@@ -167,13 +206,19 @@ pub fn router(state: SharedState) -> Router {
         approve_service,
         disable_service,
         retire_service,
+        run_service_check,
+        list_service_checks,
         list_revisions,
         create_draft,
+        withdraw_revision,
         publish_revision,
         list_role_bindings,
+        create_role_binding,
+        delete_role_binding,
         list_audit,
     ),
     tags(
+        (name = "auth", description = "Login proxy and caller identity"),
         (name = "health", description = "Liveness/readiness"),
         (name = "runtime", description = "Public runtime endpoints (no auth)"),
         (name = "services", description = "Service registry management (auth required)"),
@@ -284,6 +329,18 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
             "key": entry.service_key,
             "label": entry.display_name,
             "url": decl.integration_base_url,
+            "ui_url": if decl.capabilities.iter().any(|c| c == "ui.render") {
+                json!(decl
+                    .public_ui_url
+                    .as_deref()
+                    .unwrap_or(&decl.integration_base_url))
+            } else {
+                json!(null)
+            },
+            "health": entry
+                .health_status
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
             "capabilities": decl.capabilities,
             "contract_version": decl.service_contract_version,
         }));
@@ -370,6 +427,8 @@ struct CreateServiceRequest {
 struct DeclarationInput {
     declaration_version: i32,
     integration_base_url: String,
+    #[serde(default)]
+    public_ui_url: Option<String>,
     service_contract_version: String,
     capabilities: Vec<String>,
     requested_by: Option<String>,
@@ -383,6 +442,7 @@ struct DeclarationInput {
               (status = 409, description = "duplicate")))]
 async fn create_service(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     Json(req): Json<CreateServiceRequest>,
 ) -> Response {
     if !admin_panel_domain::valid_service_key(&req.service_key) {
@@ -390,6 +450,11 @@ async fn create_service(
     }
     if !admin_panel_domain::valid_integration_base_url(&req.declaration.integration_base_url) {
         return validation("integration_base_url", "must_be_https_origin");
+    }
+    if let Err(msg) =
+        admin_panel_domain::validate_public_ui_url(req.declaration.public_ui_url.as_ref())
+    {
+        return validation("public_ui_url", &msg);
     }
     if let Err(err) = admin_panel_domain::validate_capabilities(&req.declaration.capabilities) {
         return validation("capabilities", &err.to_string());
@@ -404,6 +469,9 @@ async fn create_service(
         created_at: chrono::Utc::now(),
         updated_at: chrono::Utc::now(),
         version: 1,
+        health_status: None,
+        health_checked_at: None,
+        health_detail: None,
     };
     let mut capabilities = req.declaration.capabilities.clone();
     capabilities.sort();
@@ -417,9 +485,14 @@ async fn create_service(
         registry_entry_id: entry.id,
         declaration_version: req.declaration.declaration_version,
         integration_base_url: req.declaration.integration_base_url.clone(),
+        public_ui_url: req
+            .declaration
+            .public_ui_url
+            .clone()
+            .filter(|u| !u.is_empty()),
         capabilities,
         service_contract_version: req.declaration.service_contract_version.clone(),
-        declared_by_subject: "api".into(),
+        declared_by_subject: caller.subject.clone(),
         declared_at: chrono::Utc::now(),
         approval_status: admin_panel_domain::ApprovalStatus::Pending,
         approved_by_subject: None,
@@ -455,6 +528,7 @@ struct PatchServiceRequest {
     responses((status = 200, description = "updated"), (status = 412, description = "version mismatch")))]
 async fn patch_service(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
     headers: HeaderMap,
     Json(req): Json<PatchServiceRequest>,
@@ -475,6 +549,9 @@ async fn patch_service(
         if !admin_panel_domain::valid_integration_base_url(&decl.integration_base_url) {
             return validation("integration_base_url", "must_be_https_origin");
         }
+        if let Err(msg) = admin_panel_domain::validate_public_ui_url(decl.public_ui_url.as_ref()) {
+            return validation("public_ui_url", &msg);
+        }
         if let Err(err) = admin_panel_domain::validate_capabilities(&decl.capabilities) {
             return validation("capabilities", &err.to_string());
         }
@@ -490,9 +567,10 @@ async fn patch_service(
             registry_entry_id: current.id,
             declaration_version: decl.declaration_version,
             integration_base_url: decl.integration_base_url,
+            public_ui_url: decl.public_ui_url.clone().filter(|u| !u.is_empty()),
             capabilities,
             service_contract_version: decl.service_contract_version,
-            declared_by_subject: decl.requested_by.unwrap_or_else(|| "api".to_string()),
+            declared_by_subject: decl.requested_by.unwrap_or_else(|| caller.subject.clone()),
             declared_at: chrono::Utc::now(),
             approval_status: admin_panel_domain::ApprovalStatus::Pending,
             approved_by_subject: None,
@@ -540,6 +618,7 @@ struct ApproveRequest {
               (status = 409, description = "already approved / conflict")))]
 async fn approve_service(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     axum::extract::Path(service_key): axum::extract::Path<String>,
     headers: HeaderMap,
     Json(req): Json<ApproveRequest>,
@@ -558,7 +637,12 @@ async fn approve_service(
     };
     match state
         .registry
-        .approve_declaration(&service_key, req.declaration_id, "admin", expected_version)
+        .approve_declaration(
+            &service_key,
+            req.declaration_id,
+            &caller.subject,
+            expected_version,
+        )
         .await
     {
         Ok((entry, declaration)) => {
@@ -568,8 +652,8 @@ async fn approve_service(
                     id: uuid::Uuid::now_v7(),
                     occurred_at: chrono::Utc::now(),
                     request_id: uuid::Uuid::now_v7(),
-                    actor_subject: Some("admin".into()),
-                    actor_role: Some(admin_panel_domain::PanelRole::PlatformAdmin),
+                    actor_subject: Some(caller.subject.clone()),
+                    actor_role: Some(caller.role),
                     action: "service.approved".into(),
                     entity_type: "service".into(),
                     entity_id: Some(entry.id),
@@ -659,6 +743,169 @@ async fn change_status(
     }
 }
 
+// ─── Capability checks (docs/API.md §5.5) ────────────────────────────────────
+
+#[derive(Deserialize, utoipa::ToSchema)]
+pub struct RunCheckRequest {
+    capability: String,
+}
+
+#[utoipa::path(post, path = "/api/v1/services/{service_key}/checks",
+    tag = "services",
+    request_body = RunCheckRequest,
+    params(("service_key" = String, Path)),
+    responses(
+        (status = 202, description = "check run accepted and executed"),
+        (status = 404, description = "unknown service"),
+        (status = 409, description = "not active or capability not declared"),
+        (status = 422, description = "unknown capability"),
+    ))]
+async fn run_service_check(
+    State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
+    axum::extract::Path(service_key): axum::extract::Path<String>,
+    Json(req): Json<RunCheckRequest>,
+) -> Response {
+    let Some(entry) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
+        return not_found(&service_key);
+    };
+    if entry.status != admin_panel_domain::ServiceStatus::Active {
+        return conflict("service is not active");
+    }
+    // Capability must be declared by the active approved declaration.
+    let Ok(Some(declaration)) = state.registry.active_declaration(entry.id).await else {
+        return conflict("no active approved declaration");
+    };
+    let declared = declaration
+        .capabilities
+        .iter()
+        .any(|c| c == &req.capability);
+    if !declared {
+        return conflict(&format!("capability {} is not declared", req.capability));
+    }
+    // The server builds the request from the local capability catalog.
+    let Ok(Some((method, fixed_path))) = state.registry.capability(&req.capability).await else {
+        return validation("capability", "unknown capability");
+    };
+    let base = declaration
+        .integration_base_url
+        .trim_end_matches('/')
+        .replace("://localhost:", "://host.docker.internal:")
+        .replace("://127.0.0.1:", "://host.docker.internal:");
+    let path = if fixed_path.starts_with('/') {
+        fixed_path.clone()
+    } else {
+        format!("/{fixed_path}")
+    };
+    let url = format!("{base}{path}");
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build();
+    let run_id = uuid::Uuid::now_v7();
+    let (outcome, http_status, summary) = match client {
+        Ok(client) if method.eq_ignore_ascii_case("GET") => match client.get(&url).send().await {
+            Ok(response) => {
+                let code = response.status().as_u16() as i16;
+                if response.status().is_success() {
+                    ("success", Some(code), format!("HTTP {code}"))
+                } else {
+                    (
+                        "invalid_response",
+                        Some(code),
+                        format!("HTTP {code} from {path}"),
+                    )
+                }
+            }
+            Err(err) => ("unreachable", None, err.to_string()),
+        },
+        Ok(_) => (
+            "invalid_response",
+            None,
+            format!("catalog method {method} is not supported by the checker"),
+        ),
+        Err(err) => ("internal_error", None, err.to_string()),
+    };
+    let summary: String = summary.chars().take(500).collect();
+    let _ = state
+        .registry
+        .insert_check_run(admin_panel_infra::registry::CheckRunParams {
+            id: run_id,
+            registry_entry_id: entry.id,
+            declaration_id: declaration.id,
+            capability_key: &req.capability,
+            triggered_by_subject: &caller.subject,
+            outcome,
+            http_status,
+            summary: &summary,
+        })
+        .await;
+    let _ = state
+        .audit
+        .append(&admin_panel_domain::AuditEvent {
+            id: uuid::Uuid::now_v7(),
+            occurred_at: chrono::Utc::now(),
+            request_id: uuid::Uuid::now_v7(),
+            actor_subject: Some(caller.subject.clone()),
+            actor_role: Some(caller.role),
+            action: "service.checked".into(),
+            entity_type: "service".into(),
+            entity_id: Some(entry.id),
+            metadata: json!({
+                "capability": req.capability,
+                "outcome": outcome,
+                "check_run_id": run_id,
+            }),
+        })
+        .await;
+    (
+        StatusCode::ACCEPTED,
+        Json(json!({
+            "check_run": {
+                "id": run_id,
+                "service_key": service_key,
+                "capability": req.capability,
+                "outcome": outcome,
+                "http_status": http_status,
+                "summary": summary,
+            }
+        })),
+    )
+        .into_response()
+}
+
+#[utoipa::path(get, path = "/api/v1/services/{service_key}/checks",
+    tag = "services",
+    params(("service_key" = String, Path)),
+    responses((status = 200, description = "check run history")))]
+async fn list_service_checks(
+    State(state): State<SharedState>,
+    axum::extract::Path(service_key): axum::extract::Path<String>,
+) -> Response {
+    let Some(entry) = state
+        .registry
+        .find_by_key(&service_key)
+        .await
+        .ok()
+        .flatten()
+    else {
+        return not_found(&service_key);
+    };
+    match state.registry.list_check_runs(entry.id, 50).await {
+        Ok(runs) => (
+            StatusCode::OK,
+            Json(json!({ "checks": runs, "total": runs.len() })),
+        )
+            .into_response(),
+        Err(err) => internal(err),
+    }
+}
+
 // ─── Branding revisions ──────────────────────────────────────────────────────
 
 #[utoipa::path(get, path = "/api/v1/branding/revisions",
@@ -682,6 +929,7 @@ async fn list_revisions(State(state): State<SharedState>) -> Response {
               (status = 422, description = "validation error")))]
 async fn create_draft(
     State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     Json(req): Json<admin_panel_domain::BrandingDocument>,
 ) -> Response {
     if let Err(err) = req.validate() {
@@ -691,6 +939,13 @@ async fn create_draft(
         return internal("cannot allocate revision");
     };
     let document_hash = content_hash(&[&serde_json::to_string(&req).unwrap()]);
+    let based_on = state
+        .branding
+        .find_published()
+        .await
+        .ok()
+        .flatten()
+        .map(|published| published.revision);
     let revision = admin_panel_domain::BrandingRevision {
         id: uuid::Uuid::now_v7(),
         revision: revision_number,
@@ -698,24 +953,26 @@ async fn create_draft(
         document: req,
         document_hash: document_hash.clone(),
         etag: format!("draft-{document_hash}"),
-        created_by_subject: "operator".into(),
+        created_by_subject: caller.subject.clone(),
         created_at: chrono::Utc::now(),
         published_by_subject: None,
         published_at: None,
-        based_on_revision: None,
+        based_on_revision: based_on,
     };
     match state.branding.insert_draft(&revision).await {
         Ok(()) => (StatusCode::CREATED, Json(json!({ "revision": revision }))).into_response(),
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(err) => internal(err),
     }
 }
 
-#[utoipa::path(post, path = "/api/v1/branding/revisions/{id}/publish",
+#[utoipa::path(post, path = "/api/v1/branding/revisions/{revision}/publish",
     tag = "branding",
     params(("id" = uuid::Uuid, Path), ("If-Match" = String, Header)),
     responses((status = 200, description = "published"),
               (status = 409, description = "not a draft / already published")))]
 async fn publish_revision(
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     State(state): State<SharedState>,
     axum::extract::Path(revision): axum::extract::Path<i64>,
 ) -> Response {
@@ -730,7 +987,11 @@ async fn publish_revision(
         draft.revision,
         &draft.document_hash[..12.min(draft.document_hash.len())]
     );
-    match state.branding.publish(revision, "admin", &etag).await {
+    match state
+        .branding
+        .publish(revision, &caller.subject, &etag)
+        .await
+    {
         Ok(published) => {
             let _ = state
                 .audit
@@ -738,8 +999,8 @@ async fn publish_revision(
                     id: uuid::Uuid::now_v7(),
                     occurred_at: chrono::Utc::now(),
                     request_id: uuid::Uuid::now_v7(),
-                    actor_subject: Some("admin".into()),
-                    actor_role: Some(admin_panel_domain::PanelRole::PlatformAdmin),
+                    actor_subject: Some(caller.subject.clone()),
+                    actor_role: Some(caller.role),
                     action: "branding.published".into(),
                     entity_type: "branding_revision".into(),
                     entity_id: Some(published.id),
@@ -753,6 +1014,43 @@ async fn publish_revision(
     }
 }
 
+#[utoipa::path(post, path = "/api/v1/branding/revisions/{revision}/withdraw",
+    tag = "branding",
+    params(("id" = i64, Path)),
+    responses((status = 200, description = "withdrawn"),
+              (status = 409, description = "not a draft")))]
+async fn withdraw_revision(
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
+    State(state): State<SharedState>,
+    axum::extract::Path(revision): axum::extract::Path<i64>,
+) -> Response {
+    match state.branding.withdraw_revision(revision).await {
+        Ok(()) => {
+            let _ = state
+                .audit
+                .append(&admin_panel_domain::AuditEvent {
+                    id: uuid::Uuid::now_v7(),
+                    occurred_at: chrono::Utc::now(),
+                    request_id: uuid::Uuid::now_v7(),
+                    actor_subject: Some(caller.subject.clone()),
+                    actor_role: Some(caller.role),
+                    action: "branding.withdrawn".into(),
+                    entity_type: "branding_revision".into(),
+                    entity_id: Some(uuid::Uuid::now_v7()),
+                    metadata: json!({ "revision": revision }),
+                })
+                .await;
+            (
+                StatusCode::OK,
+                Json(json!({ "revision": revision, "state": "withdrawn" })),
+            )
+                .into_response()
+        }
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
+        Err(err) => internal(err),
+    }
+}
+
 // ─── Audit ───────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -760,9 +1058,125 @@ struct ListAuditQuery {
     action: Option<String>,
     entity_type: Option<String>,
     limit: Option<i64>,
+    offset: Option<i64>,
 }
 
-#[utoipa::path(get, path = "/api/v1/access/role-bindings",
+// ─── Auth session endpoints ──────────────────────────────────────────────────
+
+#[derive(Deserialize, utoipa::ToSchema)]
+struct LoginRequest {
+    email: String,
+    password: String,
+}
+
+#[derive(Serialize)]
+struct LoginSession {
+    access_token: String,
+    token_type: String,
+    expires_in: Option<u64>,
+    subject: String,
+    central_role: Option<String>,
+    panel_role: String,
+}
+
+/// Proxies credentials to the central auth-server. The panel never stores
+/// passwords; a central rejection maps onto a uniform 401 without details.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/login",
+    tag = "auth",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Central token issued", description = "session issued"),
+        (status = 401, description = "Rejected by central auth or not configured"),
+    )
+)]
+async fn auth_login(State(state): State<SharedState>, Json(req): Json<LoginRequest>) -> Response {
+    if req.email.trim().is_empty() || req.password.is_empty() {
+        return error_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "VALIDATION_ERROR",
+            "email and password are required",
+        );
+    }
+    match auth::BRIDGE.try_login(&req.email, &req.password).await {
+        Ok(Some(pair)) => {
+            // Validate the fresh token through the same bridge so the session
+            // carries the effective panel role (central + local bindings).
+            match auth::check_token(&pair.access_token).await {
+                auth::CentralCheck::Validated(ctx) => {
+                    let central = auth::panel_role_for(&ctx);
+                    let mut role = central;
+                    if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await
+                        && local > role
+                    {
+                        role = local;
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(LoginSession {
+                            access_token: pair.access_token,
+                            token_type: pair.token_type.unwrap_or_else(|| "Bearer".into()),
+                            expires_in: pair.expires_in,
+                            subject: ctx.user_id.clone(),
+                            central_role: ctx.role.clone(),
+                            panel_role: role.as_str().to_string(),
+                        }),
+                    )
+                        .into_response()
+                }
+                _ => error_response(
+                    StatusCode::UNAUTHORIZED,
+                    "INVALID_CREDENTIALS",
+                    "central auth rejected the credentials",
+                ),
+            }
+        }
+        Ok(None) => error_response(
+            StatusCode::UNAUTHORIZED,
+            "INVALID_CREDENTIALS",
+            "central auth rejected the credentials",
+        ),
+        Err(error) => {
+            tracing::warn!(%error, "central login proxy failed");
+            error_response(
+                StatusCode::BAD_GATEWAY,
+                "CENTRAL_AUTH_UNAVAILABLE",
+                "central auth is unreachable",
+            )
+        }
+    }
+}
+
+/// Identity snapshot for the SPA: who the caller is and what the panel
+/// allows. Local `role_bindings` may elevate the central claim.
+#[utoipa::path(
+    get,
+    path = "/api/v1/auth/me",
+    tag = "auth",
+    responses(
+        (status = 200, description = "Caller identity", description = "caller identity"),
+        (status = 401, description = "Missing or invalid bearer"),
+    )
+)]
+async fn auth_me(axum::extract::Extension(caller): axum::extract::Extension<Caller>) -> Response {
+    (
+        StatusCode::OK,
+        Json(json!({
+            "subject": caller.subject,
+            "email": caller.email,
+            "central_role": caller.central_role,
+            "panel_role": caller.role.as_str(),
+            "capabilities": {
+                "mutate": caller.role.allows(admin_panel_domain::PanelRole::PlatformOperator),
+                "manage_bindings": caller.role.allows(admin_panel_domain::PanelRole::PlatformAdmin),
+            },
+        })),
+    )
+        .into_response()
+}
+
+#[utoipa::path(get, path = "/api/v1/role-bindings",
     tag = "access",
     responses((status = 200, description = "role bindings"),
               (status = 403, description = "admin role required")))]
@@ -775,7 +1189,75 @@ async fn list_role_bindings(State(state): State<SharedState>) -> Result<Response
     Ok(Json(json!({ "bindings": bindings })).into_response())
 }
 
-#[utoipa::path(get, path = "/api/v1/audit",
+#[derive(Deserialize, utoipa::ToSchema)]
+struct CreateRoleBindingRequest {
+    claim_name: String,
+    claim_value: String,
+    panel_role: String,
+}
+
+#[utoipa::path(post,
+    path = "/api/v1/role-bindings",
+    tag = "access",
+    request_body = CreateRoleBindingRequest,
+    responses(
+        (status = 201, description = "binding created"),
+        (status = 422, description = "validation error"),
+        (status = 409, description = "duplicate binding"),
+    )
+)]
+async fn create_role_binding(
+    State(state): State<SharedState>,
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
+    Json(req): Json<CreateRoleBindingRequest>,
+) -> Response {
+    let role = match req.panel_role.as_str() {
+        "platform_viewer" => admin_panel_domain::PanelRole::PlatformViewer,
+        "platform_operator" => admin_panel_domain::PanelRole::PlatformOperator,
+        "platform_admin" => admin_panel_domain::PanelRole::PlatformAdmin,
+        other => {
+            return validation("panel_role", &format!("unknown panel role: {other}"));
+        }
+    };
+    if !matches!(req.claim_name.as_str(), "user_id" | "email" | "role") {
+        return validation("claim_name", "must be one of user_id, email, role");
+    }
+    if req.claim_value.trim().is_empty() {
+        return validation("claim_value", "must not be empty");
+    }
+    let binding = admin_panel_domain::RoleBinding {
+        id: uuid::Uuid::now_v7(),
+        claim_name: req.claim_name,
+        claim_value: req.claim_value.trim().to_string(),
+        panel_role: role,
+        created_by_subject: caller.subject,
+        created_at: chrono::Utc::now(),
+    };
+    match state.access.insert(&binding).await {
+        Ok(()) => (StatusCode::CREATED, Json(json!({ "binding": binding }))).into_response(),
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
+        Err(_) => internal("cannot insert role binding"),
+    }
+}
+
+#[utoipa::path(delete,
+    path = "/api/v1/role-bindings/{id}",
+    tag = "access",
+    params(("id" = Uuid, Path, description = "binding id")),
+    responses((status = 204, description = "binding deleted"), (status = 404, description = "not found"))
+)]
+async fn delete_role_binding(
+    State(state): State<SharedState>,
+    axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
+) -> Response {
+    match state.access.delete(id).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(admin_panel_domain::DomainError::NotFound(_)) => not_found("role binding"),
+        Err(_) => internal("cannot delete role binding"),
+    }
+}
+
+#[utoipa::path(get, path = "/api/v1/audit-events",
     tag = "audit",
     params(("limit" = Option<u32>, Query, description = "max events (default 100)")),
     responses((status = 200, description = "audit events")))]
@@ -784,9 +1266,15 @@ async fn list_audit(
     axum::extract::Query(query): axum::extract::Query<ListAuditQuery>,
 ) -> Response {
     let limit = query.limit.unwrap_or(50).clamp(1, 100);
+    let offset = query.offset.unwrap_or(0).max(0);
     match state
         .audit
-        .list(query.action.as_deref(), query.entity_type.as_deref(), limit)
+        .list(
+            query.action.as_deref(),
+            query.entity_type.as_deref(),
+            limit,
+            offset,
+        )
         .await
     {
         Ok(events) => (

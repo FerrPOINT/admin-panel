@@ -6,23 +6,7 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/api/v1/access/role-bindings": {
-      "get": {
-        "tags": [
-          "access"
-        ],
-        "operationId": "list_role_bindings",
-        "responses": {
-          "200": {
-            "description": "role bindings"
-          },
-          "403": {
-            "description": "admin role required"
-          }
-        }
-      }
-    },
-    "/api/v1/audit": {
+    "/api/v1/audit-events": {
       "get": {
         "tags": [
           "audit"
@@ -44,6 +28,50 @@
         "responses": {
           "200": {
             "description": "audit events"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Proxies credentials to the central auth-server. The panel never stores\npasswords; a central rejection maps onto a uniform 401 without details.",
+        "operationId": "auth_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "session issued"
+          },
+          "401": {
+            "description": "Rejected by central auth or not configured"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Identity snapshot for the SPA: who the caller is and what the panel\nallows. Local `role_bindings` may elevate the central claim.",
+        "operationId": "auth_me",
+        "responses": {
+          "200": {
+            "description": "caller identity"
+          },
+          "401": {
+            "description": "Missing or invalid bearer"
           }
         }
       }
@@ -85,7 +113,7 @@
         }
       }
     },
-    "/api/v1/branding/revisions/{id}/publish": {
+    "/api/v1/branding/revisions/{revision}/publish": {
       "post": {
         "tags": [
           "branding"
@@ -108,6 +136,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
           }
         ],
         "responses": {
@@ -116,6 +153,113 @@
           },
           "409": {
             "description": "not a draft / already published"
+          }
+        }
+      }
+    },
+    "/api/v1/branding/revisions/{revision}/withdraw": {
+      "post": {
+        "tags": [
+          "branding"
+        ],
+        "operationId": "withdraw_revision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "withdrawn"
+          },
+          "409": {
+            "description": "not a draft"
+          }
+        }
+      }
+    },
+    "/api/v1/role-bindings": {
+      "get": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "list_role_bindings",
+        "responses": {
+          "200": {
+            "description": "role bindings"
+          },
+          "403": {
+            "description": "admin role required"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "create_role_binding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoleBindingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "binding created"
+          },
+          "409": {
+            "description": "duplicate binding"
+          },
+          "422": {
+            "description": "validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/role-bindings/{id}": {
+      "delete": {
+        "tags": [
+          "access"
+        ],
+        "operationId": "delete_role_binding",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "binding id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "binding deleted"
+          },
+          "404": {
+            "description": "not found"
           }
         }
       }
@@ -338,6 +482,69 @@
         }
       }
     },
+    "/api/v1/services/{service_key}/checks": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "list_service_checks",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "check run history"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "operationId": "run_service_check",
+        "parameters": [
+          {
+            "name": "service_key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "check run accepted and executed"
+          },
+          "404": {
+            "description": "unknown service"
+          },
+          "409": {
+            "description": "not active or capability not declared"
+          },
+          "422": {
+            "description": "unknown capability"
+          }
+        }
+      }
+    },
     "/api/v1/services/{service_key}/disable": {
       "post": {
         "tags": [
@@ -444,6 +651,25 @@
           }
         }
       },
+      "CreateRoleBindingRequest": {
+        "type": "object",
+        "required": [
+          "claim_name",
+          "claim_value",
+          "panel_role"
+        ],
+        "properties": {
+          "claim_name": {
+            "type": "string"
+          },
+          "claim_value": {
+            "type": "string"
+          },
+          "panel_role": {
+            "type": "string"
+          }
+        }
+      },
       "CreateServiceRequest": {
         "type": "object",
         "required": [
@@ -489,6 +715,12 @@
           "integration_base_url": {
             "type": "string"
           },
+          "public_ui_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "requested_by": {
             "type": [
               "string",
@@ -496,6 +728,21 @@
             ]
           },
           "service_contract_version": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "password": {
             "type": "string"
           }
         }
@@ -526,10 +773,25 @@
             ]
           }
         }
+      },
+      "RunCheckRequest": {
+        "type": "object",
+        "required": [
+          "capability"
+        ],
+        "properties": {
+          "capability": {
+            "type": "string"
+          }
+        }
       }
     }
   },
   "tags": [
+    {
+      "name": "auth",
+      "description": "Login proxy and caller identity"
+    },
     {
       "name": "health",
       "description": "Liveness/readiness"

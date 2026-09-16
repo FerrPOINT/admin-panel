@@ -207,6 +207,47 @@ Content-Type: application/json
 
 `PATCH` разрешает только поля утвержденной branding schema. Нельзя передавать CSS, HTML, JS, tokens, URL с credentials или произвольные вложенные ключи. Publication изменяет текущий ETag.
 
+### 7.3. Публичный каталог сервисов (v1.1)
+
+| Метод | Путь | Auth | Назначение |
+|---|---|---|---|
+| GET | `/runtime/services` | нет | Каталог `active`-сервисов с approved-декларацией для межпродуктовой навигации. |
+
+Ответ (массив `services`):
+
+```json
+{
+  "services": [
+    {
+      "key": "task-tracker",
+      "label": "Task Tracker",
+      "url": "http://localhost:7721",
+      "ui_url": "http://localhost:7722",
+      "capabilities": ["health.read"],
+      "health": "healthy"
+    },
+    {
+      "key": "java-agent",
+      "label": "Java Agent",
+      "url": "http://localhost:7761",
+      "ui_url": null,
+      "capabilities": ["health.read"],
+      "health": "healthy"
+    }
+  ]
+}
+```
+
+- `ui_url` — `public_ui_url` декларации (ADR-0007), иначе `integration_base_url`,
+  если активная approved-декларация имеет capability `ui.render`; иначе `null`
+  (сервис без UI — навигация не предлагает переход). `public_ui_url` задаёт
+  оператор инсталляции для фасадных URL (например TLS `*.base.localhost:7743`);
+  опционален, валидируется как http(s)-origin без credentials/path.
+- `health` — последний статус фонового health-worker: `healthy` | `unreachable`
+  | `unknown` (нет данных / миграция). Не является realtime-пробом: точность
+  ограничена интервалом worker-а.
+- Поля добавлены в v1.1 поверхительно; потребители v1.0 игнорируют их.
+
 ## 8. Роли панели
 
 | Метод | Путь | Роль | Назначение |
