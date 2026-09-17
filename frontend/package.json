@@ -12,7 +12,7 @@
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings=0 && pnpm lint:semantic",
-    "lint:semantic": "node node_modules/@sdlc/ui/scripts/sdlc-semantic-classes-check.mjs --css src/index.css --src src",
+    "lint:semantic": "node scripts/sdlc-semantic-classes-check.mjs --css src/index.css --src src",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
