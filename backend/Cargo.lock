@@ -84,16 +84,21 @@ name = "admin-panel-server"
 version = "0.1.0"
 dependencies = [
  "admin-panel-api",
+ "admin-panel-domain",
  "admin-panel-infra",
  "admin-panel-shared",
  "axum",
+ "hex",
  "reqwest",
+ "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tokio",
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

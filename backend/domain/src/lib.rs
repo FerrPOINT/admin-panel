@@ -183,6 +183,7 @@ pub const CAPABILITY_CATALOG: &[(&str, &str, &str)] = &[
     ("health.read", "GET", "/health"),
     ("integration.status.read", "GET", "/integration/status"),
     ("branding.runtime.read", "GET", "/branding/contract"),
+    ("ui.render", "GET", "/"),
 ];
 
 pub fn known_capability(key: &str) -> bool {

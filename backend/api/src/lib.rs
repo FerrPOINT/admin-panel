@@ -115,6 +115,7 @@ async fn resolve_local_role(
 pub fn router(state: SharedState) -> Router {
     let public = Router::new()
         .route("/api/v1/auth/login", post(auth_login))
+        .route("/health", get(health_live))
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/api/v1/runtime/branding", get(runtime_branding))
@@ -345,6 +346,19 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
             "contract_version": decl.service_contract_version,
         }));
     }
+    catalog.sort_by_key(|service| {
+        let key = service["key"].as_str().unwrap_or_default();
+        let order = match key {
+            "admin-panel" => 0,
+            "ci-cd" => 1,
+            "task-tracker" => 2,
+            "wiki" => 3,
+            "fleet-control" => 4,
+            "project-workflow" => 5,
+            _ => 100,
+        };
+        (order, key.to_owned())
+    });
     let etag = format!("\"services-v{max_version}-{}\"", catalog.len());
     if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok())
         && if_none_match == etag
