@@ -151,7 +151,7 @@ Publication меняет только управляемый versioned document.
 
 ### Mobile evidence
 
-<img src="docs/screenshots/m-services.png" alt="Каталог сервисов на мобильном" width="44%" align="left" /> <img src="docs/screenshots/m-role-bindings.png" alt="Привязки ролей на мобильном" width="44%" align="left" />
+<img src="docs/screenshots/m-services.png" alt="Каталог сервисов на мобильном" width="48%" align="left" /> <img src="docs/screenshots/m-role-bindings.png" alt="Привязки ролей на мобильном" width="48%" align="right" />
 
 Mobile viewport — `375×812`: sidebar collapses to a menu and service registry switches to touch-friendly cards. Role-binding data remains intentionally compact on narrow screens; full comparison stays available on desktop.
 
