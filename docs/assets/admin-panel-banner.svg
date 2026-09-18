@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="420" viewBox="0 0 1600 420" role="img" aria-labelledby="title desc">
+  <title id="title">Base Command Center</title>
+  <desc id="desc">Admin Panel for Base branding, service registry, role bindings and audit.</desc>
+  <defs>
+    <linearGradient id="backdrop" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#07152F"/>
+      <stop offset="0.52" stop-color="#102E71"/>
+      <stop offset="1" stop-color="#1664C0"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" x2="1">
+      <stop offset="0" stop-color="#71C7FF" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#C2E6FF"/>
+      <stop offset="1" stop-color="#71C7FF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1600" height="420" fill="url(#backdrop)"/>
+  <g fill="none" stroke="#81CFFF" stroke-opacity="0.16">
+    <path d="M0 76H1600M0 164H1600M0 252H1600M0 340H1600"/>
+    <path d="M115 0V420M335 0V420M555 0V420M775 0V420M995 0V420M1215 0V420M1435 0V420"/>
+  </g>
+  <g fill="none" stroke="#86CFFF" stroke-width="2">
+    <path d="M110 298L328 210L532 260L750 136L950 199L1180 94L1435 158" stroke-opacity="0.5"/>
+    <path d="M110 298L328 210L532 260L750 136L950 199L1180 94L1435 158" stroke="url(#line)" filter="url(#glow)"/>
+  </g>
+  <g fill="#0C2B65" stroke="#C2E6FF" stroke-width="3">
+    <circle cx="110" cy="298" r="13"/>
+    <circle cx="328" cy="210" r="13"/>
+    <circle cx="532" cy="260" r="13"/>
+    <circle cx="750" cy="136" r="13"/>
+    <circle cx="950" cy="199" r="13"/>
+    <circle cx="1180" cy="94" r="13"/>
+    <circle cx="1435" cy="158" r="13"/>
+  </g>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#D4EEFF" letter-spacing="1.8">
+    <text x="72" y="338">BRANDING</text>
+    <text x="278" y="186">REGISTRY</text>
+    <text x="472" y="300">AUDIT</text>
+    <text x="698" y="112">RUNTIME</text>
+    <text x="890" y="238">RBAC</text>
+    <text x="1108" y="70">CONTRACTS</text>
+    <text x="1358" y="199">BASE</text>
+  </g>
+  <rect x="80" y="58" width="800" height="122" rx="14" fill="#071D4B" fill-opacity="0.8" stroke="#9BD9FF" stroke-opacity="0.3"/>
+  <text x="118" y="110" fill="#F5FBFF" font-family="Georgia, serif" font-size="48" font-weight="700">Base Command Center</text>
+  <text x="121" y="148" fill="#B3E1FF" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" letter-spacing="1.1">BRANDING · SERVICE REGISTRY · ROLE BINDINGS · AUDIT</text>
+</svg>

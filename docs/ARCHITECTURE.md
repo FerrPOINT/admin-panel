@@ -1,4 +1,4 @@
-# Архитектура SDLC Admin Panel
+# Архитектура Base Admin Panel
 
 ## 1. Контекст
 
@@ -129,8 +129,8 @@ PostgreSQL Admin Panel — единственный источник правд�
 
 ## 10. Решения v1
 
-- Прямой REST API и PostgreSQL; stack конкретизируется до реализации, но контракт и порты фиксированы уже сейчас.
-- OpenAPI становится машинным источником правды после появления backend; `docs/API.md` фиксирует продуктовый контракт до этого.
+- Прямой REST API и PostgreSQL реализованы в Rust/Axum + SQLx; порты API `7771`, web `7772` и PostgreSQL `7773` фиксированы для local Compose и Base umbrella.
+- `openapi/openapi.json` — машинный источник правды, генерируемый из backend handlers; CI выявляет drift спецификации. `docs/API.md` — операторская карта текущего контракта.
 - CDN/gateway, multi-region replication, remote configuration произвольных полей, push branding и синхронизация в auth-server не входят в v1.
 
 ## References

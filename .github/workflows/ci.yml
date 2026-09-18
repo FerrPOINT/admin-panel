@@ -7,6 +7,16 @@ on:
     branches: [main]
 
 jobs:
+  readme:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: README validator tests
+        run: python3 -m unittest scripts.tests.test_verify_readme
+      - name: README structural validation
+        run: python3 scripts/verify_readme.py
+
   backend:
     # Dependabot runs do not receive repository secrets, so the
     # services-base checkout token is unavailable — skip full builds there.

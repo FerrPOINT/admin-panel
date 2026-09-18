@@ -1,282 +1,87 @@
-# API v1: SDLC Admin Panel
+# API v1: Base Admin Panel
 
-## 1. Общие правила
+`openapi/openapi.json` — машиночитаемый контракт, генерируемый из Rust handlers. CI сравнивает свежую генерацию с committed file; этот документ — операторская карта, а не дублирующая схема.
 
-- Base URL: `https://{admin-api-origin}/api/v1` (runtime порт umbrella: `7771`).
-- Формат: `application/json; charset=utf-8`.
-- Версионирование: path-based `/api/v1`.
-- Machine-readable source of truth после реализации: OpenAPI, генерируемая из backend DTO/handlers. До реализации этот документ — целевой контракт.
-- Все timestamps — RFC 3339 UTC; идентификаторы — UUID.
-- Ответы списков ограничены и детерминированно сортированы; по умолчанию `limit=50`, максимум `100`.
+## Базовые адреса
 
-## 2. Аутентификация
-
-Защищенные endpoints требуют:
-
-```http
-Authorization: Bearer {access-jwt}
-```
-
-JWT выпускается существующим central auth на `7701`, подписывается ES256 и проверяется через JWKS. Admin Panel не имеет `/login`, `/refresh`, `/logout`, `/register`, endpoint выдачи токена или storage auth-сервера.
-
-Runtime branding endpoint предназначен для прямого чтения потребителями и в v1 не требует пользовательского bearer token. Его доступность ограничивается origin/network policy deployment-а, а не gateway/CDN.
-
-## 3. Общие ошибки
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Значение не прошло проверку",
-    "request_id": "uuid",
-    "details": [{"field": "service_key", "reason": "invalid_format"}]
-  }
-}
-```
-
-| HTTP | Код | Когда |
+| Развёртывание | API | Web |
 |---|---|---|
-| 400 | `BAD_REQUEST` | Некорректный синтаксис запроса. |
-| 401 | `UNAUTHENTICATED` | Нет/невалиден JWT или JWKS validation не пройдена. |
-| 403 | `FORBIDDEN` | Недостаточна роль панели. |
-| 404 | `NOT_FOUND` | Ресурс не существует или скрыт политикой доступа. |
-| 409 | `CONFLICT` | Дубликат ключа или недопустимый переход состояния. |
-| 412 | `PRECONDITION_FAILED` | Не совпал `If-Match`/ETag текущего ресурса. |
-| 422 | `VALIDATION_ERROR` | Семантически невалидные fields/capabilities. |
-| 429 | `RATE_LIMITED` | Превышен лимит. |
-| 502 | `INTEGRATION_UNAVAILABLE` | Утвержденный endpoint не ответил корректно. |
-| 504 | `INTEGRATION_TIMEOUT` | Истек ограниченный timeout проверки. |
+| Base umbrella | `http://127.0.0.1:7771` | `http://127.0.0.1:7772` |
+| Repository Compose | `http://127.0.0.1:7771` | `http://127.0.0.1:7772` |
 
-Тела ошибок не включают bearer token, секреты, стек, полный внешний URL с параметрами, payload или заголовки интегрируемого сервиса.
+Все versioned endpoints имеют префикс `/api/v1` и используют JSON.
 
-## 4. Health
+## Модель доступа
 
-| Метод | Путь | Auth | Назначение |
-|---|---|---|---|
-| GET | `/health/live` | нет | Процесс жив. |
-| GET | `/health/ready` | нет | Собственная БД и миграции готовы. |
+| Класс | Аутентификация | Фактическая policy |
+|---|---|---|
+| Health | Нет | `GET /health/live`, `GET /health/ready` |
+| Public runtime | Нет | Только safe published branding и active catalog |
+| Session | ES256 bearer через configured central JWKS | `GET /auth/me` |
+| Operator API | ES256 bearer и `platform_operator` либо `platform_admin` | Registry, branding revisions, checks и audit |
+| Admin API | ES256 bearer и `platform_admin` | Role bindings |
 
-Readiness не зависит от доступности сервисов реестра и не делает внешний запрос.
+`POST /auth/login` проксирует credentials в central auth и возвращает session response только после успешной validation token. Панель не хранит credentials, не выпускает tokens и не имеет refresh/logout endpoints.
 
-## 5. Реестр сервисов
+Неизвестная или отсутствующая central role отображается в least-privilege `platform_viewer`. Local role binding может повысить verified `user_id`, `email` или `role` claim только для этой панели; он не меняет central identity или policy продуктового сервиса.
 
-### 5.1. Список и карточка
+## Маршруты
 
-| Метод | Путь | Роль | Назначение |
-|---|---|---|---|
-| GET | `/services` | viewer+ | Список реестра. |
-| GET | `/services/{service_key}` | viewer+ | Текущая карточка и активная декларация. |
-| POST | `/services` | operator+ | Создать pending запись и первую декларацию. |
-| PATCH | `/services/{service_key}` | operator+ | Изменить только display metadata/owner, с `If-Match`. |
-| POST | `/services/{service_key}/declarations` | operator+ | Подать новую pending декларацию. |
-| POST | `/services/{service_key}/approve` | admin | Одобрить указанную pending декларацию. |
-| POST | `/services/{service_key}/disable` | admin | Отключить интеграцию. |
-| POST | `/services/{service_key}/retire` | admin | Вывести интеграцию из эксплуатации. |
-| POST | `/services/{service_key}/checks` | operator+ | Запустить read-only проверку разрешенной capability. |
-| GET | `/services/{service_key}/checks` | viewer+ | История проверок. |
+### Health и runtime
 
-`GET /services` поддерживает `status`, `owner_team`, `cursor`, `limit`. Сортировка: `updated_at DESC, service_key ASC`.
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET` | `/health/live` | Liveness процесса. |
+| `GET` | `/health/ready` | Readiness собственной database и migrations. |
+| `GET` | `/api/v1/runtime/branding` | Published safe branding document; поддерживает `If-None-Match`, возвращает ETag и `Cache-Control`. |
+| `GET` | `/api/v1/runtime/services` | Active services с approved declarations для navigation. |
 
-### 5.2. Создание сервиса
+Runtime endpoints не содержат credentials, private integration configuration или audit history. Если branding revision не опубликована, branding отвечает documented not-found error, а consumers сохраняют свои defaults.
 
-```http
-POST /api/v1/services
-If-Match: "registry-empty-v1"
-```
+### Session
 
-```json
-{
-  "service_key": "task-tracker",
-  "display_name": "Task Tracker",
-  "owner_team": "platform",
-  "declaration": {
-    "declaration_version": 1,
-    "integration_base_url": "https://service.example.internal",
-    "service_contract_version": "1",
-    "capabilities": ["health.read", "integration.status.read"]
-  }
-}
-```
+| Метод | Путь | Назначение |
+|---|---|---|
+| `POST` | `/api/v1/auth/login` | Проксировать credentials в central auth и вернуть validated panel session. |
+| `GET` | `/api/v1/auth/me` | Вернуть validated subject, effective panel role и UI capabilities. |
 
-Ответ `201` возвращает `service`, `declaration` со статусом `pending`, ETag карточки и `Location`. Пример не является реальным endpoint или конфигурацией.
+### Registry, branding и audit
 
-Поле `integration_base_url`: HTTPS origin без credentials, query, fragment и path. Разрешенность host/network проверяется сервером. Пользователь не передает endpoint конкретной проверки и не передает HTTP method.
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET`, `POST` | `/api/v1/services` | Получить список или создать registry entry. |
+| `GET`, `PATCH` | `/api/v1/services/{service_key}` | Прочитать или изменить разрешённые entry metadata. |
+| `POST` | `/api/v1/services/{service_key}/approve` | Одобрить pending declaration. |
+| `POST` | `/api/v1/services/{service_key}/disable` | Отключить service entry. |
+| `POST` | `/api/v1/services/{service_key}/retire` | Retire service entry. |
+| `GET`, `POST` | `/api/v1/services/{service_key}/checks` | Прочитать или запустить bounded declared-capability check. |
+| `GET`, `POST` | `/api/v1/branding/revisions` | Получить revisions или создать draft. |
+| `POST` | `/api/v1/branding/revisions/{revision}/publish` | Опубликовать draft revision. |
+| `POST` | `/api/v1/branding/revisions/{revision}/withdraw` | Withdraw revision. |
+| `GET` | `/api/v1/audit-events` | Прочитать sanitised append-only audit events для covered actions. |
 
-### 5.3. Формат декларации
+Covered actions: `service.approved`, `service.checked`, `branding.published` и `branding.withdrawn`. Registry create/update/status и role-binding mutations пока не создают complete audit evidence; это known closure gap, а не обещание API.
 
-```json
-{
-  "id": "uuid",
-  "declaration_version": 1,
-  "service_contract_version": "1",
-  "integration_base_url": "https://service.example.internal",
-  "capabilities": ["health.read"],
-  "approval_status": "pending",
-  "declared_at": "2026-09-04T00:00:00Z"
-}
-```
+### Role bindings
 
-Новые endpoint/capabilities передаются только новой декларацией. `PATCH /services/{service_key}` не способен менять `integration_base_url`, capability или статус одобрения.
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET`, `POST` | `/api/v1/role-bindings` | Прочитать или создать local claim-to-panel-role binding. |
+| `DELETE` | `/api/v1/role-bindings/{id}` | Удалить local binding. |
 
-### 5.4. Одобрение
+Разрешены только claims `user_id`, `email` и `role`. Допустимые local panel roles: `platform_viewer`, `platform_operator`, `platform_admin`.
 
-```http
-POST /api/v1/services/task-tracker/approve
-If-Match: "service-etag"
-```
+## Ошибки
 
-```json
-{ "declaration_id": "uuid" }
-```
+API возвращает structured JSON errors. Типовые результаты: `401` для отсутствующего/невалидного bearer token, `403` для недостаточной panel role, `404` для отсутствующего resource, `409` для invalid state/conflict и `412` для stale optimistic-concurrency precondition. Error responses исключают bearer tokens, passwords, private signing material и external response bodies.
 
-Успех `200`: указанная декларация получает `approved`, активная ревизия записи обновляется, запись становится `active`, создается audit event. Если декларация не `pending`, ответ `409`.
+## Граница интеграций
 
-### 5.5. Проверка интеграции
-
-```http
-POST /api/v1/services/task-tracker/checks
-```
-
-```json
-{ "capability": "health.read" }
-```
-
-Проверка доступна только для `active` записи и capability активной approved декларации. Сервер строит request из локального capability catalog и `integration_base_url`; body, headers, query, path или method от клиента не принимаются. Результат `202` возвращает check run; клиент получает итог через `GET /services/{service_key}/checks`.
-
-## 6. Capability catalog
-
-| Метод | Путь | Роль | Назначение |
-|---|---|---|---|
-| GET | `/capabilities` | viewer+ | Список разрешенных capabilities. |
-
-Catalog в v1 read-only. Изменение набора capabilities выполняется вместе с выпуском API/безопасностного контракта, не через generic CRUD.
-
-## 7. Runtime branding
-
-### 7.1. Получение опубликованного документа
-
-| Метод | Путь | Auth | Назначение |
-|---|---|---|---|
-| GET | `/runtime/branding` | нет | Прямое чтение текущего опубликованного бренда потребителями. |
-
-Headers запроса:
-
-```http
-If-None-Match: "branding-r42-hash"
-```
-
-Успешный ответ:
-
-```http
-HTTP/1.1 200 OK
-ETag: "branding-r42-hash"
-Cache-Control: public, max-age=60, must-revalidate
-Vary: Origin
-Content-Type: application/json
-```
-
-```json
-{
-  "revision": 42,
-  "updated_at": "2026-09-04T00:00:00Z",
-  "branding": {
-    "product_name": "SDLC",
-    "product_short_name": "SDLC",
-    "logo_url": "https://public.example/logo.svg",
-    "favicon_url": "https://public.example/favicon.ico",
-    "support_url": "https://public.example/support",
-    "primary_color": "#123456",
-    "accent_color": "#234567",
-    "surface_color": "#f5f5f0"
-  }
-}
-```
-
-При совпадающем ETag — `304 Not Modified` с `ETag` и `Cache-Control`, без тела. Если опубликованной revision нет, API возвращает `404 BRANDING_NOT_PUBLISHED`; потребитель применяет свои дефолты. Не используется CDN, gateway, redirect или webhook.
-
-### 7.2. Администрирование бренда
-
-| Метод | Путь | Роль | Назначение |
-|---|---|---|---|
-| GET | `/branding/revisions` | viewer+ | Список ревизий. |
-| GET | `/branding/revisions/{revision}` | viewer+ | Конкретная ревизия. |
-| POST | `/branding/revisions` | operator+ | Создать draft. |
-| PATCH | `/branding/revisions/{revision}` | operator+ | Изменить draft с `If-Match`. |
-| POST | `/branding/revisions/{revision}/publish` | admin | Атомарно опубликовать draft. |
-| POST | `/branding/revisions/{revision}/clone` | operator+ | Создать draft-копию для controlled rollback. |
-
-`PATCH` разрешает только поля утвержденной branding schema. Нельзя передавать CSS, HTML, JS, tokens, URL с credentials или произвольные вложенные ключи. Publication изменяет текущий ETag.
-
-### 7.3. Публичный каталог сервисов (v1.1)
-
-| Метод | Путь | Auth | Назначение |
-|---|---|---|---|
-| GET | `/runtime/services` | нет | Каталог `active`-сервисов с approved-декларацией для межпродуктовой навигации. |
-
-Ответ (массив `services`):
-
-```json
-{
-  "services": [
-    {
-      "key": "task-tracker",
-      "label": "Task Tracker",
-      "url": "http://localhost:7721",
-      "ui_url": "http://localhost:7722",
-      "capabilities": ["health.read"],
-      "health": "healthy"
-    },
-    {
-      "key": "java-agent",
-      "label": "Java Agent",
-      "url": "http://localhost:7761",
-      "ui_url": null,
-      "capabilities": ["health.read"],
-      "health": "healthy"
-    }
-  ]
-}
-```
-
-- `ui_url` — `public_ui_url` декларации (ADR-0007), иначе `integration_base_url`,
-  если активная approved-декларация имеет capability `ui.render`; иначе `null`
-  (сервис без UI — навигация не предлагает переход). `public_ui_url` задаёт
-  оператор инсталляции для фасадных URL (например TLS `*.base.localhost:7743`);
-  опционален, валидируется как http(s)-origin без credentials/path.
-- `health` — последний статус фонового health-worker: `healthy` | `unreachable`
-  | `unknown` (нет данных / миграция). Не является realtime-пробом: точность
-  ограничена интервалом worker-а.
-- Поля добавлены в v1.1 поверхительно; потребители v1.0 игнорируют их.
-
-## 8. Роли панели
-
-| Метод | Путь | Роль | Назначение |
-|---|---|---|---|
-| GET | `/access/role-bindings` | admin | Список mappings claims -> panel role. |
-| POST | `/access/role-bindings` | admin | Создать mapping. |
-| DELETE | `/access/role-bindings/{id}` | admin | Удалить mapping. |
-
-Запрос принимает только `claim_name`, `claim_value`, `panel_role`. Он не создает пользователя, не меняет central auth и не принимает `sub` как индивидуальную замену централизованной группы без отдельной policy.
-
-## 9. Аудит
-
-| Метод | Путь | Роль | Назначение |
-|---|---|---|---|
-| GET | `/audit-events` | viewer+ | Фильтруемый неизменяемый след. |
-
-Query: `actor_subject`, `action`, `entity_type`, `entity_id`, `from`, `to`, `cursor`, `limit`. Ответ не содержит чувствительные `metadata`; они предварительно санитизируются при записи.
-
-## 10. Идемпотентность и конкуренция
-
-- `POST /services`, создание declaration, draft и role binding принимает `Idempotency-Key` UUID; повтор с тем же ключом и payload возвращает исходный результат.
-- Конкурентно изменяемые ресурсы возвращают ETag в `GET`/mutation response.
-- `PATCH`, approve, disable, retire и publish требуют `If-Match`. Отсутствующий/старый precondition дает `428`/`412` соответственно.
-- Внутренние background retries v1 отсутствуют; клиент повторяет только безопасные GET либо POST с тем же idempotency key.
+Registry check — не generic remote request. Caller указывает allowed capability, а server code выводит method и fixed route из local catalog и проверяет только active approved declaration. Arbitrary remote URL, method, path, headers и body не являются API surface.
 
 ## References
 
-- `docs/TZ.md`
-- `docs/ARCHITECTURE.md`
-- `docs/DATA_MODEL.md`
-- `docs/SECURITY.md`
-- `docs/RUNTIME.md`
+- [OpenAPI 3.1](../openapi/openapi.json)
+- [Architecture](ARCHITECTURE.md)
+- [Security](SECURITY.md)
+- [Runtime](RUNTIME.md)

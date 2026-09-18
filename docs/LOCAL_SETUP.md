@@ -2,76 +2,103 @@
 
 ## Назначение
 
-Этот документ описывает целевую локальную топологию. Точные команды, имена пакетов и переменных добавляются после выбора стека; до реализации не следует придумывать конфигурационные файлы или значения секретов.
+Этот документ описывает текущую локальную топологию Admin Panel. Репозиторий содержит Rust API, React frontend и PostgreSQL; central auth на `7701` остаётся внешней зависимостью identity/JWKS.
 
-## Локальные компоненты
+## Топология
 
-| Компонент | Адрес | Роль |
-| --- | --- | --- |
-| API Admin Panel | `http://localhost:7771` | Admin API, runtime API, health |
-| Frontend Admin Panel | `http://localhost:7772` | интерфейс администратора |
-| PostgreSQL | `localhost:7773` | локальное хранилище панели |
-| Central auth | `http://localhost:7701` | внешний identity/roles provider |
+| Компонент | Repository Compose | Base umbrella | Роль |
+|---|---|---|---|
+| API Admin Panel | `http://127.0.0.1:7771` | `http://127.0.0.1:7771` | Admin API, runtime APIs, health |
+| Frontend Admin Panel | `http://127.0.0.1:7772` | `http://127.0.0.1:7772` | Administrative web UI |
+| PostgreSQL | `127.0.0.1:7773` | `127.0.0.1:7773` | Admin-owned persistence |
+| Central auth | `http://127.0.0.1:7701` | `http://127.0.0.1:7701` | External identity, ES256 issuer and JWKS |
 
-Если `7701` недоступен локально, разрешается использовать только явный development adapter с тестовыми пользователями и ролями. Он не должен быть включаемым в production и не имитирует доступ к реальному central auth.
+PostgreSQL is loopback-bound. Do not expose it on a public interface merely to make browser testing easier.
 
-## Предварительные требования
+## Prerequisites
 
-- Поддерживаемая версия runtime и пакетного менеджера, выбранные проектом.
-- Локальный PostgreSQL или контейнер БД, привязанный к `7773`.
-- Изолированная development-база, не production dump.
-- Доступный central auth или разрешенный тестовый adapter.
-- Тестовые значения секретов только в локальном защищенном окружении; они не вносятся в конфигурационные версии, fixtures или документацию.
+- Docker Engine with Compose v2.
+- A local checkout of `services-base` adjacent to `admin-panel`; backend and frontend use its shared contracts.
+- Private deployment values for database connection and central-auth integration. They belong in an ignored environment file or deployment secret store, never in Git.
+- A central auth server when testing authenticated flows. Public readiness and runtime endpoints can still be smoke-tested without a browser login.
 
-## Последовательность запуска
+## Repository Compose
 
-1. Получить исходный код и проверить, что рабочее дерево соответствует нужной ветке.
-2. Создать локальные переменные окружения из будущего шаблона без добавления файла с секретами в Git.
-3. Запустить PostgreSQL на `7773`, создать development-базу и применить миграции.
-4. Запустить API на `7771`; убедиться, что live/readiness endpoints дают ожидаемый ответ.
-5. Подключить central auth `7701` или включить только development adapter.
-6. Запустить frontend на `7772` с адресом API `7771`.
-7. Открыть UI, войти тестовой ролью и выполнить smoke-проверку.
+1. Create a local `.env` from `.env.example` and replace example-only values outside Git.
+2. Start the owned stack:
 
-## Минимальная smoke-проверка
+```bash
+docker compose -f docker-compose.dev.yml up -d --build
+```
 
-- API сообщает readiness только при доступной БД и проверяемой конфигурации auth.
-- Reader открывает обзор, версии и здоровье, но не публикует.
-- Editor сохраняет черновик без публикации.
-- Runtime API возвращает опубликованную версию и ETag.
-- Запрос с этим ETag получает `304`.
-- Тестовая интеграция показывает безопасный статус без секретов.
+3. Verify containers and endpoints:
 
-## Тестовые данные
+```bash
+docker compose -f docker-compose.dev.yml ps
+curl --fail http://127.0.0.1:7771/health/live
+curl --fail http://127.0.0.1:7771/health/ready
+curl --fail http://127.0.0.1:7772/
+```
 
-Локальный seed должен содержать: опубликованную конфигурацию, черновик, один сервис с успешной и один с проблемной health-проверкой, а также пользователей ролей reader/editor/publisher/administrator. Seed не содержит реальных URL, персональных данных, ключей или production токенов.
+The development web container proxies `/api/v1/` to `admin-api:7771`; browser requests therefore stay same-origin at `7772`.
 
-## Частые проблемы
+## Base Umbrella
 
-| Симптом | Проверка | Безопасное действие |
-| --- | --- | --- |
-| `7771` занят | определить локальный процесс-владелец | не останавливать чужой процесс без подтверждения; выбрать свободный порт только для локального запуска |
-| API не ready | доступность БД, миграции, adapter auth | исправить локальную зависимость, не отключать readiness-проверки |
-| `401/403` | issuer/audience и роли тестового пользователя | сверить контракт auth, не подменять роль в UI |
-| Конфигурация не меняется | статус черновика, опубликованная версия, ETag | убедиться, что опубликована новая версия и клиент повторно запросил API |
-| Ошибка интеграции | зарегистрированный health endpoint и timeout | диагностировать только данные реестра; не добавлять секрет в конфигурацию |
+From the Base workspace root, start only the Admin Panel application services:
 
-## Очистка
+```bash
+docker compose -f docker-compose.local.yml up -d --build admin-api admin-web
+curl --fail http://127.0.0.1:7771/health/ready
+curl --fail http://127.0.0.1:7772/
+```
 
-Перед удалением локальной БД остановить процессы и убедиться, что адрес относится к development-среде. Удаление данных, контейнеров или томов выполняется осознанно и никогда не направляется на shared/staging/production окружение.
+The umbrella injects central JWKS configuration over the private auth network. It does not make Admin Panel responsible for central credentials or signing keys.
 
-## Переменные окружения
+## Environment Contract
 
-Шаблон — `.env.example` в корне репозитория. Ключевые переменные:
+| Variable | Purpose | Sensitivity |
+|---|---|---|
+| `ADMINP_DATABASE_URL` | Admin-owned PostgreSQL DSN | Secret |
+| `ADMINP_BIND_ADDRESS`, `ADMINP_BIND_PORT` | API listener | Non-secret |
+| `ADMINP_MIGRATIONS_DIR` | SQLx migration path in the API image | Non-secret |
+| `ADMINP_CORS_ALLOWED_ORIGINS` | Explicit consumer-origin allowlist | Deployment policy |
+| `ADMINP_AUTH_JWKS_URI` | Trusted central-auth public JWKS URI | Deployment policy |
+| `ADMINP_AUTH_ISSUER` | Expected central access-token issuer | Deployment policy |
+| `ADMINP_AUTH_AUDIENCE` | Expected token audience; default `sdlc` | Deployment policy |
+| `VITE_API_BASE_URL` | Optional frontend API base URL | Non-secret build setting |
+| `VITE_PLATFORM_BRANDING_URL` | Runtime branding source for the shared provider | Non-secret build setting |
+| `VITE_PLATFORM_SERVICES_URL` | Runtime catalog source for the shared provider | Non-secret build setting |
 
-| Переменная | Назначение |
+The application reads `ADMINP_AUTH_JWKS_URI` and `ADMINP_AUTH_ISSUER` at the server boundary. `ADMINP_AUTH__CENTRAL_*` values are used by the shared central-auth bridge configuration where supplied by deployment; keep both naming surfaces consistent with the selected deployment contract rather than inventing a third variable family.
+
+## Smoke Matrix
+
+| Scenario | Expected result |
 |---|---|
-| `ADMINP_POSTGRES_PASSWORD` | пароль PostgreSQL (секрет) |
-| `ADMINP_DATABASE_URL` | DSN до `adminpanel` |
-| `ADMINP_BIND_ADDRESS/PORT` | адрес API (по умолчанию `0.0.0.0:7771`) |
-| `ADMINP_CORS_ALLOWED_ORIGINS` | allowlist origin-ов продуктов |
-| `ADMINP_AUTH__CENTRAL_JWKS_URI` | JWKS auth-server (7701) для проверки bearer |
-| `ADMINP_AUTH__CENTRAL_ISSUER` | ожидаемый `iss` central-токена |
-| `VITE_PLATFORM_BRANDING_URL` | runtime-брендинг для сборки фронта |
-| `VITE_PLATFORM_SERVICES_URL` | runtime-каталог сервисов для фронта |
+| API liveness | `GET /health/live` returns `200`. |
+| API readiness | `GET /health/ready` returns `200` only after owned DB and migrations are ready. |
+| Web shell | `GET /` on `7772` returns the SPA shell. |
+| Runtime branding | Published branding returns ETag and cache policy; no published revision returns a documented safe error. |
+| Runtime services | Only active services with approved declaration appear. |
+| Auth | Invalid/missing bearer fails closed; unknown role maps to viewer. |
+| Role binding | Only panel admin can create/delete local bindings. |
 
+## Troubleshooting
+
+| Symptom | Check | Safe action |
+|---|---|---|
+| `7771` or `7772` occupied | Identify the owning local container/process | Do not stop a process you do not own; resolve the intended Compose stack first. |
+| Readiness fails | `docker compose ... ps`, migration logs and Admin PostgreSQL health | Repair the owned dependency; do not disable readiness. |
+| `401` / `403` | Token issuer/audience, JWKS reachability and effective panel role | Fix central-auth configuration or binding policy; never bypass middleware in UI. |
+| Runtime branding unavailable | Published revision and API health | Consumer keeps local defaults; do not make frontend startup depend on the runtime endpoint. |
+| Integration check fails | Approved declaration state and allowlisted capability | Inspect registry metadata; do not add arbitrary remote URLs or credentials. |
+
+## Cleanup
+
+Stop only the stack you started and retain volumes unless an intentional local-data reset is required:
+
+```bash
+docker compose -f docker-compose.dev.yml down
+```
+
+Removing volumes deletes local Admin Panel state. Confirm the target is development-only before running any volume-destructive command.

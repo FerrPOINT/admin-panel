@@ -1,107 +1,49 @@
-# Маршрутизация SDLC Admin Panel
+# Маршрутизация Base Admin Panel
 
-## 1. Статус документа
+## Статус документа
 
-Это план маршрутов до UI-кода. Каждый маршрут P0 должен получить отдельный текстовый сценарий, wireframe и явное согласование до реализации. Появление маршрута в таблице не является разрешением создавать страницу без этого этапа.
+Документ описывает текущие browser routes и их security boundaries. Маршрут не является разрешением расширять API или создавать remote-control flow: changes проходят review вместе с route-level state, authorization и browser coverage.
 
-## 2. Группы маршрутов
+## Группы маршрутов
 
 | Группа | Auth | Layout | Поведение |
 |---|---|---|---|
-| Public auth handoff | Нет локальной auth-формы | Минимальный | Редирект к центральному auth или отображение безопасной ошибки callback. |
-| Protected app | ES256 JWT + роль панели | `AdminShell` | Основные административные страницы. |
-| Forbidden | JWT есть, роли недостаточно | Минимальный | Объяснение без раскрытия policy internals. |
-| Not found | Любой | Минимальный | 404, без redirect в защищенные данные. |
+| Login | Public | Minimal | Отправляет credentials только в Admin API proxy; token не попадает в URL или persistent browser storage. |
+| Protected app | ES256 JWT и panel role | `AdminShell` | Основные administrative pages. |
+| Forbidden | Authenticated, insufficient role | Minimal | Safe 403 explanation without claims/policy internals. |
+| Not found | Any | Minimal | 404 without redirect into protected data. |
 
-## 3. План страниц P0
+## Текущие страницы
 
-| Route | Роль | Назначение | Данные | Разрешенные действия | Не должен делать |
-|---|---|---|---|---|---|
-| `/login` | public | Начать central-auth flow. | Состояние redirect/error. | `Sign in` redirect. | Локальный пароль, register, refresh. |
-| `/auth/callback` | public | Принять результат внешнего auth flow на web-клиенте. | Только transient result. | Завершить memory session/redirect. | Логировать token в URL/UI. |
-| `/` | viewer+ | Обзор control plane. | Количество сервисов, current branding revision, последние audit events. | Переходы к деталям. | Управлять внешними сервисами. |
-| `/services` | viewer+ | Список registry. | `GET /services`; status/owner filters. | Фильтр, перейти в карточку; operator может открыть declaration flow. | Редактировать arbitrary endpoint inline. |
-| `/services/new` | operator+ | Подать новую service/declaration. | Capability catalog. | Создать pending declaration с confirmation. | Активировать без admin approval. |
-| `/services/:serviceKey` | viewer+ | Карточка сервиса и его границы. | Запись, approved/pending declarations, check history, audit. | Operator: новая declaration/check; admin: approve/disable/retire. | Предметный CRUD сервиса или raw HTTP console. |
-| `/branding` | viewer+ | Текущий бренд и revisions. | Published document, revision list. | Operator: create draft; admin: publish. | Вставлять CSS/JS/HTML. |
-| `/branding/revisions/:revision` | viewer+ | Детали revision/draft. | Schema-validated document, ETag, audit. | Operator: edit draft; admin: publish. | Изменять published revision in place. |
-| `/audit` | viewer+ | Audit trail. | `GET /audit-events` с bounded filters. | Фильтры, пагинация, переход к entity. | Delete/edit audit row. |
-| `/access` | admin | Матрица claim-to-role панели. | Role bindings. | Create/remove mapping с confirmation. | Создавать auth users или менять auth storage. |
-| `/forbidden` | authenticated | Понятный 403 state. | Требуемая общая роль. | Вернуться в доступный раздел/выйти. | Раскрывать claims/внутренние policy. |
-| `*` | any | Not found. | Нет. | На главную только по явному действию. | Автоматически перенаправлять к защищенному dashboard. |
+| Route | Access | Назначение | Разрешённые действия | Не делает |
+|---|---|---|---|---|
+| `/login` | Public | Вход через central auth proxy | Submit credentials to `/api/v1/auth/login` | Local password store, registration, refresh flow |
+| `/` | Viewer+ | Control-plane overview | Переходы к доступным разделам | Управление внешними сервисами |
+| `/branding` | Viewer+ | Published branding и revisions | Operator creates drafts; operator publishes under current API policy | Arbitrary CSS/JS/HTML |
+| `/services` | Viewer+ | Service registry | Operator creates and updates declarations | Inline arbitrary endpoint edit |
+| `/services/:serviceKey` | Viewer+ | Service declaration and checks | Operator runs allowed check; operator approves/disables/retires under current API policy | Raw HTTP console or product CRUD |
+| `/audit` | Viewer+ | Append-only audit trail | Filter and inspect sanitised records | Edit/delete audit row |
+| `/runtime` | Viewer+ | Runtime branding/catalog observability | Read current safe projections | Modify product runtime |
+| `/settings` | Viewer+ | Local panel settings view | Read supported UI settings | Edit central auth identity |
+| `/role-bindings` | Admin | Local verified-claim-to-panel-role bindings | Create/remove binding | Create central auth users or change auth storage |
+| `*` | Any | Not found | Explicit navigation back | Automatic redirect to protected overview |
 
-## 4. Предварительные UX-сценарии
+## Responsive behavior
 
-### 4.1. Обзор `/`
+Desktop displays the persistent sidebar and dense operational tables. At `375×812`, navigation collapses behind the menu and service registry switches to cards; role-binding data remains deliberately compact. Responsive evidence is maintained in `docs/screenshots/m-services.png` and `docs/screenshots/m-role-bindings.png` with personal identifiers and exact operational timestamps redacted.
 
-- Цель: оператор видит границы панели и состояние только тех сущностей, на которые имеет право просмотра.
-- Блоки: сервисы по статусу, опубликованный брендинг revision/время, последние audit events, понятное состояние пустой установки.
-- Error/loading: skeleton, retry для локального API; отсутствие/ошибка auth ведет к login/forbidden, не к ложному "нет данных".
-- Mobile: карточки становятся одной колонкой; таблица аудита не является обязательной на overview.
+## Route guard rules
 
-### 4.2. Реестр `/services` и карточка
-
-- Список: `service_key`, display name, owner team, status, declaration revision, last check outcome/time; запрещены endpoint с credentials и полный внешний diagnostics payload.
-- Карточка: отдельные секции "Декларация", "Разрешенные возможности", "Проверки", "Аудит", "Danger zone".
-- Mutation: перед approve/disable/retire обязательно confirmation с объяснением, что действие меняет лишь состояние реестра и не отправляет удаленную команду.
-- Empty: "сервисов нет" и кнопка declaration доступна только operator+.
-
-### 4.3. Брендинг `/branding`
-
-- Представление current published configuration и revision history без remote image fetch в admin browser до безопасной validation.
-- Draft form содержит только fields branding schema; live preview использует локальные sanitized values.
-- Publish требует current ETag/confirmation и показывает, что consumers получат обновление в пределах TTL/revalidation.
-- Ошибка `412` предлагает reload/compare, а не silent overwrite.
-
-### 4.4. Аудит `/audit`
-
-- По умолчанию: newest first, ограниченное окно, cursor pagination.
-- Фильтры: временной диапазон, action, entity type/id, actor subject при наличии права политики.
-- Event detail показывает sanitized metadata, request ID и ссылку на доступную entity; raw token/request/response недоступны.
-
-### 4.5. Access `/access`
-
-- Только `platform_admin`.
-- Явно маркируется как mapping claims -> roles Admin Panel, не user management.
-- Form разрешает только known claim names и одну из трех panel roles.
-- Remove требует confirmation, потому что изменение может лишить группу доступа.
-
-## 5. Route guards и переходы
-
-1. Web-клиент проверяет наличие memory-auth state и запрашивает защищенный API.
-2. `401` очищает transient client state и направляет на `/login` без сохранения token в URL.
-3. `403` ведет на `/forbidden`; маршрут исходного ресурса может сохраняться только как локальный safe return path.
-4. `404` на resource показывает route-level not found, не глобальный redirect.
-5. Mutation UI отправляет `If-Match` и `Idempotency-Key` по контракту API.
-6. После mutation обновляются только связанные query cache entries; никакого polling/command fan-out внешних сервисов.
-
-## 6. Query parameters
-
-| Route | Параметры |
-|---|---|
-| `/services` | `status`, `owner_team`, `cursor`, `limit` |
-| `/audit` | `from`, `to`, `action`, `entity_type`, `entity_id`, `actor_subject`, `cursor`, `limit` |
-| `/branding` | `cursor`, `limit` для истории revisions |
-
-Все query parameters валидируются на клиенте для UX и повторно на API; произвольная sort field отсутствует в v1.
-
-## 7. Маршруты API и web
-
-Browser routes принадлежат web на `7772`. REST routes принадлежат API на `7771` и описаны в `docs/API.md`. Web никогда не обращается напрямую к PostgreSQL `7773` и не заменяет service integration endpoint маршрутом собственного UI.
-
-## 8. Условия перед реализацией UI
-
-Перед кодом каждой P0-страницы необходимо приложить к задаче:
-
-1. текст цели и сценариев из данного документа, дополненный data contract;
-2. wireframe desktop и mobile;
-3. состояния loading, empty, error, 401/403 и optimistic-concurrency conflict;
-4. явное пользовательское одобрение wireframe;
-5. e2e acceptance scenario и screenshot checklist.
+1. Browser keeps access token in memory only and asks protected API for effective capabilities.
+2. `401` clears transient client state and navigates to `/login`; no token is retained in URL.
+3. `403` renders a forbidden state rather than hiding a server authorization failure.
+4. `404` renders a route-level not-found state.
+5. UI visibility is convenience, never the authorization boundary; Admin API verifies every protected action.
+6. Mutation views surface API precondition/conflict responses and never silently overwrite server state.
 
 ## References
 
-- `docs/TZ.md`
-- `docs/API.md`
-- `docs/ARCHITECTURE.md`
-- `docs/SECURITY.md`
+- [API](API.md)
+- [Architecture](ARCHITECTURE.md)
+- [Security](SECURITY.md)
+- [Frontend architecture](FRONTEND_ARCHITECTURE.md)
