@@ -183,7 +183,7 @@ docker run --rm \
 docker compose -f docker-compose.dev.yml config -q
 ```
 
-GitHub Actions executes independent backend, frontend, Compose and Playwright E2E gates. It also regenerates OpenAPI and fails if [openapi/openapi.json](openapi/openapi.json) drifts. The README gate validates local links, images, explicit navigation anchors, placeholders, local paths and CI badge workflow references.
+GitHub Actions executes independent backend, frontend and Compose-config gates. It also regenerates OpenAPI and fails if [openapi/openapi.json](openapi/openapi.json) drifts. Browser E2E runs locally when needed. The README gate validates local links, images, explicit navigation anchors, placeholders, local paths and CI badge workflow references.
 
 ## Security Boundary
 

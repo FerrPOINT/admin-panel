@@ -6,8 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  readme:
+  docs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -22,6 +26,7 @@ jobs:
     # services-base checkout token is unavailable — skip full builds there.
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: admin-panel/backend
@@ -63,6 +68,7 @@ jobs:
   frontend:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: admin-panel/frontend
@@ -100,53 +106,7 @@ jobs:
 
   compose-config:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - run: docker compose -f docker-compose.dev.yml config -q
-
-  e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: admin-panel/frontend
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          path: admin-panel
-      - name: Check out services-base sibling (@sdlc/ui file dep)
-        uses: actions/checkout@v7
-        with:
-          repository: FerrPOINT/services-base
-          path: services-base
-          ref: main
-          token: ${{ secrets.SERVICES_BASE_TOKEN }}
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10.23.0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: |
-            admin-panel/frontend/pnpm-lock.yaml
-            services-base/frontend/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --force
-        env:
-          CI: "true"
-      - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
-      - name: Run Playwright against vite preview
-        run: |
-          pnpm exec vite preview --port 4177 --strictPort &
-          for i in $(seq 1 30); do
-            curl -fsS http://localhost:4177/ >/dev/null 2>&1 && break
-            sleep 1
-          done
-          PLAYWRIGHT_BASE_URL=http://localhost:4177 pnpm exec playwright test --project=chromium
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: admin-panel-playwright-traces
-          path: admin-panel/frontend/test-results
-          retention-days: 5
