@@ -19,6 +19,16 @@ function currentDocument(revisions: ReturnType<typeof useBrandingRevisions>['dat
   return revisions?.revisions.find((r) => r.state === 'published')?.document ?? DEFAULT_BRANDING
 }
 
+export function readableForeground(color: string): '#000000' | '#ffffff' {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return '#000000'
+  const channels = [1, 3, 5].map((index) => {
+    const channel = parseInt(color.slice(index, index + 2), 16) / 255
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  })
+  const luminance = 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!
+  return (luminance + 0.05) / 0.05 >= 1.05 / (luminance + 0.05) ? '#000000' : '#ffffff'
+}
+
 export function BrandingPage() {
   const revisions = useBrandingRevisions()
   const queryClient = useQueryClient()
@@ -27,8 +37,10 @@ export function BrandingPage() {
   const [published, setPublished] = useState<number | null>(null)
 
   const createDraft = useMutation({
-    mutationFn: () => api.post<{ revision: { revision: number } }>('/api/v1/branding/revisions', document),
-    onSuccess: (data) => queryClient.invalidateQueries({ queryKey: ['branding-revisions'] }).then(() => data),
+    mutationFn: () =>
+      api.post<{ revision: { revision: number } }>('/api/v1/branding/revisions', document),
+    onSuccess: (data) =>
+      queryClient.invalidateQueries({ queryKey: ['branding-revisions'] }).then(() => data),
   })
   const publish = useMutation({
     mutationFn: (revision: number) => api.post(`/api/v1/branding/revisions/${revision}/publish`),
@@ -39,9 +51,14 @@ export function BrandingPage() {
     setForm({ ...document, [key]: value })
 
   const saveAndPublish = async () => {
-    const draft = await createDraft.mutateAsync()
-    await publish.mutateAsync(draft.revision.revision)
-    setPublished(draft.revision.revision)
+    setPublished(null)
+    try {
+      const draft = await createDraft.mutateAsync()
+      await publish.mutateAsync(draft.revision.revision)
+      setPublished(draft.revision.revision)
+    } catch {
+      // Mutation errors are rendered below without discarding the draft form.
+    }
   }
 
   return (
@@ -78,51 +95,99 @@ export function BrandingPage() {
           <h2 className="text-sm font-medium text-text-secondary">Параметры</h2>
           <label className="block text-sm">
             <span className="mb-1.5 block text-text-secondary">Название платформы</span>
-            <input value={document.product_name} onChange={(e) => update('product_name', e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent" />
+            <input
+              value={document.product_name}
+              onChange={(e) => update('product_name', e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1.5 block text-text-secondary">Короткое название</span>
-            <input value={document.product_short_name} onChange={(e) => update('product_short_name', e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent" />
+            <input
+              value={document.product_short_name}
+              onChange={(e) => update('product_short_name', e.target.value)}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
+            />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
-            {([
-              ['primary_color', 'Основной цвет'],
-              ['accent_color', 'Второстепенный цвет'],
-              ['surface_color', 'Поверхность'],
-            ] as const).map(([key, label]) => (
+            {(
+              [
+                ['primary_color', 'Основной цвет'],
+                ['accent_color', 'Второстепенный цвет'],
+                ['surface_color', 'Поверхность'],
+              ] as const
+            ).map(([key, label]) => (
               <label key={key} className="block text-sm">
                 <span className="mb-1.5 block text-text-secondary">{label}</span>
                 <span className="flex overflow-hidden rounded-md border border-border bg-background focus-within:border-accent">
-                  <input type="color" value={document[key] ?? '#ffffff'} onChange={(e) => update(key, e.target.value)} className="h-10 w-11 border-0 bg-transparent p-1" />
-                  <input value={document[key] ?? ''} onChange={(e) => update(key, e.target.value)} className="min-w-0 flex-1 bg-transparent px-2 outline-none" />
+                  <input
+                    type="color"
+                    value={document[key] ?? '#ffffff'}
+                    onChange={(e) => update(key, e.target.value)}
+                    className="h-10 w-11 border-0 bg-transparent p-1"
+                  />
+                  <input
+                    value={document[key] ?? ''}
+                    onChange={(e) => update(key, e.target.value)}
+                    className="min-w-0 flex-1 bg-transparent px-2 outline-none"
+                  />
                 </span>
               </label>
             ))}
           </div>
           <label className="block text-sm">
             <span className="mb-1.5 block text-text-secondary">URL поддержки</span>
-            <input value={document.support_url ?? ''} onChange={(e) => update('support_url', e.target.value || null)} placeholder="https://..." className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent" />
+            <input
+              value={document.support_url ?? ''}
+              onChange={(e) => update('support_url', e.target.value || null)}
+              placeholder="https://..."
+              className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
+            />
           </label>
         </section>
 
         <section className="rounded-lg border border-border bg-surface p-5">
           <h2 className="mb-4 text-sm font-medium text-text-secondary">Предпросмотр</h2>
-          <div className="overflow-hidden rounded-xl border border-border" style={{ background: document.surface_color ?? '#f8fafc' }}>
-            <div className="flex items-center justify-between px-4 py-3 text-white" style={{ background: document.primary_color }}>
-              <span className="flex items-center gap-2 text-sm font-semibold"><Palette className="h-4 w-4" />{document.product_short_name}</span>
-              <span className="text-xs opacity-80">Войти</span>
+          <div
+            className="overflow-hidden rounded-xl border border-border"
+            style={{ background: document.surface_color ?? '#f8fafc' }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3"
+              style={{
+                background: document.primary_color,
+                color: readableForeground(document.primary_color),
+              }}
+            >
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <Palette className="h-4 w-4" />
+                {document.product_short_name}
+              </span>
+              <span className="text-xs">Войти</span>
             </div>
-            <div className="p-4" style={{ color: '#1e293b' }}>
+            <div
+              className="p-4"
+              style={{ color: readableForeground(document.surface_color ?? '#f8fafc') }}
+            >
               <div className="text-base font-semibold">{document.product_name}</div>
-              <div className="mt-3 rounded-lg bg-white p-3 text-sm shadow-sm">
+              <div className="mt-3 rounded-lg bg-white p-3 text-sm text-[#1e293b] shadow-sm">
                 <div className="font-medium">Карточка приложения</div>
-                <button className="mt-3 rounded-md px-3 py-1.5 text-xs font-medium text-white" style={{ background: document.accent_color }}>
+                <button
+                  className="mt-3 rounded-md px-3 py-1.5 text-xs font-medium"
+                  style={{
+                    background: document.accent_color,
+                    color: readableForeground(document.accent_color),
+                  }}
+                >
                   Действие
                 </button>
               </div>
             </div>
           </div>
-          <p className="mt-3 text-xs text-text-muted">Потребители применят только утверждённые semantic tokens; при недоступности API работают встроенные defaults.</p>
+          <p className="mt-3 text-xs text-text-muted">
+            Потребители применят только утверждённые semantic tokens; при недоступности API работают
+            встроенные defaults.
+          </p>
         </section>
       </div>
     </div>
