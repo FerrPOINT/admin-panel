@@ -3,14 +3,14 @@
 # (../../services-base/frontend) resolves.
 FROM node:22-slim AS builder
 
-RUN corepack enable && corepack prepare pnpm@11.25.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
 
 WORKDIR /app
 COPY admin-panel/frontend/package.json admin-panel/frontend/pnpm-lock.yaml* ./
 COPY services-base/frontend /services-base/frontend
 ENV CI=true COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN pnpm config set --location project onlyBuiltDependencies '["esbuild"]' || true \
-    && pnpm install --no-frozen-lockfile --ignore-scripts \
+    && pnpm install --frozen-lockfile --ignore-scripts \
     && pnpm rebuild esbuild
 
 COPY admin-panel/frontend/ ./

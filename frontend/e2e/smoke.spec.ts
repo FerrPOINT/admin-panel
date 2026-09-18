@@ -155,13 +155,13 @@ async function installApiMocks(page: Page) {
       return routeJson(route, { events: auditEvents, total: auditEvents.length })
     }
     if (method === 'GET' && path === '/runtime/branding') {
-      return routeJson(route, { revision: 2, document: brandingDocument })
+      return routeJson(route, { revision: 2, updated_at: now, branding: brandingDocument })
     }
     if (method === 'GET' && path === '/runtime/services') {
       return routeJson(route, {
         services: [
-          { key: 'ci-cd', label: 'CI/CD', url: 'http://localhost:7712', capabilities: ['health.read'], contract_version: '1.0.0' },
-          { key: 'wiki', label: 'Wiki', url: 'http://localhost:7732', capabilities: ['health.read'], contract_version: '1.0.0' },
+          { key: 'ci-cd', label: 'CI/CD', url: 'http://localhost:7712', ui_url: 'http://localhost:7712', health: 'healthy', capabilities: ['health.read'], contract_version: '1.0.0' },
+          { key: 'wiki', label: 'Wiki', url: 'http://localhost:7732', ui_url: 'http://localhost:7732', health: 'healthy', capabilities: ['health.read'], contract_version: '1.0.0' },
         ],
       })
     }
@@ -208,12 +208,12 @@ test('audit page lists branding.published event', async ({ page }) => {
   await page.goto('/audit')
   await expect(page.getByText('branding.published').first()).toBeVisible()
   await expect(page.getByText('admin@base.local').first()).toBeVisible()
-  await expect(page.locator('article', { hasText: 'branding.published' })).toContainText('branding_revision')
+  await expect(page.locator('article', { hasText: 'branding.published' })).toContainText('Брендинг')
 })
 
 test('runtime page probes branding endpoint status and etag', async ({ page }) => {
   await page.goto('/runtime')
-  await expect(page.getByText('200').first()).toBeVisible()
+  await expect(page.getByText(/200 OK/).first()).toBeVisible()
   await expect(page.getByText('branding').first()).toBeVisible()
 })
 
@@ -231,9 +231,7 @@ test('service switcher links to other products', async ({ page }) => {
   const attached = await ciLink.isVisible().catch(() => false) || (await ciLink.count()) > 0
   if (!attached) {
     // v1.1 menu: open via the named or icon-only trigger button
-    const switcher = page
-      .locator('button[aria-haspopup="true"]')
-      .first()
+    const switcher = page.getByRole('button', { name: /Открыть список сервисов/ }).first()
     await switcher.click()
     await expect(page.getByRole('menuitem', { name: /ci/i }).first()).toBeVisible()
     await page.keyboard.press('Escape')

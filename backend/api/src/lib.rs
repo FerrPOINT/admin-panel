@@ -115,6 +115,7 @@ async fn resolve_local_role(
 pub fn router(state: SharedState) -> Router {
     let public = Router::new()
         .route("/api/v1/auth/login", post(auth_login))
+        .route("/health", get(health_live))
         .route("/health/live", get(health_live))
         .route("/health/ready", get(health_ready))
         .route("/api/v1/runtime/branding", get(runtime_branding))
@@ -345,6 +346,19 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
             "contract_version": decl.service_contract_version,
         }));
     }
+    catalog.sort_by_key(|service| {
+        let key = service["key"].as_str().unwrap_or_default();
+        let order = match key {
+            "admin-panel" => 0,
+            "ci-cd" => 1,
+            "task-tracker" => 2,
+            "wiki" => 3,
+            "fleet-control" => 4,
+            "project-workflow" => 5,
+            _ => 100,
+        };
+        (order, key.to_owned())
+    });
     let etag = format!("\"services-v{max_version}-{}\"", catalog.len());
     if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok())
         && if_none_match == etag
@@ -1230,11 +1244,24 @@ async fn create_role_binding(
         claim_name: req.claim_name,
         claim_value: req.claim_value.trim().to_string(),
         panel_role: role,
-        created_by_subject: caller.subject,
+        created_by_subject: caller.subject.clone(),
         created_at: chrono::Utc::now(),
     };
     match state.access.insert(&binding).await {
-        Ok(()) => (StatusCode::CREATED, Json(json!({ "binding": binding }))).into_response(),
+        Ok(()) => {
+            let _ = state.audit.append(&admin_panel_domain::AuditEvent {
+                id: uuid::Uuid::now_v7(),
+                occurred_at: chrono::Utc::now(),
+                request_id: uuid::Uuid::now_v7(),
+                actor_subject: Some(caller.subject),
+                actor_role: Some(caller.role),
+                action: "role_binding.created".into(),
+                entity_type: "role_binding".into(),
+                entity_id: Some(binding.id),
+                metadata: json!({ "claim_name": &binding.claim_name, "panel_role": binding.panel_role.as_str() }),
+            }).await;
+            (StatusCode::CREATED, Json(json!({ "binding": binding }))).into_response()
+        }
         Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(_) => internal("cannot insert role binding"),
     }
@@ -1247,11 +1274,28 @@ async fn create_role_binding(
     responses((status = 204, description = "binding deleted"), (status = 404, description = "not found"))
 )]
 async fn delete_role_binding(
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     State(state): State<SharedState>,
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
 ) -> Response {
     match state.access.delete(id).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(()) => {
+            let _ = state
+                .audit
+                .append(&admin_panel_domain::AuditEvent {
+                    id: uuid::Uuid::now_v7(),
+                    occurred_at: chrono::Utc::now(),
+                    request_id: uuid::Uuid::now_v7(),
+                    actor_subject: Some(caller.subject),
+                    actor_role: Some(caller.role),
+                    action: "role_binding.deleted".into(),
+                    entity_type: "role_binding".into(),
+                    entity_id: Some(id),
+                    metadata: json!({}),
+                })
+                .await;
+            StatusCode::NO_CONTENT.into_response()
+        }
         Err(admin_panel_domain::DomainError::NotFound(_)) => not_found("role binding"),
         Err(_) => internal("cannot delete role binding"),
     }

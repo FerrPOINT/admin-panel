@@ -1,14 +1,17 @@
 import { Link } from 'react-router'
 import { AlertTriangle, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { defaultServices } from '@sdlc/ui/ui'
 import type { ServiceStatus } from '@/shared/api/hooks'
 import { useAuditEvents, useBrandingRevisions, useServices } from '@/shared/api/hooks'
 
+const serviceOrder = new Map(defaultServices.map((item, index) => [item.key, index]))
+
 function StatusBadge({ status }: { status: ServiceStatus }) {
   const map: Record<ServiceStatus, { icon: typeof CheckCircle2; label: string; cls: string }> = {
-    active: { icon: CheckCircle2, label: 'OK', cls: 'text-success' },
-    pending: { icon: Clock, label: 'Pending', cls: 'text-warning' },
-    disabled: { icon: XCircle, label: 'Disabled', cls: 'text-danger' },
-    retired: { icon: AlertTriangle, label: 'Retired', cls: 'text-text-muted' },
+    active: { icon: CheckCircle2, label: 'Активен', cls: 'text-success' },
+    pending: { icon: Clock, label: 'Ожидает', cls: 'text-warning' },
+    disabled: { icon: XCircle, label: 'Отключён', cls: 'text-danger' },
+    retired: { icon: AlertTriangle, label: 'Выведен', cls: 'text-text-muted' },
   }
   const { icon: Icon, label, cls } = map[status]
   return (
@@ -82,9 +85,12 @@ export function OverviewPage() {
         </section>
 
         <section className="rounded-lg border border-border bg-surface p-4">
-          <h2 className="mb-3 text-sm font-medium text-text-secondary">Состояние сервисов</h2>
+          <h2 className="mb-3 text-sm font-medium text-text-secondary">Реестр сервисов</h2>
           <ul className="space-y-2">
-            {(services.data?.services ?? []).map((service) => (
+            {[...(services.data?.services ?? [])].sort((left, right) => {
+              return (serviceOrder.get(left.service_key) ?? Infinity) - (serviceOrder.get(right.service_key) ?? Infinity)
+                || left.service_key.localeCompare(right.service_key)
+            }).map((service) => (
               <li key={service.id} className="flex items-center justify-between gap-2 text-sm">
                 <Link
                   to={`/services/${service.service_key}`}
