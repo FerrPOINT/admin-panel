@@ -7,6 +7,12 @@ import type { AuditEvent } from '@/shared/api/hooks'
 const PAGE_SIZE = 20
 
 const ENTITY_TYPES = ['', 'service', 'branding_revision', 'declaration', 'role_binding'] as const
+const ENTITY_LABELS: Record<string, string> = {
+  service: 'Сервис', branding_revision: 'Брендинг', declaration: 'Декларация', role_binding: 'Привязка роли',
+}
+const ROLE_LABELS: Record<string, string> = {
+  platform_admin: 'Администратор', platform_operator: 'Оператор', platform_viewer: 'Наблюдатель',
+}
 
 const ROLE_BADGE: Record<string, string> = {
   platform_admin: 'border-success/40 bg-success/10 text-success',
@@ -65,7 +71,7 @@ export function AuditPage() {
         >
           {ENTITY_TYPES.map((type) => (
             <option key={type} value={type}>
-              {type === '' ? 'Все типы сущностей' : type}
+              {type === '' ? 'Все типы сущностей' : ENTITY_LABELS[type]}
             </option>
           ))}
         </select>
@@ -74,7 +80,7 @@ export function AuditPage() {
       <div className="space-y-2">
         {audit.isLoading ? <div className="text-sm text-text-muted">Загрузка аудита...</div> : null}
         {events.map((event) => (
-          <article key={event.id} className="rounded-lg border border-border bg-surface p-4">
+          <article key={event.id} className="min-w-0 rounded-lg border border-border bg-surface p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 font-mono text-sm">
                 <History className="h-4 w-4 text-accent" />
@@ -85,19 +91,19 @@ export function AuditPage() {
                   <span
                     className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${ROLE_BADGE[event.actor_role] ?? ROLE_BADGE.platform_viewer}`}
                   >
-                    {event.actor_role}
+                    {ROLE_LABELS[event.actor_role] ?? event.actor_role}
                   </span>
                 ) : null}
                 <time className="text-xs text-text-muted">{new Date(event.occurred_at).toLocaleString('ru-RU')}</time>
               </div>
             </div>
-            <div className="mt-2 text-sm text-text-secondary">
-              {event.entity_type} · {event.actor_subject ?? 'system'}
+            <div className="mt-2 break-all text-sm text-text-secondary">
+              {ENTITY_LABELS[event.entity_type] ?? event.entity_type} · {event.actor_subject ?? 'system'}
             </div>
             {event.metadata && Object.keys(event.metadata).length > 0 ? (
-              <div className="mt-2 font-mono text-xs text-text-muted">{JSON.stringify(event.metadata)}</div>
+              <div className="mt-2 break-all font-mono text-xs text-text-muted">{JSON.stringify(event.metadata)}</div>
             ) : null}
-            <div className="mt-2 font-mono text-xs text-text-muted">request {event.request_id}</div>
+            <div className="mt-2 break-all font-mono text-xs text-text-muted">request {event.request_id}</div>
           </article>
         ))}
         {audit.data && events.length === 0 ? (

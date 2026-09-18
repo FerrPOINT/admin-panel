@@ -1244,11 +1244,24 @@ async fn create_role_binding(
         claim_name: req.claim_name,
         claim_value: req.claim_value.trim().to_string(),
         panel_role: role,
-        created_by_subject: caller.subject,
+        created_by_subject: caller.subject.clone(),
         created_at: chrono::Utc::now(),
     };
     match state.access.insert(&binding).await {
-        Ok(()) => (StatusCode::CREATED, Json(json!({ "binding": binding }))).into_response(),
+        Ok(()) => {
+            let _ = state.audit.append(&admin_panel_domain::AuditEvent {
+                id: uuid::Uuid::now_v7(),
+                occurred_at: chrono::Utc::now(),
+                request_id: uuid::Uuid::now_v7(),
+                actor_subject: Some(caller.subject),
+                actor_role: Some(caller.role),
+                action: "role_binding.created".into(),
+                entity_type: "role_binding".into(),
+                entity_id: Some(binding.id),
+                metadata: json!({ "claim_name": &binding.claim_name, "panel_role": binding.panel_role.as_str() }),
+            }).await;
+            (StatusCode::CREATED, Json(json!({ "binding": binding }))).into_response()
+        }
         Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(_) => internal("cannot insert role binding"),
     }
@@ -1261,11 +1274,28 @@ async fn create_role_binding(
     responses((status = 204, description = "binding deleted"), (status = 404, description = "not found"))
 )]
 async fn delete_role_binding(
+    axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     State(state): State<SharedState>,
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
 ) -> Response {
     match state.access.delete(id).await {
-        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Ok(()) => {
+            let _ = state
+                .audit
+                .append(&admin_panel_domain::AuditEvent {
+                    id: uuid::Uuid::now_v7(),
+                    occurred_at: chrono::Utc::now(),
+                    request_id: uuid::Uuid::now_v7(),
+                    actor_subject: Some(caller.subject),
+                    actor_role: Some(caller.role),
+                    action: "role_binding.deleted".into(),
+                    entity_type: "role_binding".into(),
+                    entity_id: Some(id),
+                    metadata: json!({}),
+                })
+                .await;
+            StatusCode::NO_CONTENT.into_response()
+        }
         Err(admin_panel_domain::DomainError::NotFound(_)) => not_found("role binding"),
         Err(_) => internal("cannot delete role binding"),
     }

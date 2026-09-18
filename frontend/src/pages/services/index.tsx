@@ -8,6 +8,12 @@ import { useServices, useCreateService } from '@/shared/api/hooks'
 import { useAuth } from '@/shared/auth/auth-context'
 
 const KNOWN_CAPABILITIES = ['health.read', 'integration.status.read', 'branding.runtime.read']
+const HEALTH_LABELS: Record<string, string> = {
+  healthy: 'Работает', unreachable: 'Недоступен', unknown: 'Не проверен',
+}
+const STATUS_LABELS: Record<string, string> = {
+  active: 'Активен', pending: 'Ожидает', disabled: 'Отключён',
+}
 
 export function ServicesPage() {
   const services = useServices()
@@ -121,9 +127,9 @@ export function ServicesPage() {
             <span className="text-text-muted">{new Date(service.updated_at).toLocaleString('ru-RU')}</span>
             <span className={`inline-flex items-center gap-1.5 ${service.health_status === 'healthy' ? 'text-success' : service.health_status === 'unreachable' ? 'text-danger' : 'text-text-muted'}`} title={service.health_detail ?? 'нет данных проверки'}>
               <Activity className="h-3.5 w-3.5" />
-              {service.health_status ?? 'unknown'}
+              {HEALTH_LABELS[service.health_status ?? 'unknown'] ?? 'Не проверен'}
             </span>
-            <span className={service.status === 'active' ? 'text-success' : service.status === 'pending' ? 'text-warning' : 'text-text-muted'}>{service.status}</span>
+            <span className={service.status === 'active' ? 'text-success' : service.status === 'pending' ? 'text-warning' : 'text-text-muted'}>{STATUS_LABELS[service.status] ?? service.status}</span>
           </Link>
         ))}
         {services.data?.services.length === 0 ? <div className="p-8 text-center text-sm text-text-muted">Каталог пуст.</div> : null}

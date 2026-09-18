@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
+import { z } from 'zod'
 
 const base = import.meta.env.VITE_API_BASE_URL ?? ''
 const endpoint = `${base}/api/v1/runtime/branding`
@@ -13,6 +14,30 @@ interface CatalogService {
   contract_version: string
   capabilities: string[]
 }
+
+const catalogSchema = z.object({
+  services: z.array(
+    z.object({
+      key: z.string().min(1),
+      label: z.string(),
+      url: z.string().url(),
+      ui_url: z.string().url().nullable(),
+      health: z.enum(['healthy', 'unreachable', 'unknown']),
+      contract_version: z.string(),
+      capabilities: z.array(z.string()),
+    }),
+  ),
+})
+const brandingSchema = z.object({
+  revision: z.number().int(),
+  updated_at: z.string(),
+  branding: z.object({
+    product_name: z.string(),
+    product_short_name: z.string(),
+    primary_color: z.string(),
+    accent_color: z.string(),
+  }),
+})
 
 type LoadState = 'idle' | 'loading' | 'success' | 'empty' | 'error'
 
@@ -34,20 +59,42 @@ export function RuntimePage() {
   const [body, setBody] = useState<string>('')
   const [etag, setEtag] = useState<string>('')
   const [status, setStatus] = useState<string>('Не запрашивалось')
+  const [brandingState, setBrandingState] = useState<LoadState>('idle')
   const [services, setServices] = useState<CatalogService[]>([])
   const [servicesEtag, setServicesEtag] = useState<string>('')
   const [servicesStatus, setServicesStatus] = useState<string>('Не запрашивалось')
   const [servicesState, setServicesState] = useState<LoadState>('idle')
 
   const load = async () => {
+    setBrandingState('loading')
     setStatus('Загрузка...')
-    const response = await fetch(endpoint, {
-      headers: etag ? { 'If-None-Match': etag } : undefined,
-    })
-    setStatus(`${response.status} ${response.statusText}`)
-    const nextEtag = response.headers.get('etag')
-    if (nextEtag) setEtag(nextEtag)
-    if (response.status !== 304) setBody(await response.text())
+    try {
+      const response = await fetch(endpoint, {
+        headers: etag ? { 'If-None-Match': etag } : undefined,
+      })
+      if (response.status === 404) {
+        setBody('')
+        setEtag('')
+        setStatus('Нет опубликованного документа')
+        setBrandingState('empty')
+        return
+      }
+      if (!response.ok && response.status !== 304) throw new Error(`HTTP ${response.status}`)
+      setStatus(`${response.status} ${response.statusText}`)
+      const nextEtag = response.headers.get('etag')
+      if (nextEtag) setEtag(nextEtag)
+      if (response.status !== 304) {
+        const payload = brandingSchema.safeParse(await response.json())
+        if (!payload.success) throw new Error('Некорректный ответ брендинга')
+        setBody(JSON.stringify(payload.data, null, 2))
+        setBrandingState('success')
+      } else {
+        setBrandingState(body ? 'success' : 'empty')
+      }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Ошибка запроса')
+      setBrandingState('error')
+    }
   }
 
   const loadServices = async () => {
@@ -65,8 +112,9 @@ export function RuntimePage() {
         setServicesState(services.length > 0 ? 'success' : 'empty')
         return
       }
-      const payload = (await response.json()) as { services?: CatalogService[] }
-      const nextServices = payload.services ?? []
+      const payload = catalogSchema.safeParse(await response.json())
+      if (!payload.success) throw new Error('Некорректный ответ каталога')
+      const nextServices: CatalogService[] = payload.data.services
       setServices(nextServices)
       setServicesState(nextServices.length > 0 ? 'success' : 'empty')
     } catch (error) {
@@ -85,7 +133,7 @@ export function RuntimePage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Runtime config inspector</h1>
+        <h1 className="text-xl font-semibold">Проверка runtime-конфигурации</h1>
         <p className="mt-1 text-sm text-text-muted">
           Проверка публичного read-only контракта, который потребляют приложения. Defaults остаются
           в каждом продукте.
@@ -94,13 +142,13 @@ export function RuntimePage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-surface p-4">
-          <div className="text-xs text-text-muted">Endpoint</div>
+          <div className="text-xs text-text-muted">Адрес API</div>
           <code className="mt-2 block break-all text-xs text-text-secondary">
             /api/v1/runtime/branding
           </code>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
-          <div className="text-xs text-text-muted">HTTP status</div>
+          <div className="text-xs text-text-muted">Статус запроса</div>
           <div className="mt-2 font-mono text-sm">{status}</div>
         </div>
         <div className="rounded-lg border border-border bg-surface p-4">
@@ -111,17 +159,23 @@ export function RuntimePage() {
 
       <div className="rounded-lg border border-border bg-surface">
         <div className="flex items-center justify-between border-b border-border p-3">
-          <span className="text-sm font-medium">Response</span>
+          <span className="text-sm font-medium">Брендинг</span>
           <button
             onClick={() => void load()}
+            disabled={brandingState === 'loading'}
             className="inline-flex items-center gap-2 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            Conditional GET
+            Обновить
           </button>
         </div>
         <pre className="max-h-[440px] overflow-auto p-4 text-xs leading-6 text-text-secondary">
-          {body || 'Нет опубликованного документа: consumer применит встроенные defaults.'}
+          {brandingState === 'loading' && !body
+            ? 'Загрузка брендинга...'
+            : brandingState === 'error'
+              ? `Не удалось загрузить брендинг: ${status}${body ? '\nПоказан предыдущий ответ.' : ''}`
+              : body ||
+                'Нет опубликованного документа: приложения применят настройки по умолчанию.'}
         </pre>
       </div>
 
@@ -135,6 +189,7 @@ export function RuntimePage() {
           </div>
           <button
             onClick={() => void loadServices()}
+            disabled={servicesState === 'loading'}
             className="inline-flex items-center gap-2 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
           >
             <RefreshCw className="h-3.5 w-3.5" />

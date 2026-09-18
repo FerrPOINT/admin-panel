@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { AuthProvider } from '@/shared/auth/auth-context'
+import { ThemeProvider } from '@sdlc/ui/lib'
 import { AppShell } from './app-shell'
 
 function withProviders(ui: React.ReactElement) {
@@ -11,9 +12,11 @@ function withProviders(ui: React.ReactElement) {
   })
   return render(
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <AuthProvider>
         <MemoryRouter initialEntries={['/services']}>{ui}</MemoryRouter>
       </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>,
   )
 }

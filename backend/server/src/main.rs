@@ -136,22 +136,18 @@ async fn bootstrap_services(pool: &PgPool) -> Result<(), Box<dyn std::error::Err
         {
             return Err(format!("invalid bootstrap service declaration: {}", service.key).into());
         }
-        let existing = sqlx::query_as::<_, (Uuid, Option<Uuid>)>(
-            "SELECT id, active_declaration_id FROM service_registry_entries WHERE service_key = $1",
+        let existing = sqlx::query_as::<_, (Uuid, Option<Uuid>, Option<String>, Option<String>)>(
+            "SELECT e.id, e.active_declaration_id, d.declared_by_subject, d.content_hash \
+             FROM service_registry_entries e \
+             LEFT JOIN service_declarations d ON d.id = e.active_declaration_id \
+             WHERE e.service_key = $1",
         )
         .bind(&service.key)
         .fetch_optional(pool)
         .await?;
-        if existing
-            .as_ref()
-            .is_some_and(|(_, active_declaration_id)| active_declaration_id.is_some())
-        {
-            continue;
-        }
-
         let entry_id = existing
             .as_ref()
-            .map(|(entry_id, _)| *entry_id)
+            .map(|(entry_id, _, _, _)| *entry_id)
             .unwrap_or_else(Uuid::now_v7);
         let declaration_id = Uuid::now_v7();
         let capabilities = if service.ui_url.is_some() {
@@ -164,6 +160,19 @@ async fn bootstrap_services(pool: &PgPool) -> Result<(), Box<dyn std::error::Err
         hasher.update(service.ui_url.as_deref().unwrap_or_default().as_bytes());
         hasher.update(capabilities.to_string().as_bytes());
         let content_hash = hex::encode(hasher.finalize());
+        if existing
+            .as_ref()
+            .is_some_and(|(_, active_id, author, hash)| {
+                !should_bootstrap(
+                    *active_id,
+                    author.as_deref(),
+                    hash.as_deref(),
+                    &content_hash,
+                )
+            })
+        {
+            continue;
+        }
 
         let mut tx = pool.begin().await?;
         if existing.is_none() {
@@ -213,9 +222,19 @@ async fn bootstrap_services(pool: &PgPool) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
+fn should_bootstrap(
+    active_id: Option<Uuid>,
+    author: Option<&str>,
+    current_hash: Option<&str>,
+    desired_hash: &str,
+) -> bool {
+    active_id.is_none() || (author == Some("local-bootstrap") && current_hash != Some(desired_hash))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::valid_bootstrap_api_url;
+    use super::{should_bootstrap, valid_bootstrap_api_url};
+    use uuid::Uuid;
 
     #[test]
     fn bootstrap_accepts_compose_origins_without_weakening_url_shape() {
@@ -226,5 +245,29 @@ mod tests {
         assert!(!valid_bootstrap_api_url("http://user@task-backend:7721"));
         assert!(!valid_bootstrap_api_url("http://Task_Backend:7721"));
         assert!(!valid_bootstrap_api_url("http://task-backend:invalid"));
+    }
+
+    #[test]
+    fn bootstrap_reconciles_only_changed_local_declarations() {
+        let active = Some(Uuid::now_v7());
+        assert!(should_bootstrap(None, None, None, "new"));
+        assert!(should_bootstrap(
+            active,
+            Some("local-bootstrap"),
+            Some("old"),
+            "new"
+        ));
+        assert!(!should_bootstrap(
+            active,
+            Some("local-bootstrap"),
+            Some("same"),
+            "same"
+        ));
+        assert!(!should_bootstrap(
+            active,
+            Some("admin-user"),
+            Some("old"),
+            "new"
+        ));
     }
 }
