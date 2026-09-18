@@ -117,6 +117,10 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 
 ## Интерфейс
 
+### Вход
+
+![Вход](docs/screenshots/login.png)
+
 ### Обзор платформы
 
 ![Обзор платформы](docs/screenshots/overview.png)
@@ -126,6 +130,14 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 ### Каталог сервисов
 
 ![Каталог сервисов](docs/screenshots/services.png)
+
+### Карточка сервиса
+
+![Карточка сервиса](docs/screenshots/service-detail.png)
+
+### Привязки ролей
+
+![Привязки ролей](docs/screenshots/role-bindings.png)
 
 Версионируемый registry отделяет integration declaration от произвольного управления внешними сервисами: только approved capabilities получают bounded read-only checks.
 
