@@ -52,7 +52,7 @@ curl --fail http://127.0.0.1:7771/health/ready
 curl --fail http://127.0.0.1:7772/
 ```
 
-The umbrella injects central JWKS configuration over the private auth network. It does not make Admin Panel responsible for central credentials or signing keys.
+The umbrella injects central JWKS configuration over the private auth network and declares the local service catalog through `ADMINP_BOOTSTRAP_SERVICES`. At startup, the API reconciles only records created by `local-bootstrap` or the legacy `bootstrap` marker; an active operator declaration is preserved. It does not make Admin Panel responsible for central credentials, signing keys, product credentials or remote execution.
 
 ## Environment Contract
 

@@ -228,7 +228,9 @@ fn should_bootstrap(
     current_hash: Option<&str>,
     desired_hash: &str,
 ) -> bool {
-    active_id.is_none() || (author == Some("local-bootstrap") && current_hash != Some(desired_hash))
+    active_id.is_none()
+        || (matches!(author, Some("local-bootstrap") | Some("bootstrap"))
+            && current_hash != Some(desired_hash))
 }
 
 #[cfg(test)]
@@ -262,6 +264,12 @@ mod tests {
             Some("local-bootstrap"),
             Some("same"),
             "same"
+        ));
+        assert!(should_bootstrap(
+            active,
+            Some("bootstrap"),
+            Some("old"),
+            "new"
         ));
         assert!(!should_bootstrap(
             active,

@@ -22,6 +22,20 @@ PostgreSQL публикуется на loopback для локальной раз
 
 Readiness не зависит от доступности сервисов registry или central auth. Public runtime branding продолжает обслуживаться из собственной базы; protected requests fail closed, если central validation token не проходит.
 
+## Локальная сверка каталога
+
+В Base umbrella `ADMINP_BOOTSTRAP_SERVICES` декларирует локальный сервисный
+каталог. При старте API создаёт отсутствующие записи и сверяет только
+declaration с маркером `local-bootstrap` или историческим `bootstrap`; активная
+операторская declaration никогда не перезаписывается. Declaration содержит
+только service origin, необязательный public UI origin и фиксированные
+capability; в ней нет credentials, произвольных путей или request data.
+
+Admin API подключается к product networks только для этих объявленных
+read-only health probes. Runtime catalog остаётся безопасной read-only
+проекцией: он не является service discovery, remote execution или каналом
+распространения секретов.
+
 ## Runtime branding
 
 ```text
