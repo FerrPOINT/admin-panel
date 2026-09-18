@@ -117,10 +117,6 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 
 ## Интерфейс
 
-### Вход
-
-![Вход](docs/screenshots/login.png)
-
 ### Обзор платформы
 
 ![Обзор платформы](docs/screenshots/overview.png)
@@ -150,10 +146,6 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 Publication меняет только управляемый versioned document. Audit evidence доступен для approved/reported service operations и branding publication/withdrawal; создание/изменение registry, service status и role bindings остаются явным coverage gap до отдельного audit-closure изменения.
 
 ### Mobile evidence
-
-![Мобильный интерфейс: колонка 1](docs/screenshots/m-col-left.png) ![Мобильный интерфейс: колонка 2](docs/screenshots/m-col-right.png)
-
-Mobile viewport — `375×812`: sidebar collapses to a menu and service registry switches to touch-friendly cards. Role-binding data remains intentionally compact on narrow screens; full comparison stays available on desktop.
 
 <a name="quality"></a>
 
