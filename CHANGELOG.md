@@ -6,6 +6,8 @@
 
 ## [Unreleased]
 
+### Fixed
+- Подтверждение branding revision actions (#10); service switcher на mobile (#9).
 ### Added
 - Workspace overview и audit UX (#8).
 - CHANGELOG, CONTRIBUTING, THIRD_PARTY_NOTICES; LICENSE → FerrPOINT Proprietary v1.0.
