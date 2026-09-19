@@ -8,6 +8,10 @@
   --color-accent-hover: #1d4ed8;
 }
 
+[data-theme='gray'] {
+  --color-accent-foreground: #18181b;
+}
+
 [data-theme='light'] {
   --color-warning: #b45309;
 }

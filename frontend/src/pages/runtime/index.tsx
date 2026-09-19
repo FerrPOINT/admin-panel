@@ -170,9 +170,8 @@ export function RuntimePage() {
           </button>
         </div>
         <pre
-          tabIndex={0}
           aria-label="Ответ runtime-брендинга"
-          className="max-h-[440px] overflow-auto p-4 text-xs leading-6 text-text-secondary"
+          className="whitespace-pre-wrap break-all p-4 text-xs leading-6 text-text-secondary"
         >
           {brandingState === 'loading' && !body
             ? 'Загрузка брендинга...'
