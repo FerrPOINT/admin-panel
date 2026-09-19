@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { endSso, type SsoSession } from '@sdlc/ui/sso'
 
 export type PanelRole = 'platform_viewer' | 'platform_operator' | 'platform_admin'
 
@@ -15,13 +16,14 @@ interface AuthSession {
 interface AuthContextValue {
   status: AuthStatus
   session: AuthSession | null
-  login: (email: string, password: string) => Promise<void>
+  acceptSso: (session: SsoSession) => Promise<void>
   logout: () => void
   canMutate: boolean
   canManageBindings: boolean
 }
 
-const tokenKey = 'base.admin.token'
+export const ssoConfig = { issuer: import.meta.env.VITE_AUTH_ISSUER ?? 'http://localhost:7701', clientId: 'admin-panel' }
+let accessToken: string | null = null
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 function role(value: unknown): PanelRole {
@@ -47,14 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [session, setSession] = useState<AuthSession | null>(null)
 
-  const logout = useCallback(() => {
-    sessionStorage.removeItem(tokenKey)
+  const clearSession = useCallback(() => {
+    accessToken = null
     setSession(null)
     setStatus('anonymous')
   }, [])
 
+  const logout = useCallback(() => {
+    clearSession()
+    endSso(ssoConfig)
+  }, [clearSession])
+
   useEffect(() => {
-    const token = sessionStorage.getItem(tokenKey)
+    sessionStorage.removeItem('base.admin.token')
+    const token = accessToken
     if (!token) {
       setStatus('anonymous')
       return
@@ -64,28 +72,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(next)
         setStatus('authenticated')
       })
-      .catch(logout)
-  }, [logout])
+      .catch(clearSession)
+  }, [clearSession])
 
   useEffect(() => {
-    const expire = () => logout()
+    const expire = () => clearSession()
     window.addEventListener('base-admin:unauthorized', expire)
     return () => window.removeEventListener('base-admin:unauthorized', expire)
-  }, [logout])
+  }, [clearSession])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const response = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
-    if (!response.ok) {
-      const body = await response.json().catch(() => null)
-      throw new Error(body?.error?.message ?? 'Не удалось выполнить вход')
-    }
-    const body = await response.json()
-    const next = await readMe(body.access_token)
-    sessionStorage.setItem(tokenKey, body.access_token)
+  const acceptSso = useCallback(async (sso: SsoSession) => {
+    const next = await readMe(sso.accessToken)
+    if (next.subject !== sso.subject) throw new Error('Central Auth вернул несовпадающего пользователя')
+    accessToken = sso.accessToken
     setSession(next)
     setStatus('authenticated')
   }, [])
@@ -93,11 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(() => ({
     status,
     session,
-    login,
+    acceptSso,
     logout,
-    canMutate: session?.panelRole === 'platform_operator' || session?.panelRole === 'platform_admin',
-    canManageBindings: session?.panelRole === 'platform_admin',
-  }), [login, logout, session, status])
+    canMutate: Boolean(session),
+    canManageBindings: false,
+  }), [acceptSso, logout, session, status])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
@@ -109,5 +108,5 @@ export function useAuth() {
 }
 
 export function authToken() {
-  return sessionStorage.getItem(tokenKey)
+  return accessToken
 }

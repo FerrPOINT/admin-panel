@@ -18,7 +18,7 @@ Accepted
 
 ## Decision
 
-`auth-server` остаётся единственным владельцем identity, login, session, credential и signing key lifecycle. Он выпускает короткоживущие JWT и публикует JWKS. Admin Panel валидирует `iss`, `aud`, время действия, подпись и допустимые claims по кэшированному JWKS, затем применяет собственную resource/capability authorization policy. Для service-to-service используются отдельные machine identities и минимальные scopes.
+`auth-server` остаётся единственным владельцем identity, login, session, credential и signing key lifecycle. Он выпускает короткоживущие JWT и публикует JWKS. Admin Panel валидирует `iss`, `aud`, время действия, подпись и допустимые claims по кэшированному JWKS. Первоначальная локальная role policy для людей заменена одинаковым доступом всех аутентифицированных пользователей в ADR-0008. Для service-to-service используются отдельные machine identities и минимальные scopes.
 
 Admin Panel не хранит пароли, refresh token, сессии или копию user directory. В audit сохраняется минимальный внешний actor subject reference.
 
@@ -34,3 +34,4 @@ Admin Panel не хранит пароли, refresh token, сессии или �
 - `docs/API_STANDARDS.md`
 - `docs/FRONTEND_ARCHITECTURE.md`
 - `docs/LOGGING_STANDARDS.md`
+- `docs/adr/0008-central-user-management-proxy.md`

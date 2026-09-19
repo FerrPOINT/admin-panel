@@ -3,6 +3,11 @@
 use std::sync::Arc;
 
 pub mod auth;
+mod managed_users;
+use managed_users::{
+    create_managed_user, list_managed_users, resend_managed_user_link, set_managed_user_status,
+    update_managed_user,
+};
 
 use axum::extract::{Request, State};
 use axum::http::{HeaderMap, StatusCode};
@@ -64,7 +69,7 @@ async fn require_admin(req: Request, next: Next) -> Result<Response, StatusCode>
 /// whose role maps onto the panel role ladder. When central auth is not
 /// configured, mutations stay closed (fail-closed).
 async fn bearer_auth(
-    State(state): State<SharedState>,
+    State(_state): State<SharedState>,
     mut req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -77,22 +82,18 @@ async fn bearer_auth(
 
     let caller = match auth::check_token(&token).await {
         auth::CentralCheck::Validated(ctx) => {
-            let central = auth::panel_role_for(&ctx);
-            // Local role_bindings may elevate the central claim (claim_name=user_id).
-            let mut best = central;
-            if let Ok(Some(local)) = resolve_local_role(&state, &ctx).await
-                && local > best
-            {
-                best = local;
+            if !ctx.allows_service("admin-panel", req.method().as_str()) {
+                return Err(StatusCode::FORBIDDEN);
             }
             Caller {
                 subject: ctx.user_id.clone(),
                 email: ctx.email.clone(),
                 central_role: ctx.role.clone(),
-                role: best,
+                role: admin_panel_domain::PanelRole::PlatformAdmin,
             }
         }
         auth::CentralCheck::Expired => return Err(StatusCode::UNAUTHORIZED),
+        auth::CentralCheck::Unavailable => return Err(StatusCode::SERVICE_UNAVAILABLE),
         auth::CentralCheck::FallThrough => return Err(StatusCode::UNAUTHORIZED),
     };
     req.extensions_mut().insert(CallerRole(caller.role));
@@ -163,6 +164,27 @@ pub fn router(state: SharedState) -> Router {
 
     let authenticated = Router::new()
         .route("/api/v1/auth/me", get(auth_me))
+        .route(
+            "/api/v1/tokens",
+            get(managed_users::list_personal_tokens).post(managed_users::create_personal_token),
+        )
+        .route(
+            "/api/v1/tokens/{id}",
+            axum::routing::delete(managed_users::revoke_personal_token),
+        )
+        .route(
+            "/api/v1/users",
+            get(list_managed_users).post(create_managed_user),
+        )
+        .route(
+            "/api/v1/users/{id}",
+            axum::routing::patch(update_managed_user),
+        )
+        .route("/api/v1/users/{id}/status", post(set_managed_user_status))
+        .route(
+            "/api/v1/users/{id}/password-link",
+            post(resend_managed_user_link),
+        )
         .with_state(state.clone())
         .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
 
@@ -1106,6 +1128,13 @@ struct LoginSession {
     )
 )]
 async fn auth_login(State(state): State<SharedState>, Json(req): Json<LoginRequest>) -> Response {
+    if std::env::var_os("ADMINP_AUTH__CENTRAL_JWKS_URI").is_some() {
+        return error_response(
+            StatusCode::GONE,
+            "SSO_REQUIRED",
+            "use Central Auth browser login",
+        );
+    }
     if req.email.trim().is_empty() || req.password.is_empty() {
         return error_response(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -1225,6 +1254,13 @@ async fn create_role_binding(
     axum::extract::Extension(caller): axum::extract::Extension<Caller>,
     Json(req): Json<CreateRoleBindingRequest>,
 ) -> Response {
+    if std::env::var_os("ADMINP_AUTH__CENTRAL_JWKS_URI").is_some() {
+        return error_response(
+            StatusCode::GONE,
+            "ROLES_DISABLED",
+            "user role bindings are disabled",
+        );
+    }
     let role = match req.panel_role.as_str() {
         "platform_viewer" => admin_panel_domain::PanelRole::PlatformViewer,
         "platform_operator" => admin_panel_domain::PanelRole::PlatformOperator,
@@ -1278,6 +1314,13 @@ async fn delete_role_binding(
     State(state): State<SharedState>,
     axum::extract::Path(id): axum::extract::Path<uuid::Uuid>,
 ) -> Response {
+    if std::env::var_os("ADMINP_AUTH__CENTRAL_JWKS_URI").is_some() {
+        return error_response(
+            StatusCode::GONE,
+            "ROLES_DISABLED",
+            "user role bindings are disabled",
+        );
+    }
     match state.access.delete(id).await {
         Ok(()) => {
             let _ = state
