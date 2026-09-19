@@ -99,14 +99,25 @@ export function AppShell() {
       ))}
       <div className="mt-auto space-y-2 pt-3">
         <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1"><ServiceSwitcher currentKey="admin-panel" /></div>
-          <div className="[&_button]:h-10 [&_button]:w-10"><ThemeToggle /></div>
+          <div className="min-w-0 flex-1">
+            <ServiceSwitcher currentKey="admin-panel" />
+          </div>
+          <div className="[&_button]:h-10 [&_button]:w-10">
+            <ThemeToggle />
+          </div>
         </div>
         <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-xs">
           <div className="min-w-0">
             <p className="truncate text-text-primary">{session?.email ?? session?.subject}</p>
           </div>
-          <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Выйти" title="Выйти" onClick={logout}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10"
+            aria-label="Выйти"
+            title="Выйти"
+            onClick={logout}
+          >
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
@@ -119,8 +130,18 @@ export function AppShell() {
       <aside className="hidden md:flex">{sidebar}</aside>
 
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 flex md:hidden" role="dialog" aria-modal="true" aria-label="Навигация">
-          <button type="button" className="flex-1 bg-black/50" aria-label="Закрыть меню" onClick={() => setMobileMenuOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 flex md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Навигация"
+        >
+          <button
+            type="button"
+            className="flex-1 bg-black/50"
+            aria-label="Закрыть меню"
+            onClick={() => setMobileMenuOpen(false)}
+          />
           <div className="flex">{sidebar}</div>
         </div>
       )}
@@ -137,7 +158,10 @@ export function AppShell() {
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
           <PlatformMark size="sm" />
-          <div className="[&_button]:h-10 [&_button]:w-10"><ThemeToggle /></div>
+          <ServiceSwitcher currentKey="admin-panel" />
+          <div className="[&_button]:h-10 [&_button]:w-10">
+            <ThemeToggle />
+          </div>
         </header>
 
         <main className="min-w-0 flex-1 p-4 md:p-6">
