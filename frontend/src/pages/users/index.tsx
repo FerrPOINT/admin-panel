@@ -1,8 +1,8 @@
 import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Plus, RotateCw, Search, UserRoundCheck, UserRoundX } from 'lucide-react'
+import { MoreHorizontal, Pencil, Plus, RotateCw, Search, UserRoundCheck, UserRoundX } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@sdlc/ui/ui'
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input } from '@sdlc/ui/ui'
 import { api } from '@/shared/api/client'
 import { useAuth } from '@/shared/auth/auth-context'
 
@@ -104,16 +104,29 @@ export function UsersPage() {
           {visibleUsers.map((user) => (
             <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{user.display_name || user.email}</p>
-                <p className="truncate text-xs text-text-muted">{user.email} · {statusLabels[user.status]}{user.setup_delivery_status === 'failed' ? ' · Письмо не доставлено' : ''}</p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <p className="truncate text-sm font-medium">{user.display_name || user.email}</p>
+                  <span className="shrink-0 text-xs text-text-muted">{statusLabels[user.status]}</span>
+                </div>
+                <p className="truncate text-xs text-text-muted">{user.email}{user.setup_delivery_status === 'failed' ? ' · Письмо не доставлено' : ''}</p>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="hidden items-center gap-1 md:flex">
                 <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Изменить имя: ${user.email}`} title="Изменить имя" onClick={() => openEdit(user)}><Pencil className="h-4 w-4" /></Button>
                 {user.status !== 'disabled' && <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Отправить ссылку: ${user.email}`} title="Отправить ссылку" disabled={resend.isPending} onClick={() => resend.mutate(user.id)}><RotateCw className="h-4 w-4" /></Button>}
                 <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`${user.status === 'disabled' ? 'Восстановить' : 'Отключить'}: ${user.email}`} title={user.status === 'disabled' ? 'Восстановить' : 'Отключить'} disabled={user.id === session?.subject || changeStatus.isPending} onClick={() => setStatusTarget(user)}>
                   {user.status === 'disabled' ? <UserRoundCheck className="h-4 w-4" /> : <UserRoundX className="h-4 w-4" />}
                 </Button>
               </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-10 w-10 md:hidden" aria-label={`Действия с пользователем: ${user.email}`} title="Действия с пользователем"><MoreHorizontal className="h-4 w-4" /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem className="min-h-10" onSelect={() => openEdit(user)}><Pencil className="mr-2 h-4 w-4" />Изменить имя</DropdownMenuItem>
+                  {user.status !== 'disabled' && <DropdownMenuItem className="min-h-10" disabled={resend.isPending} onSelect={() => resend.mutate(user.id)}><RotateCw className="mr-2 h-4 w-4" />Отправить ссылку</DropdownMenuItem>}
+                  <DropdownMenuItem className="min-h-10" disabled={user.id === session?.subject || changeStatus.isPending} onSelect={() => setStatusTarget(user)}>{user.status === 'disabled' ? <UserRoundCheck className="mr-2 h-4 w-4" /> : <UserRoundX className="mr-2 h-4 w-4" />}{user.status === 'disabled' ? 'Восстановить' : 'Отключить'}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           ))}
         </div>

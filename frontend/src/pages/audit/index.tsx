@@ -53,7 +53,7 @@ function AuditRow({ event }: { event: AuditEvent }) {
         </span>
         <span className="col-start-1 row-start-2 min-w-0 truncate text-xs text-text-secondary lg:col-start-3 lg:row-start-1 lg:text-sm">
           {ENTITY_LABELS[event.entity_type] ?? event.entity_type}
-          {event.entity_id ? ` · ${shortIdentifier(event.entity_id)}` : ''}
+          {event.entity_id && <span className="hidden lg:inline"> · {shortIdentifier(event.entity_id)}</span>}
         </span>
         <span className="col-start-1 row-start-3 hidden min-w-0 truncate text-xs text-text-muted lg:col-start-4 lg:row-start-1 lg:block" title={event.actor_subject ?? undefined}>
           {shortIdentifier(event.actor_subject)}
