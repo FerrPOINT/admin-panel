@@ -22,7 +22,7 @@ ARG VITE_AUTH_ISSUER="http://localhost:7701"
 ENV VITE_AUTH_ISSUER=${VITE_AUTH_ISSUER}
 RUN COREPACK_ENABLE_DOWNLOAD_PROMPT=0 pnpm build
 
-FROM nginx:1.29-alpine
+FROM nginx:1.31-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY admin-panel/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
