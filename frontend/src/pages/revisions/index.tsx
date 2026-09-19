@@ -2,8 +2,21 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Eye, Send, Undo2, GitCompare } from 'lucide-react'
 import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@sdlc/ui/ui'
 import { api } from '@/shared/api/client'
-import { type BrandingDocument, type BrandingRevision, useBrandingRevisions } from '@/shared/api/hooks'
+import {
+  type BrandingDocument,
+  type BrandingRevision,
+  useBrandingRevisions,
+} from '@/shared/api/hooks'
 
 const FIELDS: (keyof BrandingDocument)[] = [
   'product_name',
@@ -27,7 +40,10 @@ const FIELD_LABELS: Record<string, string> = {
   surface_color: 'Поверхность',
 }
 const STATE_LABELS: Record<BrandingRevision['state'], string> = {
-  draft: 'Черновик', published: 'Опубликована', superseded: 'Заменена', withdrawn: 'Отозвана',
+  draft: 'Черновик',
+  published: 'Опубликована',
+  superseded: 'Заменена',
+  withdrawn: 'Отозвана',
 }
 
 function diffDocuments(base: BrandingDocument | undefined, next: BrandingDocument | undefined) {
@@ -39,10 +55,18 @@ function diffDocuments(base: BrandingDocument | undefined, next: BrandingDocumen
   }))
 }
 
-function RevisionDiff({ base, next, label }: { base: BrandingDocument; next: BrandingDocument; label: string }) {
+function RevisionDiff({
+  base,
+  next,
+  label,
+}: {
+  base: BrandingDocument
+  next: BrandingDocument
+  label: string
+}) {
   const diff = diffDocuments(base, next)
   return (
-    <div className="mt-2 rounded-md border border-border bg-surface-raised p-3">
+    <div className="mt-3 border-t border-border pt-3">
       <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-text-secondary">
         <GitCompare className="h-3.5 w-3.5" />
         {label}
@@ -52,11 +76,13 @@ function RevisionDiff({ base, next, label }: { base: BrandingDocument; next: Bra
       ) : (
         <div className="space-y-1">
           {diff.map((change) => (
-            <div key={change.field} className="flex flex-wrap items-baseline gap-2 text-xs">
-              <span className="w-36 shrink-0 text-text-muted">{FIELD_LABELS[change.field] ?? change.field}</span>
-              <code className="text-danger line-through">{change.from}</code>
+            <div key={change.field} className="flex min-w-0 flex-wrap items-baseline gap-2 text-xs">
+              <span className="w-36 shrink-0 text-text-muted">
+                {FIELD_LABELS[change.field] ?? change.field}
+              </span>
+              <code className="min-w-0 break-all text-danger line-through">{change.from}</code>
               <span className="text-text-muted">→</span>
-              <code className="text-success">{change.to}</code>
+              <code className="min-w-0 break-all text-success">{change.to}</code>
             </div>
           ))}
         </div>
@@ -69,19 +95,42 @@ export function RevisionsPage() {
   const revisions = useBrandingRevisions()
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState<number | null>(null)
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'publish' | 'withdraw'
+    revision: number
+  } | null>(null)
 
   const publish = useMutation({
     mutationFn: (revision: number) => api.post(`/api/v1/branding/revisions/${revision}/publish`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['branding-revisions'] }),
+    onSuccess: () => {
+      toast.success('Конфигурация опубликована')
+      setPendingAction(null)
+      void queryClient.invalidateQueries({ queryKey: ['branding-revisions'] })
+    },
   })
   const withdraw = useMutation({
     mutationFn: (revision: number) => api.post(`/api/v1/branding/revisions/${revision}/withdraw`),
     onSuccess: () => {
       toast.success('Черновик отозван')
-      queryClient.invalidateQueries({ queryKey: ['branding-revisions'] })
+      setPendingAction(null)
+      void queryClient.invalidateQueries({ queryKey: ['branding-revisions'] })
     },
-    onError: () => toast.error('Не удалось отозвать черновик'),
   })
+
+  const actionPending = publish.isPending || withdraw.isPending
+  const actionError = pendingAction?.type === 'publish' ? publish.isError : withdraw.isError
+
+  function openAction(type: 'publish' | 'withdraw', revision: number) {
+    publish.reset()
+    withdraw.reset()
+    setPendingAction({ type, revision })
+  }
+
+  function confirmAction() {
+    if (!pendingAction || actionPending) return
+    if (pendingAction.type === 'publish') publish.mutate(pendingAction.revision)
+    else withdraw.mutate(pendingAction.revision)
+  }
 
   const list = revisions.data?.revisions ?? []
   const byNumber = new Map(list.map((r) => [r.revision, r]))
@@ -104,20 +153,38 @@ export function RevisionsPage() {
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div className="hidden grid-cols-[80px_1fr_140px_180px_200px] gap-4 border-b border-border px-4 py-3 text-xs text-text-muted md:grid">
-          <span>Версия</span><span>Название</span><span>Статус</span><span>Создана</span><span />
+          <span>Версия</span>
+          <span>Название</span>
+          <span>Статус</span>
+          <span>Создана</span>
+          <span />
         </div>
-        {revisions.isLoading ? <div className="p-5 text-sm text-text-muted">Загрузка версий...</div> : null}
-        {revisions.isError ? <div role="alert" className="p-5 text-sm text-danger">Не удалось загрузить конфигурации. <button type="button" className="underline" onClick={() => void revisions.refetch()}>Повторить</button></div> : null}
+        {revisions.isLoading ? (
+          <div className="p-5 text-sm text-text-muted">Загрузка версий...</div>
+        ) : null}
+        {revisions.isError ? (
+          <div role="alert" className="p-5 text-sm text-danger">
+            Не удалось загрузить конфигурации.{' '}
+            <button type="button" className="underline" onClick={() => void revisions.refetch()}>
+              Повторить
+            </button>
+          </div>
+        ) : null}
         {list.map((revision) => {
           const base = baseFor(revision)
           const isOpen = expanded === revision.revision
           return (
-            <div key={revision.id} className="border-b border-border px-4 py-4 text-sm last:border-0">
+            <div
+              key={revision.id}
+              className="border-b border-border px-4 py-4 text-sm last:border-0"
+            >
               <div className="grid gap-2 md:grid-cols-[80px_1fr_140px_180px_200px] md:items-center md:gap-4">
                 <span className="font-mono text-text-secondary">
                   v{revision.revision}
                   {revision.based_on_revision != null ? (
-                    <span className="ml-1 text-[10px] text-text-muted">← v{revision.based_on_revision}</span>
+                    <span className="ml-1 text-[10px] text-text-muted">
+                      ← v{revision.based_on_revision}
+                    </span>
                   ) : null}
                 </span>
                 <span>{revision.document.product_name}</span>
@@ -134,30 +201,35 @@ export function RevisionsPage() {
                 >
                   {STATE_LABELS[revision.state]}
                 </span>
-                <span className="text-text-muted">{new Date(revision.created_at).toLocaleString('ru-RU')}</span>
+                <span className="text-text-muted">
+                  {new Date(revision.created_at).toLocaleString('ru-RU')}
+                </span>
                 <span className="flex flex-wrap gap-2">
                   {revision.state === 'draft' ? (
                     <>
                       <button
                         type="button"
-                        onClick={() => publish.mutate(revision.revision)}
-                        disabled={publish.isPending}
+                        onClick={() => openAction('publish', revision.revision)}
+                        disabled={actionPending}
                         className="inline-flex min-h-10 items-center gap-1 rounded border border-border px-3 text-xs hover:bg-surface-raised"
                       >
-                        <Send className="h-4 w-4" />Опубликовать
+                        <Send className="h-4 w-4" />
+                        Опубликовать
                       </button>
                       <button
                         type="button"
-                        onClick={() => withdraw.mutate(revision.revision)}
-                        disabled={withdraw.isPending}
+                        onClick={() => openAction('withdraw', revision.revision)}
+                        disabled={actionPending}
                         className="inline-flex min-h-10 items-center gap-1 rounded border border-border px-3 text-xs text-danger hover:bg-surface-raised"
                       >
-                        <Undo2 className="h-4 w-4" />Отозвать
+                        <Undo2 className="h-4 w-4" />
+                        Отозвать
                       </button>
                     </>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs text-text-muted">
-                      <Eye className="h-4 w-4" />Только чтение
+                      <Eye className="h-4 w-4" />
+                      Только чтение
                     </span>
                   )}
                   <button
@@ -165,15 +237,20 @@ export function RevisionsPage() {
                     onClick={() => setExpanded(isOpen ? null : revision.revision)}
                     className="inline-flex min-h-10 items-center gap-1 rounded border border-border px-3 text-xs hover:bg-surface-raised"
                   >
-                    <GitCompare className="h-4 w-4" />{isOpen ? 'Скрыть сравнение' : 'Сравнить'}
+                    <GitCompare className="h-4 w-4" />
+                    {isOpen ? 'Скрыть сравнение' : 'Сравнить'}
                   </button>
                 </span>
               </div>
               {isOpen && base ? (
-                <RevisionDiff base={base} next={revision.document} label={`Изменения относительно базовой ревизии`} />
+                <RevisionDiff
+                  base={base}
+                  next={revision.document}
+                  label={`Изменения относительно базовой ревизии`}
+                />
               ) : null}
               {isOpen && !base ? (
-                <div className="mt-2 rounded-md border border-border bg-surface-raised p-3 text-xs text-text-muted">
+                <div className="mt-3 border-t border-border pt-3 text-xs text-text-muted">
                   Базовая ревизия недоступна (первая публикация или база отозвана).
                 </div>
               ) : null}
@@ -181,9 +258,62 @@ export function RevisionsPage() {
           )
         })}
         {!revisions.isPending && !revisions.isError && list.length === 0 ? (
-          <div className="p-8 text-center text-sm text-text-muted">Черновиков и опубликованных ревизий пока нет.</div>
+          <div className="p-8 text-center text-sm text-text-muted">
+            Черновиков и опубликованных ревизий пока нет.
+          </div>
         ) : null}
       </div>
+      <AlertDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => {
+          if (!open && !actionPending) setPendingAction(null)
+        }}
+      >
+        <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-md rounded-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingAction?.type === 'publish'
+                ? `Опубликовать версию v${pendingAction.revision}?`
+                : `Отозвать черновик v${pendingAction?.revision}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.type === 'publish'
+                ? 'Эта конфигурация станет текущей для всей платформы. Предыдущая публикация сохранится в истории.'
+                : 'Черновик будет отозван и больше не сможет быть опубликован.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {actionError && (
+            <p role="alert" className="text-sm text-danger">
+              {pendingAction?.type === 'publish'
+                ? 'Не удалось опубликовать конфигурацию.'
+                : 'Не удалось отозвать черновик.'}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <AlertDialogCancel disabled={actionPending} className="min-h-10 sm:min-h-10">
+              Отмена
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={actionPending}
+              className={
+                pendingAction?.type === 'publish'
+                  ? 'min-h-10 bg-accent text-accent-foreground hover:bg-accent-hover sm:min-h-10'
+                  : 'min-h-10 sm:min-h-10'
+              }
+              onClick={(event) => {
+                event.preventDefault()
+                confirmAction()
+              }}
+            >
+              {actionPending
+                ? 'Выполняется...'
+                : pendingAction?.type === 'publish'
+                  ? 'Опубликовать'
+                  : 'Отозвать'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
