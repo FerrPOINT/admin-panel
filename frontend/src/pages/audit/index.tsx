@@ -55,7 +55,7 @@ function AuditRow({ event }: { event: AuditEvent }) {
           {ENTITY_LABELS[event.entity_type] ?? event.entity_type}
           {event.entity_id ? ` · ${shortIdentifier(event.entity_id)}` : ''}
         </span>
-        <span className="col-start-1 row-start-3 min-w-0 truncate text-xs text-text-muted lg:col-start-4 lg:row-start-1" title={event.actor_subject ?? undefined}>
+        <span className="col-start-1 row-start-3 hidden min-w-0 truncate text-xs text-text-muted lg:col-start-4 lg:row-start-1 lg:block" title={event.actor_subject ?? undefined}>
           {shortIdentifier(event.actor_subject)}
         </span>
         <ChevronDown className="col-start-2 row-start-2 h-4 w-4 text-text-muted transition-transform group-open:rotate-180 lg:col-start-5 lg:row-start-1" aria-hidden="true" />

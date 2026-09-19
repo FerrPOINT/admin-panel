@@ -67,7 +67,7 @@ export function BrandingPage() {
         <div>
           <h1 className="text-xl font-semibold">Брендинг платформы</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Публикуется как проверяемая runtime-конфигурация. Произвольный CSS не допускается.
+            Публикуется как проверяемая конфигурация. Произвольный CSS не допускается.
           </p>
         </div>
         <button
@@ -195,8 +195,8 @@ export function BrandingPage() {
             </div>
           </div>
           <p className="mt-3 text-xs text-text-muted">
-            Потребители применят только утверждённые semantic tokens; при недоступности API работают
-            встроенные defaults.
+            Приложения применят только утверждённые цвета; при недоступности API
+            используются встроенные значения.
           </p>
         </section>
       </div>

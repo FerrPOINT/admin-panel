@@ -18,22 +18,27 @@ interface ManagedUser {
 const statusLabels: Record<ManagedUser['status'], string> = {
   pending: 'Ожидает пароль', active: 'Активен', disabled: 'Отключён',
 }
+const PAGE_SIZE = 20
+const BATCH_SIZE = 100
 
 export function UsersPage() {
   const { session } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [offset, setOffset] = useState(0)
+  const [page, setPage] = useState(0)
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<ManagedUser | null>(null)
   const [statusTarget, setStatusTarget] = useState<ManagedUser | null>(null)
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [deliveryFailedId, setDeliveryFailedId] = useState<string | null>(null)
+  const batchOffset = Math.floor(page * PAGE_SIZE / BATCH_SIZE) * BATCH_SIZE
+  const withinBatch = page * PAGE_SIZE - batchOffset
   const users = useQuery({
-    queryKey: ['managed-users', search, offset],
-    queryFn: () => api.get<ManagedUser[]>(`/api/v1/users?q=${encodeURIComponent(search)}&offset=${offset}`),
+    queryKey: ['managed-users', search, batchOffset],
+    queryFn: () => api.get<ManagedUser[]>(`/api/v1/users?q=${encodeURIComponent(search)}&offset=${batchOffset}`),
   })
+  const visibleUsers = users.data?.slice(withinBatch, withinBatch + PAGE_SIZE) ?? []
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['managed-users'] })
   const save = useMutation({
     mutationFn: async () => {
@@ -89,14 +94,14 @@ export function UsersPage() {
       <label className="flex max-w-md items-center gap-2 rounded-md border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-focus">
         <Search className="h-4 w-4 shrink-0 text-text-muted" />
         <span className="sr-only">Поиск пользователей</span>
-        <Input className="border-0 bg-transparent shadow-none" value={search} onChange={(event) => { setSearch(event.target.value); setOffset(0) }} placeholder="Имя или email" />
+        <Input className="h-10 border-0 bg-transparent shadow-none" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0) }} placeholder="Имя или email" />
       </label>
       {users.isPending && <p className="text-sm text-text-muted">Загружаем пользователей...</p>}
       {users.isError && <div role="alert" className="text-sm text-destructive">Не удалось загрузить пользователей. <Button variant="ghost" onClick={() => void users.refetch()}>Повторить</Button></div>}
       {users.data && users.data.length === 0 && <p className="py-8 text-center text-sm text-text-muted">{search ? 'Ничего не найдено' : 'Пользователей пока нет'}</p>}
-      {users.data && users.data.length > 0 && (
+      {visibleUsers.length > 0 && (
         <div className="divide-y divide-border border-y border-border">
-          {users.data.map((user) => (
+          {visibleUsers.map((user) => (
             <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{user.display_name || user.email}</p>
@@ -113,9 +118,10 @@ export function UsersPage() {
           ))}
         </div>
       )}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 100))}>Назад</Button>
-        <Button variant="outline" disabled={(users.data?.length ?? 0) < 100} onClick={() => setOffset(offset + 100)}>Далее</Button>
+      <div className="flex items-center justify-end gap-3">
+        <Button variant="outline" className="h-10" disabled={page === 0 || users.isPending} onClick={() => setPage((current) => Math.max(0, current - 1))}>Назад</Button>
+        <span className="text-xs text-text-muted">Страница {page + 1}</span>
+        <Button variant="outline" className="h-10" disabled={users.isPending || users.isError || !users.data || (withinBatch + PAGE_SIZE >= users.data.length && users.data.length < BATCH_SIZE)} onClick={() => setPage((current) => current + 1)}>Далее</Button>
       </div>
 
       <Dialog open={open} onOpenChange={(next) => { if (!save.isPending) setOpen(next) }}>

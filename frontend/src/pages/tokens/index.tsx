@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Copy, KeyRound, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, KeyRound, Plus, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@sdlc/ui/ui'
 import { api } from '@/shared/api/client'
@@ -20,6 +20,18 @@ const services = [
   ['admin-panel', 'Admin Panel'], ['ci-cd', 'CI/CD'], ['task-tracker', 'Task Tracker'],
   ['wiki', 'Wiki'], ['fleet-control', 'Fleet Control'], ['project-workflow', 'Project Workflow'],
 ] as const
+const PAGE_SIZE = 10
+type TokenState = 'all' | 'active' | 'expired' | 'revoked'
+
+function tokenState(token: PersonalToken): Exclude<TokenState, 'all'> {
+  if (token.revoked_at) return 'revoked'
+  if (new Date(token.expires_at).getTime() <= Date.now()) return 'expired'
+  return 'active'
+}
+
+const stateLabels: Record<Exclude<TokenState, 'all'>, string> = {
+  active: 'Действует', expired: 'Истёк', revoked: 'Отозван',
+}
 
 export function TokensPage() {
   const queryClient = useQueryClient()
@@ -29,7 +41,15 @@ export function TokensPage() {
   const [scopes, setScopes] = useState<string[]>([])
   const [issued, setIssued] = useState<IssuedToken | null>(null)
   const [revokeTarget, setRevokeTarget] = useState<PersonalToken | null>(null)
+  const [search, setSearch] = useState('')
+  const [stateFilter, setStateFilter] = useState<TokenState>('all')
+  const [page, setPage] = useState(0)
   const tokens = useQuery({ queryKey: ['personal-tokens'], queryFn: () => api.get<PersonalToken[]>('/api/v1/tokens') })
+  const filteredTokens = (tokens.data ?? []).filter((token) =>
+    token.label.toLocaleLowerCase('ru-RU').includes(search.trim().toLocaleLowerCase('ru-RU'))
+    && (stateFilter === 'all' || tokenState(token) === stateFilter),
+  )
+  const visibleTokens = filteredTokens.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['personal-tokens'] })
   const create = useMutation({
     mutationFn: () => api.post<IssuedToken>('/api/v1/tokens', { label: label.trim(), scopes, expires_in_days: days }),
@@ -53,18 +73,37 @@ export function TokensPage() {
       <h1 className="text-xl font-semibold">Личные API-токены</h1>
       <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Создать</Button>
     </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex min-h-10 max-w-sm flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-accent">
+        <Search className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+        <span className="sr-only">Поиск токенов</span>
+        <Input className="h-10 border-0 bg-transparent shadow-none" value={search} onChange={(event) => { setSearch(event.target.value); setPage(0) }} placeholder="Название токена" />
+      </label>
+      <select aria-label="Статус токена" className="min-h-10 rounded-md border border-border bg-surface px-3 text-sm" value={stateFilter} onChange={(event) => { setStateFilter(event.target.value as TokenState); setPage(0) }}>
+        <option value="all">Все статусы</option>
+        <option value="active">Действующие</option>
+        <option value="expired">Истёкшие</option>
+        <option value="revoked">Отозванные</option>
+      </select>
+    </div>
     {tokens.isPending && <p role="status" className="text-sm text-text-muted">Загружаем токены...</p>}
     {tokens.isError && <p role="alert" className="text-sm text-destructive">Не удалось загрузить токены. <Button variant="ghost" onClick={() => void tokens.refetch()}>Повторить</Button></p>}
     {tokens.data?.length === 0 && <p className="py-8 text-sm text-text-muted">Токенов пока нет.</p>}
+    {tokens.data && tokens.data.length > 0 && filteredTokens.length === 0 && <p className="py-8 text-sm text-text-muted">Токены по выбранным фильтрам не найдены.</p>}
     <div className="divide-y divide-border border-y border-border">
-      {tokens.data?.map((token) => <div key={token.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+      {visibleTokens.map((token) => <div key={token.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-2 text-sm font-medium"><KeyRound className="h-4 w-4" /> {token.label}</p>
-          <p className="text-xs text-text-muted">{token.scopes.join(', ')} · До {new Date(token.expires_at).toLocaleDateString('ru-RU')}{token.revoked_at ? ' · Отозван' : ''}</p>
+          <p className="text-xs text-text-muted">{token.scopes.join(', ')} · До {new Date(token.expires_at).toLocaleDateString('ru-RU')} · {stateLabels[tokenState(token)]}</p>
         </div>
         {!token.revoked_at && <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Отозвать ${token.label}`} title="Отозвать" onClick={() => setRevokeTarget(token)}><Trash2 className="h-4 w-4" /></Button>}
       </div>)}
     </div>
+    {filteredTokens.length > PAGE_SIZE && <div className="flex items-center justify-between gap-2">
+      <Button variant="outline" className="h-10" disabled={page === 0} onClick={() => setPage((current) => Math.max(0, current - 1))}><ChevronLeft className="h-4 w-4" /> Назад</Button>
+      <span className="text-center text-xs text-text-muted">{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filteredTokens.length)} из {filteredTokens.length}</span>
+      <Button variant="outline" className="h-10" disabled={(page + 1) * PAGE_SIZE >= filteredTokens.length} onClick={() => setPage((current) => current + 1)}>Далее <ChevronRight className="h-4 w-4" /></Button>
+    </div>}
     <Dialog open={open} onOpenChange={(next) => { if (!create.isPending) setOpen(next) }}><DialogContent>
       <DialogHeader><DialogTitle>Новый токен</DialogTitle></DialogHeader>
       <form className="space-y-4" onSubmit={submit}>

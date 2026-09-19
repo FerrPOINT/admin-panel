@@ -65,9 +65,9 @@ export function OverviewPage() {
           </div>
         </div>
         <div className="min-w-0 border-r border-border px-4 py-3">
-          <div className="text-xs text-text-muted">Работают</div>
+          <div className="text-xs text-text-muted">Активны</div>
           <div className="mt-1 text-lg font-semibold">
-            {services.isPending ? '…' : services.isError ? '—' : registry.filter((service) => service.status === 'active' && service.health_status !== 'unreachable').length}
+            {services.isPending ? '…' : services.isError ? '—' : registry.filter((service) => service.status === 'active').length}
           </div>
         </div>
         <div className="min-w-0 px-4 py-3">
