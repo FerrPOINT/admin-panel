@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Copy, KeyRound, Plus, Search, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -35,6 +35,9 @@ const stateLabels: Record<Exclude<TokenState, 'all'>, string> = {
 
 export function TokensPage() {
   const queryClient = useQueryClient()
+  const createButtonRef = useRef<HTMLButtonElement>(null)
+  const revokeButtonRef = useRef<HTMLButtonElement | null>(null)
+  const revokeSucceededRef = useRef(false)
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState('')
   const [days, setDays] = useState(30)
@@ -58,7 +61,7 @@ export function TokensPage() {
   })
   const revoke = useMutation({
     mutationFn: (id: string) => api.delete<void>(`/api/v1/tokens/${id}`),
-    onSuccess: () => { setRevokeTarget(null); refresh(); toast.success('Токен отозван') },
+    onSuccess: () => { revokeSucceededRef.current = true; setRevokeTarget(null); refresh(); toast.success('Токен отозван') },
     onError: () => toast.error('Не удалось отозвать токен'),
   })
   function toggle(scope: string) {
@@ -71,7 +74,7 @@ export function TokensPage() {
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h1 className="text-xl font-semibold">Личные API-токены</h1>
-      <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Создать</Button>
+      <Button ref={createButtonRef} onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Создать</Button>
     </div>
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex min-h-10 max-w-sm flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-accent">
@@ -96,7 +99,7 @@ export function TokensPage() {
           <p className="flex items-center gap-2 text-sm font-medium"><KeyRound className="h-4 w-4" /> {token.label}</p>
           <p className="text-xs text-text-muted">{token.scopes.join(', ')} · До {new Date(token.expires_at).toLocaleDateString('ru-RU')} · {stateLabels[tokenState(token)]}</p>
         </div>
-        {!token.revoked_at && <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Отозвать ${token.label}`} title="Отозвать" onClick={() => setRevokeTarget(token)}><Trash2 className="h-4 w-4" /></Button>}
+        {!token.revoked_at && <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Отозвать ${token.label}`} title="Отозвать" onClick={(event) => { revokeButtonRef.current = event.currentTarget; revokeSucceededRef.current = false; setRevokeTarget(token) }}><Trash2 className="h-4 w-4" /></Button>}
       </div>)}
     </div>
     {filteredTokens.length > PAGE_SIZE && <div className="flex items-center justify-between gap-2">
@@ -104,7 +107,13 @@ export function TokensPage() {
       <span className="text-center text-xs text-text-muted">{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filteredTokens.length)} из {filteredTokens.length}</span>
       <Button variant="outline" className="h-10" disabled={(page + 1) * PAGE_SIZE >= filteredTokens.length} onClick={() => setPage((current) => current + 1)}>Далее <ChevronRight className="h-4 w-4" /></Button>
     </div>}
-    <Dialog open={open} onOpenChange={(next) => { if (!create.isPending) setOpen(next) }}><DialogContent className="text-text-primary">
+    <Dialog open={open} onOpenChange={(next) => { if (!create.isPending) setOpen(next) }}><DialogContent
+      className="text-text-primary"
+      onCloseAutoFocus={(event) => {
+        event.preventDefault()
+        createButtonRef.current?.focus()
+      }}
+    >
       <DialogHeader><DialogTitle>Новый токен</DialogTitle></DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
         <label className="block text-sm">Название<Input className="mt-1" required maxLength={100} value={label} onChange={(event) => setLabel(event.target.value)} /></label>
@@ -117,13 +126,21 @@ export function TokensPage() {
         <DialogFooter><Button type="submit" disabled={create.isPending || !scopes.length}>{create.isPending ? 'Создаём...' : 'Создать'}</Button></DialogFooter>
       </form>
     </DialogContent></Dialog>
-    <Dialog open={Boolean(issued)} onOpenChange={(next) => { if (!next) setIssued(null) }}><DialogContent className="text-text-primary">
+    <Dialog open={Boolean(issued)} onOpenChange={(next) => { if (!next) setIssued(null) }}><DialogContent className="text-text-primary" onCloseAutoFocus={(event) => { event.preventDefault(); createButtonRef.current?.focus() }}>
       <DialogHeader><DialogTitle>Секрет токена</DialogTitle></DialogHeader>
       <p className="text-sm text-text-muted">Секрет показывается только сейчас. Он не будет доступен после закрытия.</p>
       <code className="block break-all rounded border border-border bg-surface-raised p-3 text-xs select-all">{issued?.secret}</code>
       <DialogFooter><Button variant="outline" onClick={() => issued && void navigator.clipboard.writeText(issued.secret).then(() => toast.success('Скопировано')).catch(() => toast.error('Не удалось скопировать'))}><Copy className="h-4 w-4" /> Скопировать</Button><Button onClick={() => setIssued(null)}>Готово</Button></DialogFooter>
     </DialogContent></Dialog>
-    <Dialog open={Boolean(revokeTarget)} onOpenChange={(next) => { if (!next && !revoke.isPending) setRevokeTarget(null) }}><DialogContent className="text-text-primary">
+    <Dialog open={Boolean(revokeTarget)} onOpenChange={(next) => { if (!next && !revoke.isPending) setRevokeTarget(null) }}><DialogContent
+      className="text-text-primary"
+      onCloseAutoFocus={(event) => {
+        event.preventDefault()
+        const trigger = revokeButtonRef.current
+        if (!revokeSucceededRef.current && trigger?.isConnected) trigger.focus()
+        else createButtonRef.current?.focus()
+      }}
+    >
       <DialogHeader><DialogTitle>Отозвать токен?</DialogTitle></DialogHeader>
       <p className="text-sm text-text-muted">{revokeTarget?.label} перестанет работать сразу.</p>
       <DialogFooter><Button variant="outline" onClick={() => setRevokeTarget(null)}>Отмена</Button><Button variant="destructive" disabled={revoke.isPending} onClick={() => revokeTarget && revoke.mutate(revokeTarget.id)}>{revoke.isPending ? 'Отзываем...' : 'Отозвать'}</Button></DialogFooter>
