@@ -7,3 +7,4 @@ target/
 !.env.example
 backend/target-stage/
 frontend/test-results/
+__pycache__/
