@@ -11,6 +11,10 @@ const actionLabels: Record<string, string> = {
   'service.checked': 'Проверен сервис',
 }
 
+export const auditActionOptions = Object.entries(actionLabels).sort((left, right) =>
+  left[1].localeCompare(right[1], 'ru-RU'),
+)
+
 export function auditActionLabel(action: string) {
   return actionLabels[action] ?? action
 }

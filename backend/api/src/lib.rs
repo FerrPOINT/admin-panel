@@ -1097,6 +1097,13 @@ struct ListAuditQuery {
     offset: Option<i64>,
 }
 
+fn audit_page_bounds(query: &ListAuditQuery) -> (i64, i64) {
+    (
+        query.limit.unwrap_or(50).clamp(1, 100),
+        query.offset.unwrap_or(0).max(0),
+    )
+}
+
 // ─── Auth session endpoints ──────────────────────────────────────────────────
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -1346,14 +1353,18 @@ async fn delete_role_binding(
 
 #[utoipa::path(get, path = "/api/v1/audit-events",
     tag = "audit",
-    params(("limit" = Option<u32>, Query, description = "max events (default 100)")),
-    responses((status = 200, description = "audit events")))]
+    params(
+        ("action" = Option<String>, Query, description = "exact action code"),
+        ("entity_type" = Option<String>, Query, description = "exact entity type"),
+        ("limit" = Option<i64>, Query, description = "page size (default 50, 1..100)"),
+        ("offset" = Option<i64>, Query, description = "zero-based offset (default 0)")
+    ),
+    responses((status = 200, description = "page of audit events; total is the filtered count before limit and offset")))]
 async fn list_audit(
     State(state): State<SharedState>,
     axum::extract::Query(query): axum::extract::Query<ListAuditQuery>,
 ) -> Response {
-    let limit = query.limit.unwrap_or(50).clamp(1, 100);
-    let offset = query.offset.unwrap_or(0).max(0);
+    let (limit, offset) = audit_page_bounds(&query);
     match state
         .audit
         .list(
@@ -1364,9 +1375,9 @@ async fn list_audit(
         )
         .await
     {
-        Ok(events) => (
+        Ok(page) => (
             StatusCode::OK,
-            Json(json!({ "events": events, "total": events.len() })),
+            Json(json!({ "events": page.events, "total": page.total })),
         )
             .into_response(),
         Err(err) => internal(err),
@@ -1446,4 +1457,32 @@ fn validation(field: &str, reason: &str) -> Response {
         })),
     )
         .into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ListAuditQuery, audit_page_bounds};
+
+    #[test]
+    fn audit_page_bounds_clamp_invalid_input() {
+        let query = ListAuditQuery {
+            action: None,
+            entity_type: None,
+            limit: Some(-4),
+            offset: Some(-20),
+        };
+        assert_eq!(audit_page_bounds(&query), (1, 0));
+        let query = ListAuditQuery {
+            limit: Some(200),
+            offset: Some(40),
+            ..query
+        };
+        assert_eq!(audit_page_bounds(&query), (100, 40));
+        let query = ListAuditQuery {
+            limit: None,
+            offset: None,
+            ..query
+        };
+        assert_eq!(audit_page_bounds(&query), (50, 0));
+    }
 }

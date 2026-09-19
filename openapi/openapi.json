@@ -14,20 +14,47 @@
         "operationId": "list_audit",
         "parameters": [
           {
+            "name": "action",
+            "in": "query",
+            "description": "exact action code",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entity_type",
+            "in": "query",
+            "description": "exact entity type",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
-            "description": "max events (default 100)",
+            "description": "page size (default 50, 1..100)",
             "required": false,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "minimum": 0
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "zero-based offset (default 0)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "audit events"
+            "description": "page of audit events; total is the filtered count before limit and offset"
           }
         }
       }

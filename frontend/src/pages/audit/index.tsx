@@ -1,14 +1,14 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Copy, Filter } from 'lucide-react'
+import { useEffect, useState, type FormEvent } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Filter, RotateCcw } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from '@/shared/api/client'
 import type { AuditEvent } from '@/shared/api/hooks'
-import { auditActionLabel, auditDate, shortIdentifier } from '@/shared/ui/audit-format'
+import { auditActionLabel, auditActionOptions, auditDate, shortIdentifier } from '@/shared/ui/audit-format'
 
 const PAGE_SIZE = 20
 
-const ENTITY_TYPES = ['', 'service', 'branding_revision', 'declaration', 'role_binding'] as const
+const ENTITY_TYPES = ['', 'service', 'branding_revision', 'declaration', 'role_binding', 'central_user'] as const
 const ENTITY_LABELS: Record<string, string> = {
   service: 'Сервис',
   branding_revision: 'Брендинг',
@@ -80,6 +80,8 @@ function AuditRow({ event }: { event: AuditEvent }) {
 }
 
 export function AuditPage() {
+  const [actionChoice, setActionChoice] = useState('')
+  const [customAction, setCustomAction] = useState('')
   const [action, setAction] = useState('')
   const [entityType, setEntityType] = useState('')
   const [page, setPage] = useState(0)
@@ -95,8 +97,25 @@ export function AuditPage() {
     queryFn: () => api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events?${params.toString()}`),
   })
 
+  useEffect(() => {
+    if (audit.data && page > 0 && page * PAGE_SIZE >= audit.data.total) {
+      setPage(Math.max(0, Math.ceil(audit.data.total / PAGE_SIZE) - 1))
+    }
+  }, [audit.data, page])
+
   const events = audit.data?.events ?? []
-  const hasMore = events.length === PAGE_SIZE
+  const total = audit.data?.total ?? 0
+  const hasMore = (page + 1) * PAGE_SIZE < total
+  const rangeStart = total ? page * PAGE_SIZE + 1 : 0
+  const rangeEnd = page * PAGE_SIZE + events.length
+
+  const applyCustomAction = (event: FormEvent) => {
+    event.preventDefault()
+    const next = customAction.trim()
+    if (!next) return
+    setAction(next)
+    setPage(0)
+  }
 
   return (
     <div className="space-y-4">
@@ -106,24 +125,49 @@ export function AuditPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-h-10 max-w-sm flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm focus-within:ring-2 focus-within:ring-accent">
-          <Filter className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
-          <span className="sr-only">Действие</span>
-          <input
-            value={action}
-            onChange={(event) => { setAction(event.target.value); setPage(0) }}
-            placeholder="Действие, например branding.published"
-            className="min-w-0 flex-1 bg-transparent outline-none"
-          />
-        </label>
+        <select
+          aria-label="Действие"
+          value={actionChoice}
+          onChange={(event) => {
+            const next = event.target.value
+            setActionChoice(next)
+            if (next !== 'custom') {
+              setAction(next)
+              setPage(0)
+            }
+          }}
+          className="min-h-10 w-full min-w-0 rounded-md border border-border bg-surface px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-auto"
+        >
+          <option value="">Все действия</option>
+          {auditActionOptions.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+          <option value="custom">Точный код…</option>
+        </select>
         <select
           aria-label="Тип сущности"
           value={entityType}
           onChange={(event) => { setEntityType(event.target.value); setPage(0) }}
-          className="min-h-10 rounded-md border border-border bg-surface px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="min-h-10 w-full rounded-md border border-border bg-surface px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent sm:w-auto"
         >
           {ENTITY_TYPES.map((type) => <option key={type} value={type}>{type === '' ? 'Все типы сущностей' : ENTITY_LABELS[type]}</option>)}
         </select>
+        {actionChoice === 'custom' && (
+          <form className="flex w-full flex-wrap items-center gap-2" onSubmit={applyCustomAction}>
+            <label className="flex min-h-10 min-w-48 flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm focus-within:ring-2 focus-within:ring-accent">
+              <Filter className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+              <span className="sr-only">Точный код действия</span>
+              <input
+                value={customAction}
+                onChange={(event) => setCustomAction(event.target.value)}
+                placeholder="Например, branding.published"
+                className="min-h-10 min-w-0 flex-1 bg-transparent outline-none"
+              />
+            </label>
+            <button type="submit" disabled={!customAction.trim()} className="min-h-10 rounded-md border border-border px-3 text-sm disabled:opacity-40">
+              Применить
+            </button>
+            {action && <span role="status" className="text-xs text-text-muted">Применён: {action}</span>}
+          </form>
+        )}
       </div>
 
       <div className="border-y border-border bg-surface">
@@ -131,7 +175,14 @@ export function AuditPage() {
           <span>Время</span><span>Действие</span><span>Сущность</span><span>Автор</span><span />
         </div>
         {audit.isPending && <p role="status" className="px-4 py-5 text-sm text-text-muted">Загрузка аудита…</p>}
-        {audit.isError && <p role="alert" className="px-4 py-5 text-sm text-danger">Не удалось загрузить журнал. <button type="button" className="underline" onClick={() => void audit.refetch()}>Повторить</button></p>}
+        {audit.isError && (
+          <div role="alert" className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-danger">
+            <span>Не удалось загрузить журнал.</span>
+            <button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-md border border-danger/40 px-3 hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-accent" onClick={() => void audit.refetch()}>
+              <RotateCcw className="h-4 w-4" aria-hidden="true" /> Повторить
+            </button>
+          </div>
+        )}
         {events.map((event) => <AuditRow key={event.id} event={event} />)}
         {audit.data && events.length === 0 && <p className="px-4 py-6 text-sm text-text-muted">Нет событий по выбранным фильтрам.</p>}
       </div>
@@ -140,7 +191,9 @@ export function AuditPage() {
         <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || audit.isFetching} className="inline-flex min-h-10 items-center gap-1 rounded-md border border-border px-3 text-sm disabled:opacity-40">
           <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Назад
         </button>
-        <span className="text-center text-xs text-text-muted">Страница {page + 1} · {events.length} событий</span>
+        <span className="text-center text-xs text-text-muted">
+          {audit.isPending ? 'Загрузка…' : audit.isError ? 'Число событий недоступно' : `${rangeStart}–${rangeEnd} из ${total}`}
+        </span>
         <button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasMore || audit.isFetching} className="inline-flex min-h-10 items-center gap-1 rounded-md border border-border px-3 text-sm disabled:opacity-40">
           Вперёд <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>

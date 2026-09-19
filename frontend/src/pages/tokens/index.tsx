@@ -104,26 +104,26 @@ export function TokensPage() {
       <span className="text-center text-xs text-text-muted">{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filteredTokens.length)} из {filteredTokens.length}</span>
       <Button variant="outline" className="h-10" disabled={(page + 1) * PAGE_SIZE >= filteredTokens.length} onClick={() => setPage((current) => current + 1)}>Далее <ChevronRight className="h-4 w-4" /></Button>
     </div>}
-    <Dialog open={open} onOpenChange={(next) => { if (!create.isPending) setOpen(next) }}><DialogContent>
+    <Dialog open={open} onOpenChange={(next) => { if (!create.isPending) setOpen(next) }}><DialogContent className="text-text-primary">
       <DialogHeader><DialogTitle>Новый токен</DialogTitle></DialogHeader>
       <form className="space-y-4" onSubmit={submit}>
         <label className="block text-sm">Название<Input className="mt-1" required maxLength={100} value={label} onChange={(event) => setLabel(event.target.value)} /></label>
         <label className="block text-sm">Срок действия, дней<Input className="mt-1" type="number" min={1} max={365} required value={days} onChange={(event) => setDays(Number(event.target.value))} /></label>
         <fieldset className="space-y-2"><legend className="text-sm font-medium">Доступы</legend>
           {services.map(([key, name]) => <div key={key} className="flex flex-wrap items-center gap-4 text-sm"><span className="w-36">{name}</span>
-            {(['read', 'write'] as const).map((action) => <label key={action} className="flex items-center gap-2"><input type="checkbox" checked={scopes.includes(`${key}:${action}`)} onChange={() => toggle(`${key}:${action}`)} />{action === 'read' ? 'Чтение' : 'Запись'}</label>)}
+            {(['read', 'write'] as const).map((action) => <label key={action} className="flex min-h-10 items-center gap-2"><input type="checkbox" checked={scopes.includes(`${key}:${action}`)} onChange={() => toggle(`${key}:${action}`)} />{action === 'read' ? 'Чтение' : 'Запись'}</label>)}
           </div>)}
         </fieldset>
         <DialogFooter><Button type="submit" disabled={create.isPending || !scopes.length}>{create.isPending ? 'Создаём...' : 'Создать'}</Button></DialogFooter>
       </form>
     </DialogContent></Dialog>
-    <Dialog open={Boolean(issued)} onOpenChange={(next) => { if (!next) setIssued(null) }}><DialogContent>
+    <Dialog open={Boolean(issued)} onOpenChange={(next) => { if (!next) setIssued(null) }}><DialogContent className="text-text-primary">
       <DialogHeader><DialogTitle>Секрет токена</DialogTitle></DialogHeader>
       <p className="text-sm text-text-muted">Секрет показывается только сейчас. Он не будет доступен после закрытия.</p>
       <code className="block break-all rounded border border-border bg-surface-raised p-3 text-xs select-all">{issued?.secret}</code>
       <DialogFooter><Button variant="outline" onClick={() => issued && void navigator.clipboard.writeText(issued.secret).then(() => toast.success('Скопировано')).catch(() => toast.error('Не удалось скопировать'))}><Copy className="h-4 w-4" /> Скопировать</Button><Button onClick={() => setIssued(null)}>Готово</Button></DialogFooter>
     </DialogContent></Dialog>
-    <Dialog open={Boolean(revokeTarget)} onOpenChange={(next) => { if (!next && !revoke.isPending) setRevokeTarget(null) }}><DialogContent>
+    <Dialog open={Boolean(revokeTarget)} onOpenChange={(next) => { if (!next && !revoke.isPending) setRevokeTarget(null) }}><DialogContent className="text-text-primary">
       <DialogHeader><DialogTitle>Отозвать токен?</DialogTitle></DialogHeader>
       <p className="text-sm text-text-muted">{revokeTarget?.label} перестанет работать сразу.</p>
       <DialogFooter><Button variant="outline" onClick={() => setRevokeTarget(null)}>Отмена</Button><Button variant="destructive" disabled={revoke.isPending} onClick={() => revokeTarget && revoke.mutate(revokeTarget.id)}>{revoke.isPending ? 'Отзываем...' : 'Отозвать'}</Button></DialogFooter>
