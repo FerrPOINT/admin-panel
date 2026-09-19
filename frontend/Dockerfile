@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 WORKDIR /app
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN corepack enable && corepack prepare pnpm@11.25.0 --activate && pnpm config set verify-deps-before-run false || true
