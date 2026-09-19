@@ -20,6 +20,7 @@ pub enum CentralCheck {
     FallThrough,
     /// Central token, expired.
     Expired,
+    Unavailable,
 }
 
 /// Map the central role claim onto the local panel role ladder.
@@ -40,9 +41,10 @@ pub async fn check_token(token: &str) -> CentralCheck {
         BridgeOutcome::NotOurs | BridgeOutcome::NotConfigured => CentralCheck::FallThrough,
         BridgeOutcome::Expired => CentralCheck::Expired,
         BridgeOutcome::Invalid(reason) => {
-            tracing::debug!(reason, "bearer is not a valid central token");
-            CentralCheck::FallThrough
+            tracing::debug!(reason, "central token rejected");
+            CentralCheck::Expired
         }
+        BridgeOutcome::Unavailable => CentralCheck::Unavailable,
     }
 }
 

@@ -81,12 +81,17 @@ curl --fail http://127.0.0.1:7771/health/ready
 
 | Владелец | Владеет | Явно не владеет |
 |---|---|---|
-| Admin Panel | Branding revisions, service registry, runtime catalog, local role bindings, panel audit | Product domain records, product DBs, arbitrary remote execution |
-| Central auth | Identity, credentials, token issuance, signing keys и JWKS | Branding, registry, audit и Admin Panel policy |
+| Admin Panel | Branding revisions, service registry, runtime catalog, user/token management UI и panel audit | Identity storage, passwords, sessions, product DBs, arbitrary remote execution |
+| Central auth | Identity, credentials, browser sessions, personal tokens, signing keys и JWKS | Branding, registry и product domain data |
 | Product services | Domain data, product authorization, local availability, secrets и service APIs | Central platform branding mutation и global registry policy |
 | Platform operator | Deployment secrets, CORS/allowlist policy, backup и signing-key lifecycle | User credentials в source control |
 
-Central auth остаётся внешним identity service. `POST /api/v1/auth/login` проксирует credentials и возвращает session response только после validation token; Admin Panel не сохраняет passwords, access tokens или refresh tokens. API валидирует ES256 bearer token через configured JWKS и накладывает собственную panel-role policy. Unknown/missing central role остаётся least-privilege viewer; local binding сопоставляет verified central `user_id`, `email` или `role` claim только для этой панели.
+Central Auth остаётся внешним identity service. Browser использует Authorization
+Code + PKCE; Admin Panel держит access token только в памяти и не сохраняет
+passwords, sessions или personal token secrets. Любой активный вошедший
+пользователь может выполнять пользовательские и административные операции во
+всех шести приложениях. Исторические role bindings остаются в БД только для
+совместимости, их mutation API закрыт в central mode и экран назначения удалён.
 
 <a name="architecture"></a>
 
@@ -108,8 +113,8 @@ flowchart LR
 | `/health/{live,ready}` | None | Process and owned-store readiness only. |
 | `/api/v1/runtime/{branding,services}` | None | Safe public projection; no credentials or diagnostics. |
 | `/api/v1/auth/me` | Bearer | Validated caller identity and effective panel capabilities. |
-| Registry, branding, audit | Bearer | `platform_operator` or above. |
-| Role bindings | Bearer | `platform_admin` only. |
+| Registry, branding, audit | Bearer | Любой активный central user. |
+| Users and personal tokens | Bearer | Прокси к Central Auth; секрет token показывается один раз. |
 
 Integration checks are intentionally bounded: the caller chooses a declared capability, while server code chooses the fixed path and method from a local allowlist. The API is neither a proxy nor a remote shell.
 
@@ -131,9 +136,12 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 
 ![Карточка сервиса](docs/screenshots/service-detail.png)
 
-### Привязки ролей
+### Пользователи и API-токены
 
-![Привязки ролей](docs/screenshots/role-bindings.png)
+Admin Panel создаёт pending account, повторно отправляет одноразовую ссылку
+установки пароля, отключает/восстанавливает пользователя и управляет личными
+scoped tokens через Central Auth API. Пароли и token secrets не записываются в
+Admin Panel storage или audit.
 
 Версионируемый registry отделяет integration declaration от произвольного управления внешними сервисами: только approved capabilities получают bounded read-only checks.
 

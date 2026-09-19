@@ -8,16 +8,16 @@
 
 | Группа | Auth | Layout | Поведение |
 |---|---|---|---|
-| Login | Public | Minimal | Отправляет credentials только в Admin API proxy; token не попадает в URL или persistent browser storage. |
-| Protected app | ES256 JWT и panel role | `AdminShell` | Основные administrative pages. |
-| Forbidden | Authenticated, insufficient role | Minimal | Safe 403 explanation without claims/policy internals. |
+| Login | Public | Minimal | Запускает Central Auth Authorization Code + PKCE; token не попадает в URL или persistent browser storage. |
+| Protected app | Central bearer | `AdminShell` | Основные administrative pages для любого активного пользователя. |
 | Not found | Any | Minimal | 404 without redirect into protected data. |
 
 ## Текущие страницы
 
 | Route | Access | Назначение | Разрешённые действия | Не делает |
 |---|---|---|---|---|
-| `/login` | Public | Вход через central auth proxy | Submit credentials to `/api/v1/auth/login` | Local password store, registration, refresh flow |
+| `/login` | Public | Вход через Central Auth | Начать Authorization Code + PKCE | Local password form, registration, token storage |
+| `/sso/callback` | Public callback | Завершить PKCE | Принять code и открыть исходный маршрут | Показывать token в URL/storage |
 | `/` | Viewer+ | Control-plane overview | Переходы к доступным разделам | Управление внешними сервисами |
 | `/branding` | Viewer+ | Published branding и revisions | Operator creates drafts; operator publishes under current API policy | Arbitrary CSS/JS/HTML |
 | `/services` | Viewer+ | Service registry | Operator creates and updates declarations | Inline arbitrary endpoint edit |
@@ -25,12 +25,15 @@
 | `/audit` | Viewer+ | Append-only audit trail | Filter and inspect sanitised records | Edit/delete audit row |
 | `/runtime` | Viewer+ | Runtime branding/catalog observability | Read current safe projections | Modify product runtime |
 | `/settings` | Viewer+ | Local panel settings view | Read supported UI settings | Edit central auth identity |
-| `/role-bindings` | Admin | Local verified-claim-to-panel-role bindings | Create/remove binding | Create central auth users or change auth storage |
+| `/users` | Authenticated | Центральные пользователи | Create, rename, resend setup, disable/restore | Store password or directory copy |
+| `/tokens` | Authenticated | Личные API-токены | Create scoped token, show once, revoke | Store raw token secret |
 | `*` | Any | Not found | Explicit navigation back | Automatic redirect to protected overview |
 
 ## Responsive behavior
 
-Desktop displays the persistent sidebar and dense operational tables. At `375×812`, navigation collapses behind the menu and service registry switches to cards; role-binding data remains deliberately compact. Responsive evidence is maintained in `docs/screenshots/m-services.png` and `docs/screenshots/m-role-bindings.png` with personal identifiers and exact operational timestamps redacted.
+Desktop displays the persistent sidebar and dense operational tables. At
+`375×812`, navigation collapses behind the menu, tables use mobile-safe layouts,
+and user/token actions remain keyboard accessible without horizontal overflow.
 
 ## Route guard rules
 

@@ -3,14 +3,15 @@ import { Link, Outlet, useLocation } from 'react-router'
 import {
   History,
   Home,
+  KeyRound,
   Menu,
   Palette,
   Server,
   Settings,
   SlidersHorizontal,
   Table2,
-  Shield,
   X,
+  Users,
 } from 'lucide-react'
 import { Button } from '@sdlc/ui/ui'
 import { ServiceSwitcher, ThemeToggle } from '@sdlc/ui/ui'
@@ -32,7 +33,8 @@ const navItems: NavItem[] = [
   { to: '/audit', icon: History, label: 'Аудит' },
   { to: '/runtime', icon: SlidersHorizontal, label: 'Runtime' },
   { to: '/settings', icon: Settings, label: 'Локальные настройки' },
-  { to: '/role-bindings', icon: Shield, label: 'Привязки ролей' },
+  { to: '/users', icon: Users, label: 'Пользователи' },
+  { to: '/tokens', icon: KeyRound, label: 'API-токены' },
 ]
 
 function SidebarLink({
@@ -93,7 +95,6 @@ export function AppShell() {
         <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-xs">
           <div className="min-w-0">
             <p className="truncate text-text-primary">{session?.email ?? session?.subject}</p>
-            <p className="text-text-muted">{session?.panelRole}</p>
           </div>
           <Button variant="ghost" size="sm" aria-label="Выйти" onClick={logout}>
             <LogOut className="h-4 w-4" />

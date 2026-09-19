@@ -8,8 +8,10 @@ import { RevisionsPage } from '@/pages/revisions'
 import { AuditPage } from '@/pages/audit'
 import { RuntimePage } from '@/pages/runtime'
 import { SettingsPage } from '@/pages/settings'
-import { RoleBindingsPage } from '@/pages/role-bindings'
+import { UsersPage } from '@/pages/users'
+import { TokensPage } from '@/pages/tokens'
 import { LoginPage } from '@/pages/login'
+import { SsoCallbackPage } from '@/pages/sso-callback'
 import { useAuth } from '@/shared/auth/auth-context'
 
 function ProtectedApp() {
@@ -27,6 +29,7 @@ function ProtectedApp() {
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/sso/callback', element: <SsoCallbackPage /> },
   {
     element: <ProtectedApp />,
     children: [
@@ -38,7 +41,8 @@ export const router = createBrowserRouter([
       { path: '/audit', element: <AuditPage /> },
       { path: '/runtime', element: <RuntimePage /> },
       { path: '/settings', element: <SettingsPage /> },
-      { path: '/role-bindings', element: <RoleBindingsPage /> },
+      { path: '/users', element: <UsersPage /> },
+      { path: '/tokens', element: <TokensPage /> },
     ],
   },
 ])

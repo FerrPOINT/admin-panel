@@ -34,6 +34,8 @@ pub struct AuthConfig {
     pub jwks_uri: String,
     pub issuer: String,
     pub audience: String,
+    /// Internal backchannel URL for managed-user operations.
+    pub central_api_url: String,
 }
 
 impl AppConfig {
@@ -80,6 +82,8 @@ impl AppConfig {
                 issuer: std::env::var("ADMINP_AUTH_ISSUER")
                     .unwrap_or("http://127.0.0.1:7701".into()),
                 audience: std::env::var("ADMINP_AUTH_AUDIENCE").unwrap_or("sdlc".into()),
+                central_api_url: std::env::var("ADMINP_AUTH_CENTRAL_API_URL")
+                    .unwrap_or("http://127.0.0.1:7701".into()),
             },
         })
     }

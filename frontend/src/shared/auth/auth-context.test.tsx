@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { AuthProvider, useAuth } from './auth-context'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { AuthProvider, authToken, useAuth } from './auth-context'
 
 function Probe() {
-  const { status, session, canMutate, canManageBindings } = useAuth()
+  const { status, session, canMutate, canManageBindings, acceptSso } = useAuth()
   return (
     <div>
       <span data-testid="status">{status}</span>
       <span data-testid="role">{session?.panelRole ?? 'none'}</span>
       <span data-testid="mutate">{String(canMutate)}</span>
       <span data-testid="bindings">{String(canManageBindings)}</span>
+      <button onClick={() => void acceptSso({ accessToken: 'tok-1', expiresAt: Date.now() + 60_000, subject: 'u-1', email: 'admin@base.local', name: 'Admin', returnTo: '/' })}>Accept SSO</button>
     </div>
   )
 }
@@ -27,6 +28,7 @@ describe('AuthProvider', () => {
     vi.stubGlobal('fetch', vi.fn())
   })
   afterEach(() => {
+    act(() => window.dispatchEvent(new Event('base-admin:unauthorized')))
     cleanup()
     vi.unstubAllGlobals()
   })
@@ -38,23 +40,26 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('mutate').textContent).toBe('false')
   })
 
-  it('restores a session from a stored token via /auth/me', async () => {
-    sessionStorage.setItem('base.admin.token', 'tok-1')
+  it('accepts a verified SSO session via /auth/me without browser storage', async () => {
     vi.mocked(fetch).mockResolvedValue(loginResponse(true) as unknown as Response)
     render(<AuthProvider><Probe /></AuthProvider>)
+    fireEvent.click(screen.getByRole('button', { name: 'Accept SSO' }))
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
     expect(screen.getByTestId('role').textContent).toBe('platform_admin')
-    expect(screen.getByTestId('bindings').textContent).toBe('true')
+    expect(screen.getByTestId('mutate').textContent).toBe('true')
+    expect(screen.getByTestId('bindings').textContent).toBe('false')
+    expect(authToken()).toBe('tok-1')
+    expect(sessionStorage.getItem('base.admin.token')).toBeNull()
     const [url, init] = vi.mocked(fetch).mock.calls[0]
     expect(url).toContain('/api/v1/auth/me')
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer tok-1')
   })
 
-  it('drops an invalid stored token', async () => {
+  it('discards a legacy stored token without using it', async () => {
     sessionStorage.setItem('base.admin.token', 'stale')
-    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 401, json: async () => ({}) } as unknown as Response)
     render(<AuthProvider><Probe /></AuthProvider>)
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('anonymous'))
     expect(sessionStorage.getItem('base.admin.token')).toBeNull()
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

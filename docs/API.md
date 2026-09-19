@@ -18,12 +18,13 @@
 | Health | Нет | `GET /health/live`, `GET /health/ready` |
 | Public runtime | Нет | Только safe published branding и active catalog |
 | Session | ES256 bearer через configured central JWKS | `GET /auth/me` |
-| Operator API | ES256 bearer и `platform_operator` либо `platform_admin` | Registry, branding revisions, checks и audit |
-| Admin API | ES256 bearer и `platform_admin` | Role bindings |
+| Protected API | Valid central bearer + service scope | Registry, branding, checks, audit, users и tokens |
 
-`POST /auth/login` проксирует credentials в central auth и возвращает session response только после успешной validation token. Панель не хранит credentials, не выпускает tokens и не имеет refresh/logout endpoints.
-
-Неизвестная или отсутствующая central role отображается в least-privilege `platform_viewer`. Local role binding может повысить verified `user_id`, `email` или `role` claim только для этой панели; он не меняет central identity или policy продуктового сервиса.
+UI выполняет Central Auth Authorization Code + PKCE через публичный issuer.
+`POST /auth/login` является legacy proxy и возвращает `410 SSO_REQUIRED` при
+настроенном Central Auth. Панель не хранит credentials, browser sessions или
+token secrets. Все активные вошедшие люди имеют одинаковые права; локальные
+role-binding mutations в central mode возвращают `410 ROLES_DISABLED`.
 
 ## Маршруты
 
@@ -45,6 +46,21 @@ Runtime endpoints не содержат credentials, private integration configu
 | `POST` | `/api/v1/auth/login` | Проксировать credentials в central auth и вернуть validated panel session. |
 | `GET` | `/api/v1/auth/me` | Вернуть validated subject, effective panel role и UI capabilities. |
 
+### Пользователи и личные токены
+
+| Метод | Путь | Назначение |
+|---|---|---|
+| `GET`, `POST` | `/api/v1/users` | Список/search или создание pending account в Central Auth. |
+| `PATCH` | `/api/v1/users/{id}` | Изменить отображаемое имя; email действующей учётки не меняется. |
+| `POST` | `/api/v1/users/{id}/status` | Отключить или восстановить; отключение отзывает sessions и personal tokens. |
+| `POST` | `/api/v1/users/{id}/password-link` | Отменить прежнюю и отправить новую одноразовую setup-link. |
+| `GET`, `POST` | `/api/v1/tokens` | Список metadata или выпуск scoped personal token; secret возвращается один раз. |
+| `DELETE` | `/api/v1/tokens/{id}` | Отозвать personal token. |
+
+Admin Panel проксирует эти операции в Central Auth с bearer пользователя и не
+сохраняет password setup links, browser sessions, raw token secrets или копию
+user directory.
+
 ### Registry, branding и audit
 
 | Метод | Путь | Назначение |
@@ -62,14 +78,16 @@ Runtime endpoints не содержат credentials, private integration configu
 
 Covered actions: `service.approved`, `service.checked`, `branding.published` и `branding.withdrawn`. Registry create/update/status и role-binding mutations пока не создают complete audit evidence; это known closure gap, а не обещание API.
 
-### Role bindings
+### Legacy role bindings
 
 | Метод | Путь | Назначение |
 |---|---|---|
-| `GET`, `POST` | `/api/v1/role-bindings` | Прочитать или создать local claim-to-panel-role binding. |
-| `DELETE` | `/api/v1/role-bindings/{id}` | Удалить local binding. |
+| `GET` | `/api/v1/role-bindings` | Прочитать исторические записи для совместимости. |
+| `POST` | `/api/v1/role-bindings` | Legacy only; `410 ROLES_DISABLED` в central mode. |
+| `DELETE` | `/api/v1/role-bindings/{id}` | Legacy only; `410 ROLES_DISABLED` в central mode. |
 
-Разрешены только claims `user_id`, `email` и `role`. Допустимые local panel roles: `platform_viewer`, `platform_operator`, `platform_admin`.
+Новые пользовательские роли не назначаются. Поля и записи сохраняются один
+релиз только для совместимости исторических данных.
 
 ## Ошибки
 
