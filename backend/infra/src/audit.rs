@@ -8,6 +8,11 @@ pub struct AuditStore {
     pool: PgPool,
 }
 
+pub struct AuditPage {
+    pub events: Vec<AuditEvent>,
+    pub total: i64,
+}
+
 impl AuditStore {
     pub fn new(pool: PgPool) -> Self {
         Self { pool }
@@ -40,7 +45,16 @@ impl AuditStore {
         entity_type: Option<&str>,
         limit: i64,
         offset: i64,
-    ) -> Result<Vec<AuditEvent>, sqlx::Error> {
+    ) -> Result<AuditPage, sqlx::Error> {
+        let total = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM audit_events \
+             WHERE ($1::text IS NULL OR action = $1) \
+             AND ($2::text IS NULL OR entity_type = $2)",
+        )
+        .bind(action)
+        .bind(entity_type)
+        .fetch_one(&self.pool)
+        .await?;
         let rows = sqlx::query_as::<_, AuditRow>(
             "SELECT id, occurred_at, request_id, actor_subject, actor_role, action, \
              entity_type, entity_id, metadata FROM audit_events \
@@ -54,7 +68,10 @@ impl AuditStore {
         .bind(offset)
         .fetch_all(&self.pool)
         .await?;
-        Ok(rows.into_iter().map(Into::into).collect())
+        Ok(AuditPage {
+            events: rows.into_iter().map(Into::into).collect(),
+            total,
+        })
     }
 }
 

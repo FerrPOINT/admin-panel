@@ -27,6 +27,20 @@ jobs:
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: admin_panel_audit_test
+          POSTGRES_USER: audit_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U audit_test -d admin_panel_audit_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: admin-panel/backend
@@ -54,6 +68,8 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: cargo test
         run: cargo test --workspace
+        env:
+          ADMIN_PANEL_AUDIT_TEST_DATABASE_URL: postgres://audit_test@localhost:5432/admin_panel_audit_test
       - name: OpenAPI spec is up to date
         run: |
           cargo run -p admin-panel-api --bin gen-openapi > /tmp/openapi.generated.json

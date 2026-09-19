@@ -155,7 +155,7 @@ UNIQUE (`claim_name`, `claim_value`, `panel_role`). Нельзя создава�
 | `actor_subject` | varchar(255) nullable | JWT `sub` или системный актор. |
 | `actor_role` | varchar(32) nullable | Роль, примененная к действию. |
 | `action` | varchar(100) | Allowlist: `service.declared`, `service.approved`, `branding.published` и т.п. |
-| `entity_type` | varchar(64) | `service`, `service_declaration`, `branding_revision`, `role_binding`. |
+| `entity_type` | varchar(64) | `service`, `service_declaration`, `branding_revision`, `role_binding`, `central_user` (события прокси Central Auth). |
 | `entity_id` | UUID nullable | Идентификатор сущности. |
 | `metadata` | jsonb | Санитизированный diff/контекст. |
 | `source_ip` | inet nullable | При разрешенной operational policy. |

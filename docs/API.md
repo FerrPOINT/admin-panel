@@ -76,6 +76,14 @@ user directory.
 | `POST` | `/api/v1/branding/revisions/{revision}/withdraw` | Withdraw revision. |
 | `GET` | `/api/v1/audit-events` | Прочитать sanitised append-only audit events для covered actions. |
 
+Журнал принимает `action` и `entity_type` как точные фильтры, `limit` (по
+умолчанию 50, допустимый диапазон 1–100) и `offset` (с нуля). Ответ сохраняет
+форму `{ "events": [...], "total": N }`: `events` — запрошенная страница,
+`total` — число всех совпавших событий до применения `limit` и `offset`.
+Отрицательный `offset` трактуется как ноль. Ранее `total` ошибочно равнялся
+длине текущей страницы; потребителям, использовавшим это значение как размер
+страницы, следует использовать `events.length`.
+
 Covered actions: `service.approved`, `service.checked`, `branding.published` и `branding.withdrawn`. Registry create/update/status и role-binding mutations пока не создают complete audit evidence; это known closure gap, а не обещание API.
 
 ### Legacy role bindings
