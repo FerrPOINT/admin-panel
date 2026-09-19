@@ -19,12 +19,12 @@ export function SettingsPage() {
   })
 
   const rows: Array<[string, string]> = [
-    ['Auth owner', 'Central auth / JWKS (fail-closed)'],
+    ['Источник входа', 'Центральная авторизация / JWKS'],
     ['Текущая сессия', session?.email ?? session?.subject ?? '—'],
-    ['Panel-роль', session?.panelRole ?? '—'],
-    ['Runtime cache', 'ETag + max-age 60 seconds'],
-    ['Config delivery', 'Direct API, no CDN/gateway v1'],
-    ['Readiness', ready.data ? `${ready.data.status}${ready.data.database ? ` · ${ready.data.database}` : ''}` : ready.isError ? 'недоступен' : 'загрузка...'],
+    ['Роль в панели', session?.panelRole ?? '—'],
+    ['Кеш runtime', 'ETag · 60 секунд'],
+    ['Доставка конфигурации', 'Прямой API'],
+    ['Готовность', ready.data ? `${ready.data.status}${ready.data.database ? ` · ${ready.data.database}` : ''}` : ready.isError ? 'Недоступна' : 'Загрузка…'],
   ]
 
   return (
@@ -37,9 +37,9 @@ export function SettingsPage() {
         <h2 className="text-sm font-medium">Состояние интеграции</h2>
         <dl className="mt-4 space-y-3 text-sm">
           {rows.map(([term, value]) => (
-            <div key={term} className="flex justify-between gap-3">
+            <div key={term} className="grid gap-1 border-b border-border pb-3 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(140px,220px)_minmax(0,1fr)] sm:gap-4">
               <dt className="text-text-muted">{term}</dt>
-              <dd className="text-right">{value}</dd>
+              <dd className="min-w-0 break-words">{value}</dd>
             </div>
           ))}
         </dl>

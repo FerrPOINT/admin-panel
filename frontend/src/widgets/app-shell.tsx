@@ -1,4 +1,4 @@
-import { useState, type ElementType } from 'react'
+import { useEffect, useState, type ElementType } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 import {
   History,
@@ -54,7 +54,8 @@ function SidebarLink({
     <Link
       to={to}
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+      aria-current={active ? 'page' : undefined}
+      className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
         active
           ? 'bg-surface-raised text-text-primary'
           : 'text-text-secondary hover:bg-surface-raised hover:text-text-primary'
@@ -70,6 +71,15 @@ export function AppShell() {
   const location = useLocation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { session, logout } = useAuth()
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileMenuOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [mobileMenuOpen])
 
   const isActive = (to: string) =>
     to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
@@ -90,13 +100,13 @@ export function AppShell() {
       <div className="mt-auto space-y-2 pt-3">
         <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1"><ServiceSwitcher currentKey="admin-panel" /></div>
-          <ThemeToggle />
+          <div className="[&_button]:h-10 [&_button]:w-10"><ThemeToggle /></div>
         </div>
         <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-raised px-3 py-2 text-xs">
           <div className="min-w-0">
             <p className="truncate text-text-primary">{session?.email ?? session?.subject}</p>
           </div>
-          <Button variant="ghost" size="sm" aria-label="Выйти" onClick={logout}>
+          <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Выйти" title="Выйти" onClick={logout}>
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
@@ -109,8 +119,8 @@ export function AppShell() {
       <aside className="hidden md:flex">{sidebar}</aside>
 
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-40 flex md:hidden">
-          <div className="flex-1 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+        <div className="fixed inset-0 z-40 flex md:hidden" role="dialog" aria-modal="true" aria-label="Навигация">
+          <button type="button" className="flex-1 bg-black/50" aria-label="Закрыть меню" onClick={() => setMobileMenuOpen(false)} />
           <div className="flex">{sidebar}</div>
         </div>
       )}
@@ -119,14 +129,15 @@ export function AppShell() {
         <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 md:hidden">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            className="h-10 w-10"
             onClick={() => setMobileMenuOpen((v) => !v)}
             aria-label="Меню"
           >
             {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
           <PlatformMark size="sm" />
-          <ThemeToggle />
+          <div className="[&_button]:h-10 [&_button]:w-10"><ThemeToggle /></div>
         </header>
 
         <main className="min-w-0 flex-1 p-4 md:p-6">

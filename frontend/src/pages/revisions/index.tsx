@@ -26,6 +26,9 @@ const FIELD_LABELS: Record<string, string> = {
   accent_color: 'Второстепенный цвет',
   surface_color: 'Поверхность',
 }
+const STATE_LABELS: Record<BrandingRevision['state'], string> = {
+  draft: 'Черновик', published: 'Опубликована', superseded: 'Заменена', withdrawn: 'Отозвана',
+}
 
 function diffDocuments(base: BrandingDocument | undefined, next: BrandingDocument | undefined) {
   if (!base || !next) return []
@@ -104,6 +107,7 @@ export function RevisionsPage() {
           <span>Версия</span><span>Название</span><span>Статус</span><span>Создана</span><span />
         </div>
         {revisions.isLoading ? <div className="p-5 text-sm text-text-muted">Загрузка версий...</div> : null}
+        {revisions.isError ? <div role="alert" className="p-5 text-sm text-danger">Не удалось загрузить конфигурации. <button type="button" className="underline" onClick={() => void revisions.refetch()}>Повторить</button></div> : null}
         {list.map((revision) => {
           const base = baseFor(revision)
           const isOpen = expanded === revision.revision
@@ -128,37 +132,40 @@ export function RevisionsPage() {
                           : 'text-text-muted'
                   }
                 >
-                  {revision.state}
+                  {STATE_LABELS[revision.state]}
                 </span>
                 <span className="text-text-muted">{new Date(revision.created_at).toLocaleString('ru-RU')}</span>
                 <span className="flex flex-wrap gap-2">
                   {revision.state === 'draft' ? (
                     <>
                       <button
+                        type="button"
                         onClick={() => publish.mutate(revision.revision)}
                         disabled={publish.isPending}
-                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
+                        className="inline-flex min-h-10 items-center gap-1 rounded border border-border px-3 text-xs hover:bg-surface-raised"
                       >
-                        <Send className="h-3.5 w-3.5" />Publish
+                        <Send className="h-4 w-4" />Опубликовать
                       </button>
                       <button
+                        type="button"
                         onClick={() => withdraw.mutate(revision.revision)}
                         disabled={withdraw.isPending}
-                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-danger hover:bg-surface-raised"
+                        className="inline-flex min-h-10 items-center gap-1 rounded border border-border px-3 text-xs text-danger hover:bg-surface-raised"
                       >
-                        <Undo2 className="h-3.5 w-3.5" />Отозвать
+                        <Undo2 className="h-4 w-4" />Отозвать
                       </button>
                     </>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-xs text-text-muted">
-                      <Eye className="h-3.5 w-3.5" />Read-only
+                      <Eye className="h-4 w-4" />Только чтение
                     </span>
                   )}
                   <button
+                    type="button"
                     onClick={() => setExpanded(isOpen ? null : revision.revision)}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
+                    className="inline-flex min-h-10 items-center gap-1 rounded border border-border px-3 text-xs hover:bg-surface-raised"
                   >
-                    <GitCompare className="h-3.5 w-3.5" />{isOpen ? 'Скрыть diff' : 'Diff'}
+                    <GitCompare className="h-4 w-4" />{isOpen ? 'Скрыть сравнение' : 'Сравнить'}
                   </button>
                 </span>
               </div>
@@ -173,7 +180,7 @@ export function RevisionsPage() {
             </div>
           )
         })}
-        {list.length === 0 ? (
+        {!revisions.isPending && !revisions.isError && list.length === 0 ? (
           <div className="p-8 text-center text-sm text-text-muted">Черновиков и опубликованных ревизий пока нет.</div>
         ) : null}
       </div>

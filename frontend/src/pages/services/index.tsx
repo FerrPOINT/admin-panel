@@ -77,7 +77,7 @@ export function ServicesPage() {
       {open && canMutate && (
         <form className="grid gap-4 rounded-lg border border-border bg-surface p-5 md:grid-cols-2" onSubmit={submit}>
           <label className="text-sm font-medium">
-            Service key
+            Ключ сервиса
             <Input className="mt-1" value={serviceKey} onChange={(e) => setServiceKey(e.target.value)} placeholder="my-service" pattern="[a-z0-9-]{2,40}" required />
           </label>
           <label className="text-sm font-medium">
@@ -89,7 +89,7 @@ export function ServicesPage() {
             <Input className="mt-1" value={ownerTeam} onChange={(e) => setOwnerTeam(e.target.value)} required />
           </label>
           <label className="text-sm font-medium">
-            Base URL (https или localhost)
+            Базовый URL (HTTPS или localhost)
             <Input className="mt-1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://localhost:7801" required />
           </label>
           <label className="text-sm font-medium">
@@ -97,11 +97,11 @@ export function ServicesPage() {
             <Input className="mt-1" value={contractVersion} onChange={(e) => setContractVersion(e.target.value)} required />
           </label>
           <fieldset className="text-sm font-medium">
-            Capabilities
+            <legend>Возможности интеграции</legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {KNOWN_CAPABILITIES.map((cap) => (
-                <label key={cap} className={`cursor-pointer rounded-md border px-3 py-1.5 font-mono text-xs ${capabilities.includes(cap) ? 'border-accent bg-accent/10 text-accent' : 'border-border text-text-secondary'}`}>
-                  <input type="checkbox" className="sr-only" checked={capabilities.includes(cap)} onChange={() => toggleCapability(cap)} />
+                <label key={cap} className={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-3 font-mono text-xs focus-within:ring-2 focus-within:ring-accent ${capabilities.includes(cap) ? 'border-accent bg-accent/10 text-accent' : 'border-border text-text-secondary'}`}>
+                  <input type="checkbox" aria-label={cap} className="sr-only" checked={capabilities.includes(cap)} onChange={() => toggleCapability(cap)} />
                   {cap}
                 </label>
               ))}
@@ -116,7 +116,7 @@ export function ServicesPage() {
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div className="hidden grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-text-muted md:grid">
-          <span>Сервис</span><span>Команда</span><span>Обновлён</span><span>Health</span><span>Состояние</span>
+          <span>Сервис</span><span>Команда</span><span>Обновлён</span><span>Доступность</span><span>Состояние</span>
         </div>
         {services.isLoading ? <div className="p-5 text-sm text-text-muted">Загрузка реестра...</div> : null}
         {services.isError ? <div className="p-5 text-sm text-danger">Не удалось загрузить сервисы.</div> : null}

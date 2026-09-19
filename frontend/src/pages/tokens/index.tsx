@@ -62,7 +62,7 @@ export function TokensPage() {
           <p className="flex items-center gap-2 text-sm font-medium"><KeyRound className="h-4 w-4" /> {token.label}</p>
           <p className="text-xs text-text-muted">{token.scopes.join(', ')} · До {new Date(token.expires_at).toLocaleDateString('ru-RU')}{token.revoked_at ? ' · Отозван' : ''}</p>
         </div>
-        {!token.revoked_at && <Button variant="ghost" size="icon" aria-label={`Отозвать ${token.label}`} title="Отозвать" onClick={() => setRevokeTarget(token)}><Trash2 className="h-4 w-4" /></Button>}
+        {!token.revoked_at && <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Отозвать ${token.label}`} title="Отозвать" onClick={() => setRevokeTarget(token)}><Trash2 className="h-4 w-4" /></Button>}
       </div>)}
     </div>
     <Dialog open={open} onOpenChange={(next) => { if (!create.isPending) setOpen(next) }}><DialogContent>
