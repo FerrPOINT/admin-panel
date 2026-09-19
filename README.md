@@ -51,6 +51,7 @@
 | Umbrella endpoints | API `http://127.0.0.1:7771`, web `http://127.0.0.1:7772`, PostgreSQL `127.0.0.1:7773` |
 | Public runtime APIs | `/api/v1/runtime/branding`, `/api/v1/runtime/services` |
 | API contract | [OpenAPI 3.1](openapi/openapi.json), CI detects generated-spec drift |
+| License | FerrPOINT Proprietary Source-Available Evaluation License v1.0 |
 
 <a name="quick-start"></a>
 
