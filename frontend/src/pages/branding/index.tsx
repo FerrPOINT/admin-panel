@@ -67,17 +67,25 @@ export function BrandingPage() {
         <div>
           <h1 className="text-xl font-semibold">Брендинг платформы</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Публикуется как проверяемая runtime-конфигурация. Произвольный CSS не допускается.
+            Публикуется как проверяемая конфигурация. Произвольный CSS не допускается.
           </p>
         </div>
         <button
+          type="button"
           onClick={saveAndPublish}
-          disabled={createDraft.isPending || publish.isPending}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          disabled={revisions.isPending || revisions.isError || createDraft.isPending || publish.isPending}
+          className="min-h-10 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
           {createDraft.isPending || publish.isPending ? 'Публикация...' : 'Опубликовать'}
         </button>
       </div>
+
+      {revisions.isPending && <p role="status" className="text-sm text-text-muted">Загрузка текущего брендинга…</p>}
+      {revisions.isError && (
+        <p role="alert" className="text-sm text-danger">
+          Не удалось загрузить текущий брендинг. <button type="button" className="underline" onClick={() => void revisions.refetch()}>Повторить</button>
+        </p>
+      )}
 
       {createDraft.isError || publish.isError ? (
         <div className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
@@ -117,22 +125,24 @@ export function BrandingPage() {
                 ['surface_color', 'Поверхность'],
               ] as const
             ).map(([key, label]) => (
-              <label key={key} className="block text-sm">
+              <div key={key} className="block text-sm">
                 <span className="mb-1.5 block text-text-secondary">{label}</span>
                 <span className="flex overflow-hidden rounded-md border border-border bg-background focus-within:border-accent">
                   <input
                     type="color"
+                    aria-label={`${label}: выбрать цвет`}
                     value={document[key] ?? '#ffffff'}
                     onChange={(e) => update(key, e.target.value)}
                     className="h-10 w-11 border-0 bg-transparent p-1"
                   />
                   <input
+                    aria-label={`${label}: HEX`}
                     value={document[key] ?? ''}
                     onChange={(e) => update(key, e.target.value)}
                     className="min-w-0 flex-1 bg-transparent px-2 outline-none"
                   />
                 </span>
-              </label>
+              </div>
             ))}
           </div>
           <label className="block text-sm">
@@ -172,21 +182,21 @@ export function BrandingPage() {
               <div className="text-base font-semibold">{document.product_name}</div>
               <div className="mt-3 rounded-lg bg-white p-3 text-sm text-[#1e293b] shadow-sm">
                 <div className="font-medium">Карточка приложения</div>
-                <button
-                  className="mt-3 rounded-md px-3 py-1.5 text-xs font-medium"
+                <span
+                  className="mt-3 inline-block rounded-md px-3 py-1.5 text-xs font-medium"
                   style={{
                     background: document.accent_color,
                     color: readableForeground(document.accent_color),
                   }}
                 >
                   Действие
-                </button>
+                </span>
               </div>
             </div>
           </div>
           <p className="mt-3 text-xs text-text-muted">
-            Потребители применят только утверждённые semantic tokens; при недоступности API работают
-            встроенные defaults.
+            Приложения применят только утверждённые цвета; при недоступности API
+            используются встроенные значения.
           </p>
         </section>
       </div>

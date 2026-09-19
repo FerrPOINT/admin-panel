@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { ChevronDown, RefreshCw } from 'lucide-react'
+import { Button } from '@sdlc/ui/ui'
 import { z } from 'zod'
 
 const base = import.meta.env.VITE_API_BASE_URL ?? ''
@@ -41,7 +42,6 @@ const brandingSchema = z.object({
 
 type LoadState = 'idle' | 'loading' | 'success' | 'empty' | 'error'
 
-/** Capability descriptions for the catalog card (ru). */
 const capabilityHelp: Record<string, string> = {
   'branding.runtime.read': 'UI читает брендинг платформы (цвета, название, логотип)',
   'health.read': 'Admin Panel периодически проверяет /health сервиса',
@@ -56,7 +56,7 @@ const healthLabel: Record<CatalogService['health'], string> = {
 }
 
 export function RuntimePage() {
-  const [body, setBody] = useState<string>('')
+  const [branding, setBranding] = useState<z.infer<typeof brandingSchema> | null>(null)
   const [etag, setEtag] = useState<string>('')
   const [status, setStatus] = useState<string>('Не запрашивалось')
   const [brandingState, setBrandingState] = useState<LoadState>('idle')
@@ -73,7 +73,7 @@ export function RuntimePage() {
         headers: etag ? { 'If-None-Match': etag } : undefined,
       })
       if (response.status === 404) {
-        setBody('')
+        setBranding(null)
         setEtag('')
         setStatus('Нет опубликованного документа')
         setBrandingState('empty')
@@ -86,10 +86,10 @@ export function RuntimePage() {
       if (response.status !== 304) {
         const payload = brandingSchema.safeParse(await response.json())
         if (!payload.success) throw new Error('Некорректный ответ брендинга')
-        setBody(JSON.stringify(payload.data, null, 2))
+        setBranding(payload.data)
         setBrandingState('success')
       } else {
-        setBrandingState(body ? 'success' : 'empty')
+        setBrandingState(branding ? 'success' : 'empty')
       }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Ошибка запроса')
@@ -129,144 +129,104 @@ export function RuntimePage() {
   }, [])
 
   const allCapabilities = [...new Set(services.flatMap((s) => s.capabilities))].sort()
+  const body = branding ? JSON.stringify(branding, null, 2) : ''
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold">Проверка runtime-конфигурации</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Проверка публичного read-only контракта, который потребляют приложения. Defaults остаются
-          в каждом продукте.
+          Проверка публичной конфигурации, которую получают приложения.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-border bg-surface p-4">
+      <div className="grid border-y border-border bg-surface sm:grid-cols-3">
+        <div className="border-b border-border px-4 py-3 sm:border-b-0 sm:border-r">
           <div className="text-xs text-text-muted">Адрес API</div>
-          <code className="mt-2 block break-all text-xs text-text-secondary">
+          <code className="mt-1 block break-all text-xs text-text-secondary">
             /api/v1/runtime/branding
           </code>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="border-b border-border px-4 py-3 sm:border-b-0 sm:border-r">
           <div className="text-xs text-text-muted">Статус запроса</div>
-          <div className="mt-2 font-mono text-sm">{status}</div>
+          <div className="mt-1 font-mono text-sm">{status}</div>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="min-w-0 px-4 py-3">
           <div className="text-xs text-text-muted">ETag</div>
-          <div className="mt-2 break-all font-mono text-xs">{etag || '—'}</div>
+          <div className="mt-1 break-all font-mono text-xs">{etag || '—'}</div>
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface">
-        <div className="flex items-center justify-between border-b border-border p-3">
-          <span className="text-sm font-medium">Брендинг</span>
-          <button
+      <section>
+        <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
+          <h2 className="text-sm font-semibold">Брендинг</h2>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10"
             onClick={() => void load()}
             disabled={brandingState === 'loading'}
-            className="inline-flex items-center gap-2 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className="h-4 w-4" />
             Обновить
-          </button>
+          </Button>
         </div>
-        <pre
-          aria-label="Ответ runtime-брендинга"
-          className="whitespace-pre-wrap break-all p-4 text-xs leading-6 text-text-secondary"
-        >
-          {brandingState === 'loading' && !body
-            ? 'Загрузка брендинга...'
-            : brandingState === 'error'
-              ? `Не удалось загрузить брендинг: ${status}${body ? '\nПоказан предыдущий ответ.' : ''}`
-              : body ||
-                'Нет опубликованного документа: приложения применят настройки по умолчанию.'}
-        </pre>
-      </div>
+        {brandingState === 'loading' && !body && <p role="status" className="py-4 text-sm text-text-muted">Загрузка брендинга...</p>}
+        {brandingState === 'error' && <p role="alert" className="py-4 text-sm text-danger">Не удалось загрузить брендинг: {status}{body ? ' Показан предыдущий ответ.' : ''}</p>}
+        {brandingState === 'empty' && <p className="py-4 text-sm text-text-muted">Нет опубликованного документа: приложения применят настройки по умолчанию.</p>}
+        {body && <details className="group border-b border-border">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+            <span><span className="font-medium">{branding?.branding.product_name}</span><span className="ml-2 text-xs text-text-muted">Ревизия {branding?.revision}</span></span>
+            <span className="flex shrink-0 items-center gap-2 text-xs text-text-muted">Ответ API <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" /></span>
+          </summary>
+          <pre aria-label="Ответ runtime-брендинга" className="max-h-80 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-surface p-4 text-xs leading-6 text-text-secondary">{body}</pre>
+        </details>}
+      </section>
 
-      <div className="rounded-lg border border-border bg-surface">
-        <div className="flex items-center justify-between border-b border-border p-3">
+      <section>
+        <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
           <div>
-            <div className="text-sm font-medium">Каталог сервисов</div>
-            <div className="mt-0.5 text-xs text-text-muted">
-              Источник: Admin Panel runtime · {servicesStatus}
-            </div>
+            <h2 className="text-sm font-semibold">Каталог сервисов</h2>
+            <p className="mt-0.5 text-xs text-text-muted">Источник: Admin Panel runtime · {servicesStatus}</p>
           </div>
-          <button
-            onClick={() => void loadServices()}
-            disabled={servicesState === 'loading'}
-            className="inline-flex items-center gap-2 rounded border border-border px-2 py-1 text-xs hover:bg-surface-raised"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Обновить
-          </button>
+          <Button type="button" variant="outline" className="h-10" onClick={() => void loadServices()} disabled={servicesState === 'loading'}>
+            <RefreshCw className="h-4 w-4" /> Обновить
+          </Button>
         </div>
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border border-b border-border">
           {services.map((service) => (
-            <div key={service.key} className="p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="text-sm font-medium">{service.label}</span>
-                  <span className="rounded border border-border px-1.5 py-0.5 text-[10px] uppercase text-text-muted">
-                    {service.ui_url ? 'UI' : 'API'}
-                  </span>
-                  <span className="text-xs text-text-muted">{healthLabel[service.health]}</span>
-                </div>
-                <code className="max-w-full break-all text-xs text-text-muted">{service.key}</code>
+            <details key={service.key} className="group">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-sm hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-medium">{service.label}</span>
+                  <code className="hidden truncate text-xs text-text-muted sm:inline">{service.key}</code>
+                </span>
+                <span className="flex shrink-0 items-center gap-3">
+                  <span className={service.health === 'healthy' ? 'text-xs text-success' : service.health === 'unreachable' ? 'text-xs text-danger' : 'text-xs text-text-muted'}>{healthLabel[service.health]}</span>
+                  <ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" aria-hidden="true" />
+                </span>
+              </summary>
+              <div className="grid gap-2 border-t border-border bg-surface-raised px-3 py-3 text-xs sm:grid-cols-2">
+                <div><span className="text-text-muted">API: </span><code className="break-all text-text-secondary">{service.url}</code></div>
+                <div><span className="text-text-muted">Веб: </span><code className="break-all text-text-secondary">{service.ui_url ?? 'Нет интерфейса'}</code></div>
+                <div className="sm:col-span-2"><span className="text-text-muted">Контракт v{service.contract_version} · Возможности: </span>{service.capabilities.length ? service.capabilities.map((capability, index) => <code key={capability} title={capabilityHelp[capability] ?? 'Возможность интеграции'} className="text-text-secondary">{index ? ', ' : ''}{capability}</code>) : <span className="text-text-muted">не указаны</span>}</div>
               </div>
-              <div className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
-                <div>
-                  <span className="text-text-muted">API: </span>
-                  <code className="break-all text-text-secondary">{service.url}</code>
-                </div>
-                <div>
-                  <span className="text-text-muted">UI: </span>
-                  <code className="break-all text-text-secondary">{service.ui_url ?? '—'}</code>
-                </div>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {service.capabilities.map((capability) => (
-                  <span
-                    key={capability}
-                    title={capabilityHelp[capability] ?? 'декларированная capability'}
-                    className="rounded-full border border-border bg-surface-raised px-2 py-0.5 font-mono text-[11px] text-text-secondary"
-                  >
-                    {capability}
-                  </span>
-                ))}
-              </div>
-            </div>
+            </details>
           ))}
-          {servicesState === 'loading' && (
-            <div className="p-4 text-sm text-text-muted">Загрузка каталога...</div>
-          )}
-          {servicesState === 'empty' && (
-            <div className="p-4 text-sm text-text-muted">
-              Каталог пуст. Проверьте bootstrap-конфигурацию и активные declarations.
-            </div>
-          )}
-          {servicesState === 'error' && (
-            <div className="p-4 text-sm text-danger">
-              Не удалось загрузить каталог: {servicesStatus}
-            </div>
-          )}
+          {servicesState === 'loading' && <p role="status" className="py-4 text-sm text-text-muted">Загрузка каталога...</p>}
+          {servicesState === 'empty' && <p className="py-4 text-sm text-text-muted">Каталог пуст. Проверьте активные декларации.</p>}
+          {servicesState === 'error' && <p role="alert" className="py-4 text-sm text-danger">Не удалось загрузить каталог: {servicesStatus}</p>}
         </div>
-        {allCapabilities.length > 0 && (
-          <div className="border-t border-border p-4">
-            <div className="text-xs font-medium text-text-muted">
-              Всего capabilities в каталоге: {allCapabilities.length}
-            </div>
-            <div className="mt-2 space-y-1">
-              {allCapabilities.map((capability) => (
-                <div key={capability} className="flex items-baseline gap-2 text-xs">
-                  <code className="text-text-secondary">{capability}</code>
-                  <span className="text-text-muted">
-                    {capabilityHelp[capability] ?? '— описание не задано'}
-                  </span>
-                </div>
-              ))}
-            </div>
+        {allCapabilities.length > 0 && <details className="group border-b border-border">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-xs text-text-muted focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+            Возможности каталога: {allCapabilities.length}
+            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="space-y-1 pb-3">
+            {allCapabilities.map((capability) => <div key={capability} className="flex flex-wrap items-baseline gap-2 text-xs"><code className="text-text-secondary">{capability}</code><span className="text-text-muted">{capabilityHelp[capability] ?? 'Описание не задано'}</span></div>)}
           </div>
-        )}
-      </div>
+        </details>}
+      </section>
     </div>
   )
 }

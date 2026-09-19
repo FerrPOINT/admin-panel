@@ -12,6 +12,27 @@ function renderPage() {
 }
 
 describe('UsersPage', () => {
+  it('shows twenty users per page without losing the current server batch', async () => {
+    const users = Array.from({ length: 25 }, (_, index) => ({
+      id: `u-${index + 1}`,
+      email: `user${index + 1}@example.test`,
+      username: `user${index + 1}`,
+      display_name: `Пользователь ${index + 1}`,
+      status: 'active',
+      setup_delivery_status: 'sent',
+    }))
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(users), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage()
+
+    await screen.findByText('Пользователь 1')
+    expect(screen.queryByText('Пользователь 21')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    expect(screen.getByText('Пользователь 21')).toBeInTheDocument()
+    expect(screen.queryByText('Пользователь 1')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).startsWith('/api/v1/users?'))).toHaveLength(1)
+  })
+
   it('keeps entered data when creating a user fails', async () => {
     const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) =>
       Promise.resolve(init?.method === 'POST'

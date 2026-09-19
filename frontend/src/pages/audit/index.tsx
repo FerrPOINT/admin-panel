@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Filter, History, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Filter } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { api } from '@/shared/api/client'
 import type { AuditEvent } from '@/shared/api/hooks'
+import { auditActionLabel, auditDate, shortIdentifier } from '@/shared/ui/audit-format'
 
 const PAGE_SIZE = 20
 
@@ -12,6 +14,7 @@ const ENTITY_LABELS: Record<string, string> = {
   branding_revision: 'Брендинг',
   declaration: 'Декларация',
   role_binding: 'Привязка роли',
+  central_user: 'Пользователь',
 }
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: 'Администратор',
@@ -19,10 +22,61 @@ const ROLE_LABELS: Record<string, string> = {
   platform_viewer: 'Наблюдатель',
 }
 
-const ROLE_BADGE: Record<string, string> = {
-  platform_admin: 'border-success/40 bg-success/10 text-text-primary',
-  platform_operator: 'border-accent/40 bg-accent/10 text-text-primary',
-  platform_viewer: 'border-border bg-surface-raised text-text-muted',
+function CopyValue({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-xs">
+      <span className="shrink-0 text-text-muted">{label}</span>
+      <code className="min-w-0 break-all text-text-secondary">{value}</code>
+      <button
+        type="button"
+        className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-accent"
+        aria-label={`Скопировать ${label.toLowerCase()}`}
+        title={`Скопировать ${label.toLowerCase()}`}
+        onClick={() => void navigator.clipboard.writeText(value).then(() => toast.success('Скопировано')).catch(() => toast.error('Не удалось скопировать'))}
+      >
+        <Copy className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
+function AuditRow({ event }: { event: AuditEvent }) {
+  return (
+    <details className="group border-b border-border last:border-b-0">
+      <summary className="grid min-h-12 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-2 text-sm hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-accent lg:grid-cols-[130px_minmax(160px,1.3fr)_minmax(120px,1fr)_minmax(100px,1fr)_24px] lg:px-4 [&::-webkit-details-marker]:hidden">
+        <time dateTime={event.occurred_at} className="col-start-2 row-start-1 whitespace-nowrap text-xs text-text-muted lg:col-start-1">
+          {auditDate(event.occurred_at)}
+        </time>
+        <span className="col-start-1 row-start-1 min-w-0 truncate font-medium lg:col-start-2" title={event.action}>
+          {auditActionLabel(event.action)}
+        </span>
+        <span className="col-start-1 row-start-2 min-w-0 truncate text-xs text-text-secondary lg:col-start-3 lg:row-start-1 lg:text-sm">
+          {ENTITY_LABELS[event.entity_type] ?? event.entity_type}
+          {event.entity_id && <span className="hidden lg:inline"> · {shortIdentifier(event.entity_id)}</span>}
+        </span>
+        <span className="col-start-1 row-start-3 hidden min-w-0 truncate text-xs text-text-muted lg:col-start-4 lg:row-start-1 lg:block" title={event.actor_subject ?? undefined}>
+          {shortIdentifier(event.actor_subject)}
+        </span>
+        <ChevronDown className="col-start-2 row-start-2 h-4 w-4 text-text-muted transition-transform group-open:rotate-180 lg:col-start-5 lg:row-start-1" aria-hidden="true" />
+      </summary>
+      <div className="grid gap-3 border-t border-border bg-surface-raised px-3 py-3 text-sm lg:grid-cols-2 lg:px-4">
+        <div className="space-y-1">
+          <p className="font-medium">Детали события</p>
+          <p className="text-xs text-text-secondary">{event.action} · {ROLE_LABELS[event.actor_role ?? ''] ?? event.actor_role ?? 'Роль не указана'}</p>
+          <CopyValue label="Субъект" value={event.actor_subject} />
+          <CopyValue label="Сущность" value={event.entity_id} />
+          <CopyValue label="Request ID" value={event.request_id} />
+        </div>
+        <div className="min-w-0">
+          <p className="mb-2 font-medium">Метаданные</p>
+          {event.metadata && Object.keys(event.metadata).length > 0 ? (
+            <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border bg-surface p-3 font-mono text-xs text-text-secondary">{JSON.stringify(event.metadata, null, 2)}</pre>
+          ) : <p className="text-xs text-text-muted">Нет дополнительных данных.</p>}
+        </div>
+      </div>
+    </details>
+  )
 }
 
 export function AuditPage() {
@@ -38,124 +92,57 @@ export function AuditPage() {
 
   const audit = useQuery({
     queryKey: ['audit-events', action, entityType, page],
-    queryFn: () =>
-      api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events?${params.toString()}`),
+    queryFn: () => api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events?${params.toString()}`),
   })
 
   const events = audit.data?.events ?? []
   const hasMore = events.length === PAGE_SIZE
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold">Аудит изменений</h1>
-        <p className="mt-1 text-sm text-text-muted">
-          Append-only журнал событий Admin Panel. Записи не редактируются и не удаляются из UI.
-        </p>
+        <p className="mt-1 text-sm text-text-muted">Журнал изменений Admin Panel.</p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="flex max-w-xs flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm">
-          <Filter className="h-4 w-4 text-text-muted" />
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex min-h-10 max-w-sm flex-1 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm focus-within:ring-2 focus-within:ring-accent">
+          <Filter className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+          <span className="sr-only">Действие</span>
           <input
-            aria-label="Действие"
             value={action}
-            onChange={(e) => {
-              setAction(e.target.value)
-              setPage(0)
-            }}
-            placeholder="action, например branding.published"
+            onChange={(event) => { setAction(event.target.value); setPage(0) }}
+            placeholder="Действие, например branding.published"
             className="min-w-0 flex-1 bg-transparent outline-none"
           />
         </label>
         <select
           aria-label="Тип сущности"
           value={entityType}
-          onChange={(e) => {
-            setEntityType(e.target.value)
-            setPage(0)
-          }}
-          className="rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none"
+          onChange={(event) => { setEntityType(event.target.value); setPage(0) }}
+          className="min-h-10 rounded-md border border-border bg-surface px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          {ENTITY_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type === '' ? 'Все типы сущностей' : ENTITY_LABELS[type]}
-            </option>
-          ))}
+          {ENTITY_TYPES.map((type) => <option key={type} value={type}>{type === '' ? 'Все типы сущностей' : ENTITY_LABELS[type]}</option>)}
         </select>
       </div>
 
-      <div className="space-y-2">
-        {audit.isLoading ? <div className="text-sm text-text-muted">Загрузка аудита...</div> : null}
-        {audit.isError ? (
-          <div role="alert" className="flex items-center gap-3 text-sm text-danger">
-            Не удалось загрузить журнал аудита.
-            <button type="button" className="underline" onClick={() => void audit.refetch()}>
-              Повторить
-            </button>
-          </div>
-        ) : null}
-        {events.map((event) => (
-          <article
-            key={event.id}
-            className="min-w-0 rounded-lg border border-border bg-surface p-4"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-2 font-mono text-sm">
-                <History className="h-4 w-4 text-accent" />
-                {event.action}
-              </span>
-              <div className="flex items-center gap-2">
-                {event.actor_role ? (
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${ROLE_BADGE[event.actor_role] ?? ROLE_BADGE.platform_viewer}`}
-                  >
-                    {ROLE_LABELS[event.actor_role] ?? event.actor_role}
-                  </span>
-                ) : null}
-                <time className="text-xs text-text-muted">
-                  {new Date(event.occurred_at).toLocaleString('ru-RU')}
-                </time>
-              </div>
-            </div>
-            <div className="mt-2 break-all text-sm text-text-secondary">
-              {ENTITY_LABELS[event.entity_type] ?? event.entity_type} ·{' '}
-              {event.actor_subject ?? 'system'}
-            </div>
-            {event.metadata && Object.keys(event.metadata).length > 0 ? (
-              <div className="mt-2 break-all font-mono text-xs text-text-muted">
-                {JSON.stringify(event.metadata)}
-              </div>
-            ) : null}
-            <div className="mt-2 break-all font-mono text-xs text-text-muted">
-              request {event.request_id}
-            </div>
-          </article>
-        ))}
-        {audit.data && events.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-text-muted">
-            Нет событий по выбранным фильтрам.
-          </div>
-        ) : null}
+      <div className="border-y border-border bg-surface">
+        <div className="hidden grid-cols-[130px_minmax(160px,1.3fr)_minmax(120px,1fr)_minmax(100px,1fr)_24px] gap-3 border-b border-border px-4 py-2 text-xs font-medium text-text-muted lg:grid">
+          <span>Время</span><span>Действие</span><span>Сущность</span><span>Автор</span><span />
+        </div>
+        {audit.isPending && <p role="status" className="px-4 py-5 text-sm text-text-muted">Загрузка аудита…</p>}
+        {audit.isError && <p role="alert" className="px-4 py-5 text-sm text-danger">Не удалось загрузить журнал. <button type="button" className="underline" onClick={() => void audit.refetch()}>Повторить</button></p>}
+        {events.map((event) => <AuditRow key={event.id} event={event} />)}
+        {audit.data && events.length === 0 && <p className="px-4 py-6 text-sm text-text-muted">Нет событий по выбранным фильтрам.</p>}
       </div>
 
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          disabled={page === 0 || audit.isFetching}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" /> Назад
+      <div className="flex items-center justify-between gap-3">
+        <button type="button" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0 || audit.isFetching} className="inline-flex min-h-10 items-center gap-1 rounded-md border border-border px-3 text-sm disabled:opacity-40">
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Назад
         </button>
-        <span className="text-xs text-text-muted">
-          Страница {page + 1} · показано {events.length}
-        </span>
-        <button
-          onClick={() => setPage((p) => p + 1)}
-          disabled={!hasMore || audit.isFetching}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm disabled:opacity-40"
-        >
-          Вперёд <ChevronRight className="h-4 w-4" />
+        <span className="text-center text-xs text-text-muted">Страница {page + 1} · {events.length} событий</span>
+        <button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasMore || audit.isFetching} className="inline-flex min-h-10 items-center gap-1 rounded-md border border-border px-3 text-sm disabled:opacity-40">
+          Вперёд <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </div>
