@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { AuthProvider } from '@/shared/auth/auth-context'
@@ -13,9 +13,9 @@ function withProviders(ui: React.ReactElement) {
   return render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      <AuthProvider>
-        <MemoryRouter initialEntries={['/services']}>{ui}</MemoryRouter>
-      </AuthProvider>
+        <AuthProvider>
+          <MemoryRouter initialEntries={['/services']}>{ui}</MemoryRouter>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>,
   )
@@ -40,5 +40,14 @@ describe('AppShell', () => {
     withProviders(<AppShell />)
     const active = screen.getByText('Каталог сервисов').closest('a')
     expect(active?.className).toContain('bg-surface-raised')
+  })
+
+  it('keeps service navigation available in the mobile header', () => {
+    withProviders(<AppShell />)
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', {
+        name: 'Открыть список сервисов',
+      }),
+    ).toBeInTheDocument()
   })
 })
