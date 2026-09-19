@@ -7,6 +7,11 @@
 ## [Unreleased]
 
 ### Added
+- Workspace overview и audit UX (#8).
+- CHANGELOG, CONTRIBUTING, THIRD_PARTY_NOTICES; LICENSE → FerrPOINT Proprietary v1.0.
+### Fixed
+- .pnpm-store (2888 файлов) выведен из git.
+### Added
 
 - Каталог v1.2 (ADR-0007): опциональный `public_ui_url` в декларациях; каталог отдаёт его как `ui_url` (fallback `integration_base_url`) — TLS-фасадные инсталляции сохраняют переключатель сервисов на публичном origin. Миграция `0005`, план `docs/plans/010`.
 - Каталог v1.1: `GET /api/v1/runtime/services` отдаёт `ui_url` (capability `ui.render`; `null` для сервисов без UI) и `health` (статус health-worker: `healthy`/`unreachable`/`unknown`) — источник для платформенного переключателя сервисов. Миграция `0004`, план `docs/plans/009-runtime-catalog-health-ui-url.md`, тест `runtime_catalog_v1_1`.
