@@ -3,15 +3,20 @@
 @source "../../../services-base/frontend/src";
 
 @theme {
-  --color-accent: #2563eb;
-  --color-accent-foreground: #ffffff;
-  --color-accent-hover: #1d4ed8;
+  --color-accent: #60a5fa;
+  --color-accent-foreground: #09090b;
+  --color-accent-hover: #93c5fd;
 }
 
 [data-theme='gray'] {
+  --color-accent: #93c5fd;
   --color-accent-foreground: #18181b;
+  --color-accent-hover: #bfdbfe;
 }
 
 [data-theme='light'] {
+  --color-accent: #2563eb;
+  --color-accent-foreground: #ffffff;
+  --color-accent-hover: #1d4ed8;
   --color-warning: #b45309;
 }
