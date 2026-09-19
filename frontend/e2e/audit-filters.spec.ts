@@ -35,7 +35,7 @@ function events(count: number) {
   }))
 }
 
-async function installMocks(page: Page, count: number) {
+async function installMocks(page: Page, count: number, tokens: unknown[] = []) {
   let nonce = ''
   const auditRequests: string[] = []
   const mutations: string[] = []
@@ -94,7 +94,15 @@ async function installMocks(page: Page, count: number) {
       const limit = Number(url.searchParams.get('limit') ?? 50)
       await route.fulfill({ json: { events: filtered.slice(offset, offset + limit), total: filtered.length } })
     } else if (url.pathname === '/api/v1/tokens') {
-      await route.fulfill({ json: [] })
+      if (route.request().method() === 'POST') {
+        await route.fulfill({ json: {
+          id: 'qa-issued', label: 'qa-focus', scopes: ['wiki:read'], secret: 'qa-secret',
+          expires_at: '2099-01-01T00:00:00Z', created_at: now,
+          last_used_at: null, revoked_at: null,
+        } })
+      } else {
+        await route.fulfill({ json: tokens })
+      }
     } else if (url.pathname === '/api/v1/runtime/services') {
       await route.fulfill({ json: { services: [] } })
     } else if (url.pathname === '/api/v1/runtime/branding') {
@@ -207,6 +215,42 @@ test('token scope checkboxes have 40px labels and fit the mobile dialog', async 
   await page.screenshot({ path: resolve(screenshotDir, 'token-create-375.png'), fullPage: true })
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Создать', exact: true })).toBeFocused()
   expect(traffic.mutations).toEqual([])
+  expect(traffic.unmocked).toEqual([])
+})
+
+test('canceling token revocation returns focus to its action', async ({ page }) => {
+  const traffic = await installMocks(page, 0, [{
+    id: 'qa-token', label: 'QA token', scopes: ['wiki:read'],
+    expires_at: '2099-01-01T00:00:00Z', created_at: now,
+    last_used_at: null, revoked_at: null,
+  }])
+  await page.goto('/tokens')
+  const action = page.getByRole('button', { name: 'Отозвать QA token' })
+  await action.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(action).toBeFocused()
+  expect(traffic.mutations).toEqual([])
+  expect(traffic.unmocked).toEqual([])
+})
+
+test('issued token dialog returns focus to create after dismissal', async ({ page }) => {
+  const traffic = await installMocks(page, 0)
+  await page.goto('/tokens')
+  const create = page.getByRole('button', { name: 'Создать', exact: true })
+  await create.click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Название' }).fill('qa-focus')
+  await dialog.getByText('Wiki').locator('..').getByRole('checkbox', { name: 'Чтение' }).check()
+  await dialog.getByRole('button', { name: 'Создать', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Секрет токена' })).toBeVisible()
+  await page.getByRole('button', { name: 'Готово' }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
+  await expect(create).toBeFocused()
+  expect(traffic.mutations).toEqual(['POST /api/v1/tokens'])
   expect(traffic.unmocked).toEqual([])
 })
