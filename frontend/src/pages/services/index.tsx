@@ -99,7 +99,7 @@ export function ServicesPage() {
         </div>
         {canMutate && (
           <Button
-            className="min-h-10 shrink-0"
+            className="h-10 shrink-0"
             disabled={create.isPending}
             onClick={() => {
               if (!open) create.reset()
@@ -192,12 +192,13 @@ export function ServicesPage() {
             </div>
           </fieldset>
           <div className="flex items-end gap-2 md:col-span-2">
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" className="h-10" disabled={create.isPending}>
               {create.isPending ? 'Создаём...' : 'Создать сервис'}
             </Button>
             <Button
               type="button"
               variant="ghost"
+              className="h-10"
               disabled={create.isPending}
               onClick={() => setOpen(false)}
             >
@@ -267,7 +268,7 @@ export function ServicesPage() {
             <Button
               type="button"
               variant="outline"
-              className="min-h-10"
+              className="h-10"
               onClick={() => void services.refetch()}
             >
               Повторить
@@ -328,7 +329,7 @@ export function ServicesPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-10"
+                className="h-10"
                 disabled={currentPage === 1}
                 onClick={() => setPage(currentPage - 1)}
               >
@@ -340,7 +341,7 @@ export function ServicesPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-10"
+                className="h-10"
                 disabled={currentPage === pageCount}
                 onClick={() => setPage(currentPage + 1)}
               >

@@ -1,3 +1,4 @@
+import { generateKeyPairSync, sign } from 'node:crypto'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 // Admin Panel e2e smoke: every shell page renders with mocked admin API.
@@ -5,6 +6,31 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 // the UI reads data through GET endpoints, which the mocks below fulfill.
 
 const now = '2026-09-05T10:00:00Z'
+const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' })
+const jwk = { ...publicKey.export({ format: 'jwk' }), kid: 'smoke-e2e', alg: 'ES256', use: 'sig' }
+
+function idToken(nonce: string) {
+  const timestamp = Math.floor(Date.now() / 1000)
+  const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: jwk.kid })).toString(
+    'base64url',
+  )
+  const payload = Buffer.from(
+    JSON.stringify({
+      iss: 'http://localhost:7701',
+      aud: 'admin-panel',
+      sub: 'u-e2e',
+      email: 'admin@base.local',
+      nonce,
+      iat: timestamp,
+      exp: timestamp + 900,
+    }),
+  ).toString('base64url')
+  const signature = sign('sha256', Buffer.from(`${header}.${payload}`), {
+    key: privateKey,
+    dsaEncoding: 'ieee-p1363',
+  }).toString('base64url')
+  return `${header}.${payload}.${signature}`
+}
 
 const brandingDocument = {
   product_name: 'Base Platform',
@@ -94,13 +120,45 @@ function routeJson(route: Route, body: unknown, status = 200) {
 }
 
 async function installApiMocks(page: Page) {
+  let nonce = ''
+  await page.route('http://localhost:7701/oidc/**', async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/oidc/authorize') {
+      nonce = url.searchParams.get('nonce') ?? ''
+      const callback = new URL(url.searchParams.get('redirect_uri')!)
+      callback.searchParams.set('code', 'smoke-e2e-code')
+      callback.searchParams.set('state', url.searchParams.get('state') ?? '')
+      await route.fulfill({ status: 302, headers: { location: callback.toString() } })
+    } else if (url.pathname === '/oidc/token') {
+      await route.fulfill({
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({
+          access_token: 'e2e-token',
+          id_token: idToken(nonce),
+          expires_in: 900,
+        }),
+      })
+    } else if (url.pathname === '/oidc/jwks') {
+      await route.fulfill({
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*' },
+        body: JSON.stringify({ keys: [jwk] }),
+      })
+    } else {
+      await route.fulfill({ status: 404 })
+    }
+  })
   await page.route('**/api/v1/**', (route) => {
     const request = route.request()
     const url = new URL(request.url())
     const path = url.pathname.replace('/api/v1', '')
     const method = request.method()
 
-    if (method === 'GET' && (path === '/branding/revisions' || path.split('?')[0] === '/branding-revisions')) {
+    if (
+      method === 'GET' &&
+      (path === '/branding/revisions' || path.split('?')[0] === '/branding-revisions')
+    ) {
       return routeJson(route, { revisions, total: revisions.length })
     }
     if (method === 'GET' && path.split('?')[0] === '/services') {
@@ -127,26 +185,30 @@ async function installApiMocks(page: Page) {
         ],
       })
     }
-    if (method === 'POST' && path === '/auth/login') {
-      const body = request.postDataJSON() as { email?: string; password?: string }
-      if (body?.password === 'wrong') {
-        return routeJson(route, { error: { code: 'INVALID_CREDENTIALS', message: 'central auth rejected the credentials' } }, 401)
-      }
-      return routeJson(route, { access_token: 'e2e-token', token_type: 'Bearer', expires_in: 900, subject: 'u-e2e', central_role: 'member', panel_role: 'platform_admin' })
-    }
     if (method === 'GET' && path === '/auth/me') {
       const auth = request.headers()['authorization'] ?? ''
-      if (auth !== 'Bearer e2e-token' && auth !== 'Bearer stored-token') {
+      if (auth !== 'Bearer e2e-token') {
         return routeJson(route, { error: { code: 'UNAUTHORIZED', message: 'missing bearer' } }, 401)
       }
-      return routeJson(route, { subject: 'u-e2e', email: 'admin@base.local', central_role: 'member', panel_role: 'platform_admin', capabilities: { mutate: true, manage_bindings: true } })
-    }
-    if (method === 'GET' && path.split('?')[0] === '/role-bindings') {
       return routeJson(route, {
-        bindings: [
-          { id: '55555555-5555-7555-8555-555555555551', claim_name: 'user_id', claim_value: 'u-admin', panel_role: 'platform_admin', created_by_subject: 'bootstrap', created_at: now },
-        ],
+        subject: 'u-e2e',
+        email: 'admin@base.local',
+        central_role: 'member',
+        panel_role: 'platform_admin',
+        capabilities: { mutate: true, manage_bindings: false },
       })
+    }
+    if (method === 'GET' && path === '/users') {
+      return routeJson(route, [
+        {
+          id: 'u-e2e',
+          email: 'admin@base.local',
+          username: 'admin',
+          display_name: 'Admin',
+          status: 'active',
+          setup_delivery_status: 'sent',
+        },
+      ])
     }
     if (method === 'GET' && path === '/health/ready') {
       return routeJson(route, { status: 'ok', database: 'up' })
@@ -160,20 +222,37 @@ async function installApiMocks(page: Page) {
     if (method === 'GET' && path === '/runtime/services') {
       return routeJson(route, {
         services: [
-          { key: 'ci-cd', label: 'CI/CD', url: 'http://localhost:7712', ui_url: 'http://localhost:7712', health: 'healthy', capabilities: ['health.read'], contract_version: '1.0.0' },
-          { key: 'wiki', label: 'Wiki', url: 'http://localhost:7732', ui_url: 'http://localhost:7732', health: 'healthy', capabilities: ['health.read'], contract_version: '1.0.0' },
+          {
+            key: 'ci-cd',
+            label: 'CI/CD',
+            url: 'http://localhost:7712',
+            ui_url: 'http://localhost:7712',
+            health: 'healthy',
+            capabilities: ['health.read'],
+            contract_version: '1.0.0',
+          },
+          {
+            key: 'wiki',
+            label: 'Wiki',
+            url: 'http://localhost:7732',
+            ui_url: 'http://localhost:7732',
+            health: 'healthy',
+            capabilities: ['health.read'],
+            contract_version: '1.0.0',
+          },
         ],
       })
     }
-    return routeJson(route, { error: { code: 'NOT_FOUND', message: `unmocked ${method} ${path}` } }, 404)
+    return routeJson(
+      route,
+      { error: { code: 'NOT_FOUND', message: `unmocked ${method} ${path}` } },
+      404,
+    )
   })
 }
 
 test.beforeEach(async ({ page }) => {
   await installApiMocks(page)
-  // Every authenticated test starts with a stored session; login flow test
-  // clears it explicitly.
-  await page.addInitScript(() => sessionStorage.setItem('base.admin.token', 'stored-token'))
 })
 
 test('overview renders platform summary', async ({ page }) => {
@@ -184,7 +263,7 @@ test('overview renders platform summary', async ({ page }) => {
 test('branding page shows published document fields', async ({ page }) => {
   await page.goto('/branding')
   await expect(page.getByText('Base Platform').first()).toBeVisible()
-  await expect(page.getByLabel('Основной цвет')).toHaveValue('#0f766e')
+  await expect(page.getByLabel('Основной цвет: HEX')).toHaveValue('#0f766e')
 })
 
 test('revisions page lists revision 2 published', async ({ page }) => {
@@ -206,9 +285,10 @@ test('service detail shows approved declaration', async ({ page }) => {
 
 test('audit page lists branding.published event', async ({ page }) => {
   await page.goto('/audit')
+  await page.locator('details summary').first().click()
   await expect(page.getByText('branding.published').first()).toBeVisible()
   await expect(page.getByText('admin@base.local').first()).toBeVisible()
-  await expect(page.locator('article', { hasText: 'branding.published' })).toContainText('Брендинг')
+  await expect(page.locator('details').first()).toContainText('Брендинг')
 })
 
 test('runtime page probes branding endpoint status and etag', async ({ page }) => {
@@ -220,6 +300,7 @@ test('runtime page probes branding endpoint status and etag', async ({ page }) =
 test('settings page renders', async ({ page }) => {
   await page.goto('/settings')
   await expect(page.getByRole('heading', { name: /настройк/i })).toBeVisible()
+  await expect(page.getByText('Роль в панели')).toHaveCount(0)
 })
 
 test('service switcher links to other products', async ({ page }) => {
@@ -228,7 +309,7 @@ test('service switcher links to other products', async ({ page }) => {
   // hover/focus dropdown with plain links (v1.0 fallback). Both must expose
   // navigation to the CI/CD product.
   const ciLink = page.locator('a[href="http://localhost:7712"]').first()
-  const attached = await ciLink.isVisible().catch(() => false) || (await ciLink.count()) > 0
+  const attached = (await ciLink.isVisible().catch(() => false)) || (await ciLink.count()) > 0
   if (!attached) {
     // v1.1 menu: open via the named or icon-only trigger button
     const switcher = page.getByRole('button', { name: /Открыть список сервисов/ }).first()
@@ -240,32 +321,26 @@ test('service switcher links to other products', async ({ page }) => {
   }
 })
 
-
-test('login flow: wrong password shows error, valid login navigates to overview', async ({ page }) => {
-  await page.addInitScript(() => sessionStorage.removeItem('base.admin.token'))
+test('protected route completes OIDC and keeps tokens out of URL', async ({ page }) => {
   await page.goto('/')
-  await expect(page).toHaveURL(/\/login$/)
-
-  await page.getByLabel('Email').fill('admin@base.local')
-  await page.getByLabel('Пароль').fill('wrong')
-  await page.getByRole('button', { name: 'Войти' }).click()
-  await expect(page.getByRole('alert')).toContainText(/rejected|Не удалось/i)
-
-  await page.getByLabel('Пароль').fill('correct-password')
-  await page.getByRole('button', { name: 'Войти' }).click()
-  await expect(page).toHaveURL(/http:\/\/localhost:\d+\/$/)
   await expect(page.getByRole('heading', { name: /обзор/i })).toBeVisible()
+  expect(page.url()).not.toContain('e2e-token')
+  expect(page.url()).not.toContain('smoke-e2e-code')
 })
 
-test('role bindings page lists bindings for admin', async ({ page }) => {
-  await page.goto('/role-bindings')
-  await expect(page.getByRole('heading', { name: /привязки ролей/i })).toBeVisible()
-  await expect(page.getByText('u-admin').first()).toBeVisible()
-  await expect(page.getByText('platform_admin').first()).toBeVisible()
+test('users page lists centrally managed accounts', async ({ page }) => {
+  await page.goto('/users')
+  await expect(page.getByRole('heading', { name: 'Пользователи' })).toBeVisible()
+  await expect(page.getByText('admin@base.local').first()).toBeVisible()
 })
 
-test('protected routes redirect anonymous visitors to login', async ({ page }) => {
-  await page.addInitScript(() => sessionStorage.removeItem('base.admin.token'))
+test('protected routes initiate Central Auth', async ({ page }) => {
+  const authorize = page.waitForRequest((request) =>
+    request.url().startsWith('http://localhost:7701/oidc/authorize'),
+  )
   await page.goto('/services')
-  await expect(page).toHaveURL(/\/login$/)
+  const url = new URL((await authorize).url())
+  expect(url.searchParams.get('client_id')).toBe('admin-panel')
+  expect(url.searchParams.get('code_challenge_method')).toBe('S256')
+  await expect(page.getByRole('heading', { name: 'Каталог сервисов' })).toBeVisible()
 })

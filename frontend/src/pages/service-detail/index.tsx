@@ -49,7 +49,7 @@ export function ServiceDetailPage() {
     return (
       <div role="alert" className="space-y-3 text-sm text-danger">
         <p>Не удалось загрузить карточку сервиса.</p>
-        <Button variant="outline" onClick={() => void service.refetch()}>
+        <Button variant="outline" className="h-10" onClick={() => void service.refetch()}>
           Повторить
         </Button>
       </div>
@@ -110,6 +110,7 @@ export function ServiceDetailPage() {
         <div className="flex flex-wrap gap-2">
           {pending && (
             <Button
+              className="h-10"
               disabled={isMutating}
               onClick={() =>
                 approve.mutate(
@@ -130,6 +131,7 @@ export function ServiceDetailPage() {
             <>
               <Button
                 variant="outline"
+                className="h-10"
                 disabled={isMutating}
                 onClick={() => setStatusTarget('disable')}
               >
@@ -137,6 +139,7 @@ export function ServiceDetailPage() {
               </Button>
               <Button
                 variant="outline"
+                className="h-10"
                 disabled={isMutating}
                 onClick={() => setStatusTarget('retire')}
               >
@@ -221,7 +224,7 @@ export function ServiceDetailPage() {
               ))}
             </div>
           </fieldset>
-          <Button type="submit" disabled={isMutating || !newBaseUrl.trim()}>
+          <Button type="submit" className="h-10" disabled={isMutating || !newBaseUrl.trim()}>
             {patch.isPending ? 'Отправляем...' : 'Отправить декларацию'}
           </Button>
           {patch.isError && (
@@ -290,6 +293,7 @@ export function ServiceDetailPage() {
           <DialogFooter>
             <Button
               variant="outline"
+              className="h-10"
               disabled={changeStatus.isPending}
               onClick={() => setStatusTarget(null)}
             >
@@ -297,6 +301,7 @@ export function ServiceDetailPage() {
             </Button>
             <Button
               variant="destructive"
+              className="h-10"
               disabled={changeStatus.isPending}
               onClick={() =>
                 statusTarget &&
