@@ -106,7 +106,7 @@ export function ServiceDetailPage() {
       },
       {
         onSuccess: () => {
-          toast.success('Новая декларация отправлена; ожидает одобрения')
+          toast.success('Декларация обработана; актуальный статус указан в истории')
           setNewBaseUrl(active?.integration_base_url ?? '')
           setNewPublicUiUrl(active?.public_ui_url ?? '')
           setNewCaps(active?.capabilities ?? ['health.read'])

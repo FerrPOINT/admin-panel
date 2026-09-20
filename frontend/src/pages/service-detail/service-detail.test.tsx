@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
+import { toast } from 'sonner'
 import {
   useApproveService,
   useChangeServiceStatus,
@@ -17,6 +18,7 @@ vi.mock('@/shared/api/hooks', () => ({
   useChangeServiceStatus: vi.fn(),
 }))
 vi.mock('@/shared/auth/auth-context', () => ({ useAuth: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const changeStatus = vi.fn()
 const patchService = vi.fn()
@@ -24,6 +26,7 @@ const patchService = vi.fn()
 beforeEach(() => {
   changeStatus.mockClear()
   patchService.mockClear()
+  vi.mocked(toast.success).mockClear()
   vi.mocked(useAuth).mockReturnValue({ canMutate: true } as ReturnType<typeof useAuth>)
   vi.mocked(useService).mockReturnValue({
     isLoading: false,
@@ -238,6 +241,49 @@ describe('ServiceDetailPage', () => {
     expect(screen.getByLabelText('Базовый URL')).toHaveValue('http://admin-api:7902')
     expect(screen.getByLabelText('Публичный URL веб-интерфейса')).toHaveValue(
       'http://localhost:7902',
+    )
+  })
+
+  it('does not claim a new pending declaration after an idempotent submission', () => {
+    vi.mocked(useService).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        service: {
+          id: 's-1',
+          service_key: 'admin-panel',
+          display_name: 'Admin Panel',
+          owner_team: 'platform',
+          status: 'active',
+          version: 3,
+          active_declaration_id: 'd-1',
+        },
+        declarations: [
+          {
+            id: 'd-1',
+            declaration_version: 4,
+            integration_base_url: 'http://admin-api:7771',
+            public_ui_url: 'http://localhost:7772',
+            service_contract_version: '1.0.0',
+            capabilities: ['health.read', 'ui.render'],
+            approval_status: 'approved',
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof useService>)
+    render(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить декларацию' }))
+    expect(patchService).toHaveBeenCalledTimes(1)
+    act(() => patchService.mock.calls[0]![1].onSuccess())
+    expect(toast.success).toHaveBeenCalledWith(
+      'Декларация обработана; актуальный статус указан в истории',
     )
   })
 
