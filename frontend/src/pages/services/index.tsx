@@ -252,7 +252,7 @@ export function ServicesPage() {
       )}
 
       <div className="overflow-hidden rounded-lg border border-border bg-surface">
-        <div className="hidden grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-text-muted md:grid">
+        <div className="hidden grid-cols-[1.4fr_1fr_1fr_auto_auto] gap-4 border-b border-border px-4 py-3 text-xs font-medium text-text-muted lg:grid">
           <span>Сервис</span>
           <span>Команда</span>
           <span>Обновлён</span>
@@ -292,27 +292,27 @@ export function ServicesPage() {
             <Link
               key={service.id}
               to={`/services/${service.service_key}`}
-              className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 text-sm transition-colors last:border-0 hover:bg-surface-raised md:grid-cols-[1.4fr_1fr_1fr_auto_auto] md:gap-4"
+              className="grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2 text-sm transition-colors last:border-0 hover:bg-surface-raised lg:grid-cols-[1.4fr_1fr_1fr_auto_auto] lg:gap-4"
             >
-              <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 font-medium md:col-auto md:row-auto">
+              <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-2 font-medium lg:col-auto lg:row-auto">
                 <Server className="h-4 w-4 shrink-0 text-accent" />
-                <span className="truncate">{service.display_name}</span>
+                <span className="min-w-0 break-words">{service.display_name}</span>
               </span>
-              <span className="col-start-1 row-start-2 min-w-0 truncate text-xs text-text-secondary md:col-auto md:row-auto md:text-sm">
+              <span className="col-start-1 row-start-2 min-w-0 break-words text-xs text-text-secondary lg:col-auto lg:row-auto lg:text-sm">
                 {service.owner_team}
               </span>
-              <span className="hidden text-text-muted md:block">
+              <span className="hidden text-text-muted lg:block">
                 {new Date(service.updated_at).toLocaleString('ru-RU')}
               </span>
               <span
-                className={`col-start-2 row-start-2 inline-flex items-center gap-1.5 text-xs md:col-auto md:row-auto md:text-sm ${service.health_status === 'healthy' ? 'text-success' : service.health_status === 'unreachable' ? 'text-danger' : 'text-text-muted'}`}
+                className={`col-start-2 row-start-2 inline-flex items-center gap-1.5 text-xs lg:col-auto lg:row-auto lg:text-sm ${service.health_status === 'healthy' ? 'text-success' : service.health_status === 'unreachable' ? 'text-danger' : 'text-text-muted'}`}
                 title={service.health_detail ?? 'нет данных проверки'}
               >
                 <Activity className="h-3.5 w-3.5" />
                 {HEALTH_LABELS[service.health_status ?? 'unknown'] ?? 'Не проверен'}
               </span>
               <span
-                className={`col-start-2 row-start-1 text-xs md:col-auto md:row-auto md:text-sm ${service.status === 'active' ? 'text-success' : service.status === 'pending' ? 'text-warning' : 'text-text-muted'}`}
+                className={`col-start-2 row-start-1 text-xs lg:col-auto lg:row-auto lg:text-sm ${service.status === 'active' ? 'text-success' : service.status === 'pending' ? 'text-warning' : 'text-text-muted'}`}
               >
                 {STATUS_LABELS[service.status] ?? service.status}
               </span>

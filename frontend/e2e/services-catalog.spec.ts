@@ -10,6 +10,23 @@ const jwk = {
 }
 const now = '2026-09-20T08:00:00Z'
 
+function contrastRatio(foreground: string, background: string) {
+  function luminance(color: string) {
+    const channels = color
+      .match(/[\d.]+/g)
+      ?.slice(0, 3)
+      .map(Number)
+    if (!channels || channels.length !== 3) throw new Error(`Invalid color: ${color}`)
+    const [red, green, blue] = channels.map((channel) => {
+      const value = channel / 255
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    })
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+  }
+  const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a)
+  return (values[0] + 0.05) / (values[1] + 0.05)
+}
+
 function idToken(nonce: string) {
   const timestamp = Math.floor(Date.now() / 1000)
   const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: jwk.kid })).toString(
@@ -126,14 +143,17 @@ async function installMocks(page: Page) {
   return state
 }
 
-test('catalog paginates and fits 320–1280px in every theme', async ({ page }) => {
+test('catalog paginates and fits 320–1920px in every theme', async ({ page }) => {
   await installMocks(page)
   await page.goto('/services')
   await expect(page.getByRole('heading', { name: 'Каталог сервисов' })).toBeVisible()
+  await page.addStyleTag({
+    content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+  })
   await expect(page.getByRole('link', { name: /QA Service/ })).toHaveCount(20)
   await expect(page.getByText('Показано 20 из 25 сервисов')).toBeVisible()
 
-  for (const width of [320, 375, 768, 1280]) {
+  for (const width of [320, 375, 768, 1280, 1920]) {
     await page.setViewportSize({ width, height: width < 768 ? 812 : 900 })
     for (const theme of ['light', 'gray', 'dark']) {
       await page.evaluate(
@@ -164,6 +184,41 @@ test('catalog paginates and fits 320–1280px in every theme', async ({ page }) 
         }),
       )
       expect(smallControls).toEqual([])
+      const colors = await page.evaluate(() => {
+        const input = document.querySelector('input[type="search"]')!
+        const name = document.querySelector('main a[href^="/services/"] span span')!
+        const surface = document.querySelector('main a[href^="/services/"]')!.parentElement!
+        return {
+          input: getComputedStyle(input).backgroundColor,
+          placeholder: getComputedStyle(input, '::placeholder').color,
+          name: getComputedStyle(name).color,
+          surface: getComputedStyle(surface).backgroundColor,
+        }
+      })
+      expect(
+        contrastRatio(colors.placeholder, colors.input),
+        JSON.stringify({ width, theme, colors }),
+      ).toBeGreaterThanOrEqual(4.5)
+      expect(
+        contrastRatio(colors.name, colors.surface),
+        JSON.stringify({ width, theme, colors }),
+      ).toBeGreaterThanOrEqual(4.5)
+      if (width === 768) {
+        const nameOverflow = await page
+          .locator('main a[href="/services/qa-service-01"] span span')
+          .evaluate((name) => name.scrollWidth - name.clientWidth)
+        expect(nameOverflow).toBe(0)
+      }
+      if (
+        (width === 375 && theme === 'light') ||
+        (width === 768 && theme === 'gray') ||
+        (width === 1280 && theme === 'dark')
+      ) {
+        await page.screenshot({
+          path: `test-results/services-catalog-${width}-${theme}.png`,
+          fullPage: true,
+        })
+      }
     }
   }
 
