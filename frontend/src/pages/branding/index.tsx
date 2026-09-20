@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Palette } from 'lucide-react'
 import { api } from '@/shared/api/client'
@@ -35,10 +35,13 @@ export function BrandingPage() {
   const [form, setForm] = useState<BrandingDocument | null>(null)
   const document = form ?? currentDocument(revisions.data)
   const [published, setPublished] = useState<number | null>(null)
+  const [draftRevision, setDraftRevision] = useState<number | null>(null)
+  const [previousDraft, setPreviousDraft] = useState<number | null>(null)
+  const savingRef = useRef(false)
 
   const createDraft = useMutation({
-    mutationFn: () =>
-      api.post<{ revision: { revision: number } }>('/api/v1/branding/revisions', document),
+    mutationFn: (payload: BrandingDocument) =>
+      api.post<{ revision: { revision: number } }>('/api/v1/branding/revisions', payload),
     onSuccess: (data) =>
       queryClient.invalidateQueries({ queryKey: ['branding-revisions'] }).then(() => data),
   })
@@ -47,17 +50,28 @@ export function BrandingPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['branding-revisions'] }),
   })
 
-  const update = <K extends keyof BrandingDocument>(key: K, value: BrandingDocument[K]) =>
+  const saving = createDraft.isPending || publish.isPending
+  const formLocked = saving || draftRevision !== null
+  const update = <K extends keyof BrandingDocument>(key: K, value: BrandingDocument[K]) => {
     setForm({ ...document, [key]: value })
+    setPublished(null)
+  }
 
   const saveAndPublish = async () => {
+    if (savingRef.current) return
+    savingRef.current = true
     setPublished(null)
     try {
-      const draft = await createDraft.mutateAsync()
-      await publish.mutateAsync(draft.revision.revision)
-      setPublished(draft.revision.revision)
+      const revision = draftRevision ?? (await createDraft.mutateAsync(document)).revision.revision
+      setDraftRevision(revision)
+      await publish.mutateAsync(revision)
+      setDraftRevision(null)
+      setPreviousDraft(null)
+      setPublished(revision)
     } catch {
       // Mutation errors are rendered below without discarding the draft form.
+    } finally {
+      savingRef.current = false
     }
   }
 
@@ -73,25 +87,60 @@ export function BrandingPage() {
         <button
           type="button"
           onClick={saveAndPublish}
-          disabled={revisions.isPending || revisions.isError || createDraft.isPending || publish.isPending}
+          disabled={revisions.isPending || revisions.isError || saving}
           className="min-h-10 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
         >
-          {createDraft.isPending || publish.isPending ? 'Публикация...' : 'Опубликовать'}
+          {saving
+            ? 'Публикация...'
+            : draftRevision !== null
+              ? 'Повторить публикацию'
+              : 'Опубликовать'}
         </button>
       </div>
 
-      {revisions.isPending && <p role="status" className="text-sm text-text-muted">Загрузка текущего брендинга…</p>}
+      {revisions.isPending && (
+        <p role="status" className="text-sm text-text-muted">
+          Загрузка текущего брендинга…
+        </p>
+      )}
       {revisions.isError && (
         <p role="alert" className="text-sm text-danger">
-          Не удалось загрузить текущий брендинг. <button type="button" className="underline" onClick={() => void revisions.refetch()}>Повторить</button>
+          Не удалось загрузить текущий брендинг.{' '}
+          <button type="button" className="underline" onClick={() => void revisions.refetch()}>
+            Повторить
+          </button>
         </p>
       )}
 
       {createDraft.isError || publish.isError ? (
-        <div className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
-          Не удалось сохранить ревизию. Проверьте поля и доступность API.
+        <div
+          role="alert"
+          className="rounded-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger"
+        >
+          {draftRevision !== null
+            ? `Черновик v${draftRevision} сохранён, но публикация не удалась.`
+            : 'Не удалось создать черновик. Проверьте поля и доступность API.'}
+          {draftRevision !== null && (
+            <button
+              type="button"
+              className="ml-2 min-h-10 underline"
+              onClick={() => {
+                setPreviousDraft(draftRevision)
+                setDraftRevision(null)
+                publish.reset()
+              }}
+            >
+              Изменить значения
+            </button>
+          )}
         </div>
       ) : null}
+      {previousDraft !== null && (
+        <p role="status" className="text-sm text-text-muted">
+          Черновик v{previousDraft} остался в истории без публикации. Следующая попытка создаст
+          новую ревизию.
+        </p>
+      )}
       {published ? (
         <div className="flex items-center gap-2 rounded-md border border-success/30 bg-success/10 p-3 text-sm text-success">
           <Check className="h-4 w-4" /> Опубликована ревизия v{published}
@@ -104,6 +153,7 @@ export function BrandingPage() {
           <label className="block text-sm">
             <span className="mb-1.5 block text-text-secondary">Название платформы</span>
             <input
+              disabled={formLocked}
               value={document.product_name}
               onChange={(e) => update('product_name', e.target.value)}
               className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
@@ -112,6 +162,7 @@ export function BrandingPage() {
           <label className="block text-sm">
             <span className="mb-1.5 block text-text-secondary">Короткое название</span>
             <input
+              disabled={formLocked}
               value={document.product_short_name}
               onChange={(e) => update('product_short_name', e.target.value)}
               className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
@@ -130,12 +181,14 @@ export function BrandingPage() {
                 <span className="flex overflow-hidden rounded-md border border-border bg-background focus-within:border-accent">
                   <input
                     type="color"
+                    disabled={formLocked}
                     aria-label={`${label}: выбрать цвет`}
                     value={document[key] ?? '#ffffff'}
                     onChange={(e) => update(key, e.target.value)}
                     className="h-10 w-11 border-0 bg-transparent p-1"
                   />
                   <input
+                    disabled={formLocked}
                     aria-label={`${label}: HEX`}
                     value={document[key] ?? ''}
                     onChange={(e) => update(key, e.target.value)}
@@ -148,6 +201,7 @@ export function BrandingPage() {
           <label className="block text-sm">
             <span className="mb-1.5 block text-text-secondary">URL поддержки</span>
             <input
+              disabled={formLocked}
               value={document.support_url ?? ''}
               onChange={(e) => update('support_url', e.target.value || null)}
               placeholder="https://..."
@@ -195,8 +249,8 @@ export function BrandingPage() {
             </div>
           </div>
           <p className="mt-3 text-xs text-text-muted">
-            Приложения применят только утверждённые цвета; при недоступности API
-            используются встроенные значения.
+            Приложения применят только утверждённые цвета; при недоступности API используются
+            встроенные значения.
           </p>
         </section>
       </div>
