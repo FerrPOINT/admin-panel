@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import {
   useApproveService,
@@ -85,7 +85,7 @@ describe('ServiceDetailPage', () => {
     fireEvent.change(screen.getByLabelText('Базовый URL'), {
       target: { value: 'http://localhost:7801' },
     })
-    fireEvent.click(screen.getByLabelText('health.read'))
+    expect(screen.getByLabelText('health.read')).toBeChecked()
     fireEvent.click(screen.getByRole('button', { name: 'Отправить декларацию' }))
     expect(patchService).toHaveBeenCalledWith(
       {
@@ -94,6 +94,7 @@ describe('ServiceDetailPage', () => {
           declaration: {
             declaration_version: 1,
             integration_base_url: 'http://localhost:7801',
+            public_ui_url: null,
             service_contract_version: '1.0.0',
             capabilities: ['health.read'],
           },
@@ -137,6 +138,107 @@ describe('ServiceDetailPage', () => {
     expect(screen.getByLabelText('health.read')).toBeChecked()
     fireEvent.click(screen.getByRole('button', { name: 'Отправить декларацию' }))
     expect(patchService).toHaveBeenCalledTimes(2)
+  })
+
+  it('preserves the public UI route when creating a declaration from an active UI service', () => {
+    vi.mocked(useService).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        service: {
+          id: 's-1',
+          service_key: 'admin-panel',
+          display_name: 'Admin Panel',
+          owner_team: 'platform',
+          status: 'active',
+          version: 3,
+          active_declaration_id: 'd-1',
+        },
+        declarations: [
+          {
+            id: 'd-1',
+            declaration_version: 4,
+            integration_base_url: 'http://admin-api:7771',
+            public_ui_url: 'http://localhost:7772',
+            service_contract_version: '1.0.0',
+            capabilities: ['health.read', 'ui.render'],
+            approval_status: 'approved',
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof useService>)
+    const view = render(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByLabelText('Базовый URL')).toHaveValue('http://admin-api:7771')
+    expect(screen.getByLabelText('Публичный URL веб-интерфейса')).toHaveValue(
+      'http://localhost:7772',
+    )
+    expect(screen.getByLabelText('ui.render')).toBeChecked()
+    fireEvent.change(screen.getByLabelText('Базовый URL'), {
+      target: { value: 'http://admin-api:7901' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить декларацию' }))
+    expect(patchService).toHaveBeenCalledWith(
+      {
+        version: 3,
+        body: {
+          declaration: {
+            declaration_version: 5,
+            integration_base_url: 'http://admin-api:7901',
+            public_ui_url: 'http://localhost:7772',
+            service_contract_version: '1.0.0',
+            capabilities: ['health.read', 'ui.render'],
+          },
+        },
+      },
+      expect.any(Object),
+    )
+
+    vi.mocked(useService).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        service: {
+          id: 's-1',
+          service_key: 'admin-panel',
+          display_name: 'Admin Panel',
+          owner_team: 'platform',
+          status: 'active',
+          version: 4,
+          active_declaration_id: 'd-2',
+        },
+        declarations: [
+          {
+            id: 'd-2',
+            declaration_version: 5,
+            integration_base_url: 'http://admin-api:7902',
+            public_ui_url: 'http://localhost:7902',
+            service_contract_version: '1.0.0',
+            capabilities: ['health.read', 'ui.render'],
+            approval_status: 'approved',
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof useService>)
+    view.rerender(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(screen.getByLabelText('Базовый URL')).toHaveValue('http://admin-api:7901')
+    act(() => patchService.mock.calls[0]![1].onSuccess())
+    expect(screen.getByLabelText('Базовый URL')).toHaveValue('http://admin-api:7902')
+    expect(screen.getByLabelText('Публичный URL веб-интерфейса')).toHaveValue(
+      'http://localhost:7902',
+    )
   })
 
   it('keeps the detail read-only for a viewer', () => {

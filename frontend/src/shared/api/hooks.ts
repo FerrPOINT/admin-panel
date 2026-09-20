@@ -23,6 +23,7 @@ export interface Declaration {
   registry_entry_id: string
   declaration_version: number
   integration_base_url: string
+  public_ui_url: string | null
   capabilities: string[]
   service_contract_version: string
   declared_by_subject: string
@@ -99,16 +100,17 @@ export function useAuditEvents(action?: string) {
   const params = action ? `?action=${encodeURIComponent(action)}` : ''
   return useQuery({
     queryKey: ['audit-events', action ?? 'all'],
-    queryFn: () => api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events${params}`),
+    queryFn: () =>
+      api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events${params}`),
   })
 }
-
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
 
 export interface DeclarationInput {
   declaration_version: number
   integration_base_url: string
+  public_ui_url?: string | null
   service_contract_version: string
   capabilities: string[]
 }

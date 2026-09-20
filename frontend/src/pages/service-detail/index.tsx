@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -19,7 +19,12 @@ import {
 } from '@/shared/api/hooks'
 import { useAuth } from '@/shared/auth/auth-context'
 
-const KNOWN_CAPABILITIES = ['health.read', 'integration.status.read', 'branding.runtime.read']
+const KNOWN_CAPABILITIES = [
+  'health.read',
+  'ui.render',
+  'integration.status.read',
+  'branding.runtime.read',
+]
 const STATUS_LABELS: Record<string, string> = {
   active: 'Активен',
   pending: 'Ожидает',
@@ -41,8 +46,30 @@ export function ServiceDetailPage() {
   const patch = usePatchService(serviceKey)
   const changeStatus = useChangeServiceStatus(serviceKey)
   const [newBaseUrl, setNewBaseUrl] = useState('')
+  const [newPublicUiUrl, setNewPublicUiUrl] = useState('')
   const [newCaps, setNewCaps] = useState<string[]>([])
+  const [initializedFor, setInitializedFor] = useState('')
+  const [draftDirty, setDraftDirty] = useState(false)
   const [statusTarget, setStatusTarget] = useState<'disable' | 'retire' | null>(null)
+  const activeDeclaration = service.data?.declarations.find(
+    (declaration) => declaration.id === service.data?.service.active_declaration_id,
+  )
+  const activeSource = `${serviceKey}:${activeDeclaration?.id ?? ''}`
+
+  useEffect(() => {
+    if (
+      !service.data ||
+      service.data.service.service_key !== serviceKey ||
+      initializedFor === activeSource ||
+      (draftDirty && initializedFor.startsWith(`${serviceKey}:`))
+    )
+      return
+    setNewBaseUrl(activeDeclaration?.integration_base_url ?? '')
+    setNewPublicUiUrl(activeDeclaration?.public_ui_url ?? '')
+    setNewCaps(activeDeclaration?.capabilities ?? ['health.read'])
+    setInitializedFor(activeSource)
+    setDraftDirty(false)
+  }, [activeDeclaration, activeSource, draftDirty, initializedFor, service.data, serviceKey])
 
   if (service.isLoading) return <div className="text-sm text-text-muted">Загрузка карточки...</div>
   if (service.isError || !service.data)
@@ -55,7 +82,7 @@ export function ServiceDetailPage() {
       </div>
     )
   const { service: entry, declarations } = service.data
-  const active = declarations.find((d) => d.id === entry.active_declaration_id)
+  const active = activeDeclaration
   const pending = declarations.find((d) => d.approval_status === 'pending')
   const version = entry.version
   const isMutating = patch.isPending || approve.isPending || changeStatus.isPending
@@ -71,6 +98,7 @@ export function ServiceDetailPage() {
           declaration: {
             declaration_version: nextVersion,
             integration_base_url: newBaseUrl,
+            public_ui_url: newCaps.includes('ui.render') ? newPublicUiUrl : null,
             service_contract_version: active?.service_contract_version ?? '1.0.0',
             capabilities: newCaps,
           },
@@ -79,8 +107,10 @@ export function ServiceDetailPage() {
       {
         onSuccess: () => {
           toast.success('Новая декларация отправлена; ожидает одобрения')
-          setNewBaseUrl('')
-          setNewCaps([])
+          setNewBaseUrl(active?.integration_base_url ?? '')
+          setNewPublicUiUrl(active?.public_ui_url ?? '')
+          setNewCaps(active?.capabilities ?? ['health.read'])
+          setDraftDirty(false)
         },
       },
     )
@@ -162,6 +192,14 @@ export function ServiceDetailPage() {
                 {active.integration_base_url}
               </code>
             </div>
+            {active.public_ui_url && (
+              <div>
+                <div className="text-xs text-text-muted">Публичный URL веб-интерфейса</div>
+                <code className="mt-1 block break-all text-text-secondary">
+                  {active.public_ui_url}
+                </code>
+              </div>
+            )}
             <div>
               <div className="text-xs text-text-muted">Возможности</div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -193,12 +231,32 @@ export function ServiceDetailPage() {
             <Input
               className="mt-1 max-w-md"
               value={newBaseUrl}
-              onChange={(e) => setNewBaseUrl(e.target.value)}
+              onChange={(e) => {
+                setNewBaseUrl(e.target.value)
+                setDraftDirty(true)
+              }}
               placeholder="http://localhost:7801"
               required
               disabled={isMutating}
             />
           </label>
+          {newCaps.includes('ui.render') && (
+            <label className="block text-sm font-medium">
+              Публичный URL веб-интерфейса
+              <Input
+                className="mt-1 max-w-md"
+                type="url"
+                value={newPublicUiUrl}
+                onChange={(e) => {
+                  setNewPublicUiUrl(e.target.value)
+                  setDraftDirty(true)
+                }}
+                placeholder="http://localhost:7802"
+                required
+                disabled={isMutating}
+              />
+            </label>
+          )}
           <fieldset className="text-sm font-medium">
             <legend>Возможности интеграции</legend>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -212,11 +270,12 @@ export function ServiceDetailPage() {
                     aria-label={cap}
                     className="sr-only"
                     checked={newCaps.includes(cap)}
-                    onChange={() =>
+                    onChange={() => {
+                      setDraftDirty(true)
                       setNewCaps((prev) =>
                         prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap],
                       )
-                    }
+                    }}
                     disabled={isMutating}
                   />
                   {cap}

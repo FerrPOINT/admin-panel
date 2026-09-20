@@ -129,8 +129,19 @@ describe('ServicesPage', () => {
     fireEvent.change(screen.getByLabelText('Базовый URL (HTTPS или localhost)'), {
       target: { value: 'http://localhost:7801' },
     })
+    fireEvent.click(screen.getByLabelText('ui.render'))
+    fireEvent.change(screen.getByLabelText('Публичный URL веб-интерфейса'), {
+      target: { value: 'http://localhost:7802' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Создать сервис' }))
     expect(createMutate).toHaveBeenCalledOnce()
+    expect(createMutate.mock.calls[0]![0]).toMatchObject({
+      declaration: {
+        integration_base_url: 'http://localhost:7801',
+        public_ui_url: 'http://localhost:7802',
+        capabilities: ['health.read', 'ui.render'],
+      },
+    })
 
     mockCreate({ isPending: true })
     view.rerender(
@@ -140,6 +151,7 @@ describe('ServicesPage', () => {
     )
     expect(screen.getByLabelText('Ключ сервиса')).toBeDisabled()
     expect(screen.getByLabelText('health.read')).toBeDisabled()
+    expect(screen.getByLabelText('Публичный URL веб-интерфейса')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Отмена' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Закрыть форму' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Создаём...' })).toBeDisabled()
@@ -153,6 +165,9 @@ describe('ServicesPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Сервис уже существует')
     expect(screen.getByLabelText('Ключ сервиса')).toHaveValue('new-service')
     expect(screen.getByLabelText('Название')).toHaveValue('Новый сервис')
+    expect(screen.getByLabelText('Публичный URL веб-интерфейса')).toHaveValue(
+      'http://localhost:7802',
+    )
 
     const onSuccess = createMutate.mock.calls[0]![1].onSuccess as () => void
     act(() => onSuccess())

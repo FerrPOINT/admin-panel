@@ -7,7 +7,12 @@ import { Button, Input, defaultServices } from '@sdlc/ui/ui'
 import { useServices, useCreateService } from '@/shared/api/hooks'
 import { useAuth } from '@/shared/auth/auth-context'
 
-const KNOWN_CAPABILITIES = ['health.read', 'integration.status.read', 'branding.runtime.read']
+const KNOWN_CAPABILITIES = [
+  'health.read',
+  'ui.render',
+  'integration.status.read',
+  'branding.runtime.read',
+]
 const PAGE_SIZE = 20
 const serviceOrder = new Map(defaultServices.map((item, index) => [item.key, index]))
 const HEALTH_LABELS: Record<string, string> = {
@@ -31,6 +36,7 @@ export function ServicesPage() {
   const [displayName, setDisplayName] = useState('')
   const [ownerTeam, setOwnerTeam] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
+  const [publicUiUrl, setPublicUiUrl] = useState('')
   const [contractVersion, setContractVersion] = useState('1.0.0')
   const [capabilities, setCapabilities] = useState<string[]>(['health.read'])
   const [search, setSearch] = useState('')
@@ -72,6 +78,7 @@ export function ServicesPage() {
         declaration: {
           declaration_version: 1,
           integration_base_url: baseUrl,
+          public_ui_url: capabilities.includes('ui.render') ? publicUiUrl : null,
           service_contract_version: contractVersion,
           capabilities,
         },
@@ -84,6 +91,7 @@ export function ServicesPage() {
           setDisplayName('')
           setOwnerTeam('')
           setBaseUrl('')
+          setPublicUiUrl('')
           setContractVersion('1.0.0')
           setCapabilities(['health.read'])
         },
@@ -170,6 +178,20 @@ export function ServicesPage() {
               disabled={create.isPending}
             />
           </label>
+          {capabilities.includes('ui.render') && (
+            <label className="text-sm font-medium">
+              Публичный URL веб-интерфейса
+              <Input
+                className="mt-1"
+                type="url"
+                value={publicUiUrl}
+                onChange={(e) => setPublicUiUrl(e.target.value)}
+                placeholder="http://localhost:7802"
+                required
+                disabled={create.isPending}
+              />
+            </label>
+          )}
           <fieldset className="text-sm font-medium">
             <legend>Возможности интеграции</legend>
             <div className="mt-2 flex flex-wrap gap-2">
