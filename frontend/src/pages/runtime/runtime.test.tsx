@@ -77,6 +77,7 @@ describe('RuntimePage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Обновить' })[1])
     expect(await screen.findByText('Wiki')).toBeInTheDocument()
     expect(fetch).toHaveBeenLastCalledWith(expect.stringContaining('/services'), {
+      cache: 'no-cache',
       headers: { 'If-None-Match': '"catalog-v1"' },
     })
   })
@@ -101,6 +102,7 @@ describe('RuntimePage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Обновить' })[1])
     expect(await screen.findByText('Wiki')).toBeInTheDocument()
     expect(fetch).toHaveBeenLastCalledWith(expect.stringContaining('/services'), {
+      cache: 'no-cache',
       headers: { 'If-None-Match': '"catalog-v1"' },
     })
   })
@@ -133,6 +135,7 @@ describe('RuntimePage', () => {
     expect(await screen.findByText(/Каталог пуст/)).toBeInTheDocument()
     fireEvent.click(screen.getAllByRole('button', { name: 'Обновить' })[1])
     await waitFor(() => expect(fetch).toHaveBeenLastCalledWith(expect.stringContaining('/services'), {
+      cache: 'no-cache',
       headers: { 'If-None-Match': '"empty"' },
     }))
     expect(screen.getByText(/Каталог пуст/)).toBeInTheDocument()
@@ -154,7 +157,7 @@ describe('RuntimePage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Обновить' })[0])
     expect(await screen.findByText('Ревизия 1')).toBeInTheDocument()
     const brandingCalls = fetch.mock.calls.filter(([url]) => url.endsWith('/branding'))
-    expect(brandingCalls[1]).toEqual([expect.stringContaining('/branding'), { headers: undefined }])
+    expect(brandingCalls[1]).toEqual([expect.stringContaining('/branding'), { cache: 'no-cache', headers: undefined }])
   })
 
   it('labels the previous branding response during refresh', async () => {

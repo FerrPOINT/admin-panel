@@ -71,6 +71,7 @@ export function RuntimePage() {
     setStatus('Загрузка...')
     try {
       const response = await fetch(endpoint, {
+        cache: 'no-cache',
         headers: etag ? { 'If-None-Match': etag } : undefined,
       })
       if (response.status === 404) {
@@ -106,6 +107,7 @@ export function RuntimePage() {
     setServicesStatus('Загрузка...')
     try {
       const response = await fetch(`${base}/api/v1/runtime/services`, {
+        cache: 'no-cache',
         headers: servicesEtag ? { 'If-None-Match': servicesEtag } : undefined,
       })
       setServicesStatus(`${response.status} ${response.statusText}`)
