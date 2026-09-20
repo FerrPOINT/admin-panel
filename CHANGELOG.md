@@ -14,6 +14,7 @@
 - CHANGELOG, CONTRIBUTING, THIRD_PARTY_NOTICES; LICENSE → FerrPOINT Proprietary v1.0.
 ### Fixed
 - .pnpm-store (2888 файлов) выведен из git.
+- Журнал аудита скрывает устаревшие события и счётчик при повторной загрузке или ошибке; фильтры и страница сохраняются для retry.
 ### Added
 
 - Каталог v1.2 (ADR-0007): опциональный `public_ui_url` в декларациях; каталог отдаёт его как `ui_url` (fallback `integration_base_url`) — TLS-фасадные инсталляции сохраняют переключатель сервисов на публичном origin. Миграция `0005`, план `docs/plans/010`.
