@@ -129,13 +129,15 @@ impl RegistryStore {
         Ok(())
     }
 
-    pub async fn update_metadata(
+    pub async fn patch_entry(
         &self,
         key: &str,
         display_name: &str,
         owner_team: &str,
         expected_version: i64,
+        declaration: Option<&Declaration>,
     ) -> Result<RegistryEntry, DomainError> {
+        let mut tx = self.pool.begin().await.map_err(db)?;
         let row = sqlx::query_as::<_, RegistryEntryRow>(
             "UPDATE service_registry_entries \
              SET display_name = $2, owner_team = $3, updated_at = now(), version = version + 1 \
@@ -148,11 +150,33 @@ impl RegistryStore {
         .bind(display_name)
         .bind(owner_team)
         .bind(expected_version)
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(db)?;
-        row.map(Into::into)
-            .ok_or(DomainError::PreconditionFailed("version mismatch".into()))
+        .map_err(db)?
+        .ok_or(DomainError::PreconditionFailed("version mismatch".into()))?;
+        let mut entry: RegistryEntry = row.into();
+        if let Some(declaration) = declaration {
+            let already_declared: bool = sqlx::query_scalar(
+                "SELECT EXISTS (SELECT 1 FROM service_declarations \
+                 WHERE registry_entry_id = $1 AND content_hash = $2)",
+            )
+            .bind(entry.id)
+            .bind(&declaration.content_hash)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(db)?;
+            if !already_declared {
+                insert_declaration_tx(&mut tx, declaration).await?;
+                sqlx::query("UPDATE service_registry_entries SET status = 'pending' WHERE id = $1")
+                    .bind(entry.id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(db)?;
+                entry.status = ServiceStatus::Pending;
+            }
+        }
+        tx.commit().await.map_err(db)?;
+        Ok(entry)
     }
 
     pub async fn approve_declaration(
@@ -243,23 +267,6 @@ impl RegistryStore {
         .map_err(db)?;
         row.map(Into::into)
             .ok_or(DomainError::PreconditionFailed("version mismatch".into()))
-    }
-
-    pub async fn insert_declaration(&self, declaration: &Declaration) -> Result<(), DomainError> {
-        let mut tx = self.pool.begin().await.map_err(db)?;
-        insert_declaration_tx(&mut tx, declaration).await?;
-        // A changed declaration always moves the entry back to pending.
-        sqlx::query(
-            "UPDATE service_registry_entries SET status = 'pending', updated_at = $2, version = version + 1 \
-             WHERE id = $1",
-        )
-        .bind(declaration.registry_entry_id)
-        .bind(Utc::now())
-        .execute(&mut *tx)
-        .await
-        .map_err(db)?;
-        tx.commit().await.map_err(db)?;
-        Ok(())
     }
 
     pub async fn find_declaration(&self, id: Uuid) -> Result<Option<Declaration>, sqlx::Error> {
