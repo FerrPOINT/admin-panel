@@ -32,38 +32,56 @@ export function UsersPage() {
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [deliveryFailedId, setDeliveryFailedId] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const batchOffset = Math.floor(page * PAGE_SIZE / BATCH_SIZE) * BATCH_SIZE
   const withinBatch = page * PAGE_SIZE - batchOffset
   const users = useQuery({
     queryKey: ['managed-users', search, batchOffset],
     queryFn: () => api.get<ManagedUser[]>(`/api/v1/users?q=${encodeURIComponent(search)}&offset=${batchOffset}`),
   })
-  const visibleUsers = users.data?.slice(withinBatch, withinBatch + PAGE_SIZE) ?? []
+  const needsNextBatch = users.isSuccess && users.data.length === BATCH_SIZE && withinBatch + PAGE_SIZE >= BATCH_SIZE
+  const nextBatch = useQuery({
+    queryKey: ['managed-users', search, batchOffset + BATCH_SIZE],
+    queryFn: () => api.get<ManagedUser[]>(`/api/v1/users?q=${encodeURIComponent(search)}&offset=${batchOffset + BATCH_SIZE}`),
+    enabled: needsNextBatch,
+  })
+  const visibleUsers = users.isSuccess ? users.data.slice(withinBatch, withinBatch + PAGE_SIZE) : []
+  const hasNextPage = users.isSuccess && (
+    withinBatch + PAGE_SIZE < users.data.length || (needsNextBatch && nextBatch.isSuccess && nextBatch.data.length > 0)
+  )
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ['managed-users'] })
   const save = useMutation({
     mutationFn: async () => {
-      if (editing) return api.patch<ManagedUser>(`/api/v1/users/${editing.id}`, { display_name: displayName.trim() })
+      if (editing) {
+        const user = await api.patch<ManagedUser>(`/api/v1/users/${editing.id}`, { display_name: displayName.trim() })
+        return { kind: 'updated' as const, user }
+      }
       if (deliveryFailedId) {
         await api.post<void>(`/api/v1/users/${deliveryFailedId}/password-link`)
-        return null
+        return { kind: 'resent' as const }
       }
-      return api.post<ManagedUser>('/api/v1/users', { email: email.trim(), display_name: displayName.trim() })
+      const user = await api.post<ManagedUser>('/api/v1/users', { email: email.trim(), display_name: displayName.trim() })
+      return { kind: 'created' as const, user }
     },
+    onMutate: () => setSaveError(null),
     onSuccess: (result) => {
-      if (result?.setup_delivery_status === 'failed') {
-        setDeliveryFailedId(result.id)
+      if (result.kind === 'created' && result.user.setup_delivery_status === 'failed') {
+        setDeliveryFailedId(result.user.id)
         toast.error('Пользователь создан, но письмо не доставлено. Повторите отправку.')
         refresh()
         return
       }
-      toast.success(editing ? 'Имя обновлено' : 'Пользователь добавлен, письмо отправлено')
+      toast.success(result.kind === 'updated' ? 'Имя обновлено' : result.kind === 'resent' ? 'Ссылка отправлена' : 'Пользователь добавлен, письмо отправлено')
       setOpen(false); setEditing(null); setEmail(''); setDisplayName(''); setDeliveryFailedId(null); refresh()
     },
-    onError: () => toast.error('Не удалось сохранить пользователя. Проверьте данные и доставку письма.'),
+    onError: () => {
+      setSaveError('Не удалось сохранить изменения. Проверьте данные и доставку письма.')
+      toast.error('Не удалось сохранить пользователя. Проверьте данные и доставку письма.')
+    },
   })
   const resend = useMutation({
     mutationFn: (id: string) => api.post<void>(`/api/v1/users/${id}/password-link`),
-    onSuccess: () => toast.success('Ссылка отправлена'),
+    onSuccess: () => { toast.success('Ссылка отправлена'); refresh() },
     onError: () => toast.error('Не удалось отправить ссылку'),
   })
   const changeStatus = useMutation({
@@ -74,13 +92,14 @@ export function UsersPage() {
   })
 
   function openCreate() {
-    setEditing(null); setEmail(''); setDisplayName(''); setDeliveryFailedId(null); setOpen(true)
+    setEditing(null); setEmail(''); setDisplayName(''); setDeliveryFailedId(null); setSaveError(null); setOpen(true)
   }
   function openEdit(user: ManagedUser) {
-    setEditing(user); setEmail(user.email); setDisplayName(user.display_name); setDeliveryFailedId(null); setOpen(true)
+    setEditing(user); setEmail(user.email); setDisplayName(user.display_name); setDeliveryFailedId(null); setSaveError(null); setOpen(true)
   }
   function submit(event: FormEvent) {
     event.preventDefault()
+    if (save.isPending) return
     if (!displayName.trim() || (!editing && !email.trim())) return
     save.mutate()
   }
@@ -98,7 +117,7 @@ export function UsersPage() {
       </label>
       {users.isPending && <p className="text-sm text-text-muted">Загружаем пользователей...</p>}
       {users.isError && <div role="alert" className="text-sm text-destructive">Не удалось загрузить пользователей. <Button variant="ghost" onClick={() => void users.refetch()}>Повторить</Button></div>}
-      {users.data && users.data.length === 0 && <p className="py-8 text-center text-sm text-text-muted">{search ? 'Ничего не найдено' : 'Пользователей пока нет'}</p>}
+      {users.isSuccess && users.data.length === 0 && <p className="py-8 text-center text-sm text-text-muted">{page > 0 ? 'На этой странице нет пользователей' : search ? 'Ничего не найдено' : 'Пользователей пока нет'}</p>}
       {visibleUsers.length > 0 && (
         <div className="divide-y divide-border border-y border-border">
           {visibleUsers.map((user) => (
@@ -134,21 +153,23 @@ export function UsersPage() {
       <div className="flex items-center justify-end gap-3">
         <Button variant="outline" className="h-10" disabled={page === 0 || users.isPending} onClick={() => setPage((current) => Math.max(0, current - 1))}>Назад</Button>
         <span className="text-xs text-text-muted">Страница {page + 1}</span>
-        <Button variant="outline" className="h-10" disabled={users.isPending || users.isError || !users.data || (withinBatch + PAGE_SIZE >= users.data.length && users.data.length < BATCH_SIZE)} onClick={() => setPage((current) => current + 1)}>Далее</Button>
+        <Button variant="outline" className="h-10" disabled={!hasNextPage} onClick={() => setPage((current) => current + 1)}>Далее</Button>
       </div>
+      {needsNextBatch && nextBatch.isError && <p role="alert" className="text-sm text-destructive">Не удалось проверить следующую страницу. <Button variant="ghost" className="h-10" onClick={() => void nextBatch.refetch()}>Повторить</Button></p>}
 
       <Dialog open={open} onOpenChange={(next) => { if (!save.isPending) setOpen(next) }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? 'Изменить имя' : 'Добавить пользователя'}</DialogTitle></DialogHeader>
-          <form className="space-y-4" onSubmit={submit}>
+          <form className="space-y-4" onSubmit={submit} aria-busy={save.isPending}>
             <label className="block text-sm">Email
-              <Input className="mt-1" type="email" autoComplete="email" required disabled={Boolean(editing)} value={email} onChange={(event) => setEmail(event.target.value)} />
+              <Input className="mt-1" type="email" autoComplete="email" required disabled={Boolean(editing) || Boolean(deliveryFailedId) || save.isPending} value={email} onChange={(event) => setEmail(event.target.value)} />
             </label>
             <label className="block text-sm">Имя
-              <Input className="mt-1" required value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
+              <Input className="mt-1" required disabled={Boolean(deliveryFailedId) || save.isPending} value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
             </label>
-            {!editing && <p className="text-sm text-text-muted">Письмо со ссылкой для установки пароля будет отправлено на этот адрес.</p>}
+            {!editing && !deliveryFailedId && <p className="text-sm text-text-muted">Письмо со ссылкой для установки пароля будет отправлено на этот адрес.</p>}
             {deliveryFailedId && <p role="alert" className="text-sm text-destructive">Учётка создана, письмо не доставлено. Проверьте SMTP и повторите отправку.</p>}
+            {saveError && <p role="alert" className="text-sm text-destructive">{saveError}</p>}
             <DialogFooter><Button type="submit" disabled={save.isPending}>{save.isPending ? 'Сохраняем...' : editing ? 'Сохранить' : deliveryFailedId ? 'Повторить отправку' : 'Добавить'}</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -157,7 +178,7 @@ export function UsersPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{statusTarget?.status === 'disabled' ? 'Восстановить пользователя?' : 'Отключить пользователя?'}</DialogTitle></DialogHeader>
           <p className="text-sm text-text-muted">{statusTarget?.email}</p>
-          <DialogFooter><Button variant="outline" onClick={() => setStatusTarget(null)}>Отмена</Button><Button disabled={changeStatus.isPending} onClick={() => statusTarget && changeStatus.mutate({ id: statusTarget.id, enabled: statusTarget.status === 'disabled' })}>{changeStatus.isPending ? 'Сохраняем...' : 'Подтвердить'}</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" disabled={changeStatus.isPending} onClick={() => setStatusTarget(null)}>Отмена</Button><Button disabled={changeStatus.isPending} onClick={() => statusTarget && changeStatus.mutate({ id: statusTarget.id, enabled: statusTarget.status === 'disabled' })}>{changeStatus.isPending ? 'Сохраняем...' : 'Подтвердить'}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
