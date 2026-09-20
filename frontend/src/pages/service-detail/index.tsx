@@ -2,16 +2,35 @@ import { FormEvent, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input } from '@sdlc/ui/ui'
-import { useApproveService, useChangeServiceStatus, usePatchService, useService } from '@/shared/api/hooks'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+} from '@sdlc/ui/ui'
+import {
+  useApproveService,
+  useChangeServiceStatus,
+  usePatchService,
+  useService,
+} from '@/shared/api/hooks'
 import { useAuth } from '@/shared/auth/auth-context'
 
 const KNOWN_CAPABILITIES = ['health.read', 'integration.status.read', 'branding.runtime.read']
 const STATUS_LABELS: Record<string, string> = {
-  active: 'Активен', pending: 'Ожидает', disabled: 'Отключён', retired: 'Выведен',
+  active: 'Активен',
+  pending: 'Ожидает',
+  disabled: 'Отключён',
+  retired: 'Выведен',
 }
 const APPROVAL_LABELS: Record<string, string> = {
-  pending: 'Ожидает', approved: 'Одобрена', rejected: 'Отклонена', superseded: 'Заменена',
+  pending: 'Ожидает',
+  approved: 'Одобрена',
+  rejected: 'Отклонена',
+  superseded: 'Заменена',
 }
 
 export function ServiceDetailPage() {
@@ -26,14 +45,24 @@ export function ServiceDetailPage() {
   const [statusTarget, setStatusTarget] = useState<'disable' | 'retire' | null>(null)
 
   if (service.isLoading) return <div className="text-sm text-text-muted">Загрузка карточки...</div>
-  if (service.isError || !service.data) return <div role="alert" className="space-y-3 text-sm text-danger"><p>Не удалось загрузить карточку сервиса.</p><Button variant="outline" onClick={() => void service.refetch()}>Повторить</Button></div>
+  if (service.isError || !service.data)
+    return (
+      <div role="alert" className="space-y-3 text-sm text-danger">
+        <p>Не удалось загрузить карточку сервиса.</p>
+        <Button variant="outline" onClick={() => void service.refetch()}>
+          Повторить
+        </Button>
+      </div>
+    )
   const { service: entry, declarations } = service.data
   const active = declarations.find((d) => d.id === entry.active_declaration_id)
   const pending = declarations.find((d) => d.approval_status === 'pending')
   const version = entry.version
+  const isMutating = patch.isPending || approve.isPending || changeStatus.isPending
 
   function submitDeclaration(event: FormEvent) {
     event.preventDefault()
+    if (isMutating) return
     const nextVersion = declarations.reduce((max, d) => Math.max(max, d.declaration_version), 0) + 1
     patch.mutate(
       {
@@ -53,79 +82,245 @@ export function ServiceDetailPage() {
           setNewBaseUrl('')
           setNewCaps([])
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message : 'Не удалось отправить'),
       },
     )
   }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link to="/services" className="inline-flex min-h-10 items-center gap-2 text-sm text-text-secondary hover:text-text-primary"><ArrowLeft className="h-4 w-4" /> Каталог сервисов</Link>
+      <Link
+        to="/services"
+        className="inline-flex min-h-10 items-center gap-2 text-sm text-text-secondary hover:text-text-primary"
+      >
+        <ArrowLeft className="h-4 w-4" /> Каталог сервисов
+      </Link>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div><h1 className="text-xl font-semibold">{entry.display_name}</h1><p className="mt-1 text-sm text-text-muted">Ключ: {entry.service_key} · команда {entry.owner_team} · v{entry.version}</p></div>
-        <span className="rounded-md border border-border px-3 py-1 text-sm text-text-secondary">{STATUS_LABELS[entry.status] ?? entry.status}</span>
+        <div>
+          <h1 className="text-xl font-semibold">{entry.display_name}</h1>
+          <p className="mt-1 text-sm text-text-muted">
+            Ключ: {entry.service_key} · команда {entry.owner_team} · v{entry.version}
+          </p>
+        </div>
+        <span className="rounded-md border border-border px-3 py-1 text-sm text-text-secondary">
+          {STATUS_LABELS[entry.status] ?? entry.status}
+        </span>
       </div>
 
       {canMutate && (
         <div className="flex flex-wrap gap-2">
           {pending && (
             <Button
-              disabled={approve.isPending}
-              onClick={() => approve.mutate({ declarationId: pending.id, version }, {
-                onSuccess: () => toast.success('Декларация одобрена'),
-                onError: (error) => toast.error(error instanceof Error ? error.message : 'Не удалось одобрить'),
-              })}
+              disabled={isMutating}
+              onClick={() =>
+                approve.mutate(
+                  { declarationId: pending.id, version },
+                  {
+                    onSuccess: () => toast.success('Декларация одобрена'),
+                    onError: (error) =>
+                      toast.error(error instanceof Error ? error.message : 'Не удалось одобрить'),
+                  },
+                )
+              }
             >
-              <CheckCircle2 className="h-4 w-4" /> Одобрить декларацию v{pending.declaration_version}
+              <CheckCircle2 className="h-4 w-4" /> Одобрить декларацию v
+              {pending.declaration_version}
             </Button>
           )}
           {entry.status !== 'disabled' && entry.status !== 'retired' && (
             <>
-              <Button variant="outline" onClick={() => setStatusTarget('disable')}>Отключить</Button>
-              <Button variant="outline" onClick={() => setStatusTarget('retire')}>Вывести из эксплуатации</Button>
+              <Button
+                variant="outline"
+                disabled={isMutating}
+                onClick={() => setStatusTarget('disable')}
+              >
+                Отключить
+              </Button>
+              <Button
+                variant="outline"
+                disabled={isMutating}
+                onClick={() => setStatusTarget('retire')}
+              >
+                Вывести из эксплуатации
+              </Button>
             </>
           )}
         </div>
       )}
 
       <section className="rounded-lg border border-border bg-surface p-5">
-        <h2 className="mb-4 flex items-center gap-2 text-sm font-medium"><ShieldCheck className="h-4 w-4 text-accent" /> Активный контракт интеграции</h2>
-        {active ? <div className="space-y-4 text-sm"><div><div className="text-xs text-text-muted">Базовый URL</div><code className="mt-1 block break-all text-text-secondary">{active.integration_base_url}</code></div><div><div className="text-xs text-text-muted">Возможности</div><div className="mt-2 flex flex-wrap gap-2">{active.capabilities.map((cap) => <span key={cap} className="rounded bg-surface-raised px-2 py-1 font-mono text-xs">{cap}</span>)}</div></div><div className="flex items-center gap-2 text-xs text-success"><CheckCircle2 className="h-4 w-4" /> Контракт v{active.service_contract_version} одобрен</div></div> : <p className="text-sm text-text-muted">Активная декларация ещё не одобрена.</p>}
+        <h2 className="mb-4 flex items-center gap-2 text-sm font-medium">
+          <ShieldCheck className="h-4 w-4 text-accent" /> Активный контракт интеграции
+        </h2>
+        {active ? (
+          <div className="space-y-4 text-sm">
+            <div>
+              <div className="text-xs text-text-muted">Базовый URL</div>
+              <code className="mt-1 block break-all text-text-secondary">
+                {active.integration_base_url}
+              </code>
+            </div>
+            <div>
+              <div className="text-xs text-text-muted">Возможности</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {active.capabilities.map((cap) => (
+                  <span key={cap} className="rounded bg-surface-raised px-2 py-1 font-mono text-xs">
+                    {cap}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-success">
+              <CheckCircle2 className="h-4 w-4" /> Контракт v{active.service_contract_version}{' '}
+              одобрен
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-text-muted">Активная декларация ещё не одобрена.</p>
+        )}
       </section>
 
       {canMutate && (
-        <form className="space-y-4 rounded-lg border border-border bg-surface p-5" onSubmit={submitDeclaration}>
+        <form
+          className="space-y-4 rounded-lg border border-border bg-surface p-5"
+          onSubmit={submitDeclaration}
+        >
           <h2 className="text-sm font-medium">Новая декларация</h2>
           <label className="block text-sm font-medium">
             Базовый URL
-            <Input className="mt-1 max-w-md" value={newBaseUrl} onChange={(e) => setNewBaseUrl(e.target.value)} placeholder="http://localhost:7801" required />
+            <Input
+              className="mt-1 max-w-md"
+              value={newBaseUrl}
+              onChange={(e) => setNewBaseUrl(e.target.value)}
+              placeholder="http://localhost:7801"
+              required
+              disabled={isMutating}
+            />
           </label>
           <fieldset className="text-sm font-medium">
             <legend>Возможности интеграции</legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {KNOWN_CAPABILITIES.map((cap) => (
-                <label key={cap} className={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-3 font-mono text-xs focus-within:ring-2 focus-within:ring-accent ${newCaps.includes(cap) ? 'border-accent bg-accent/10 text-accent' : 'border-border text-text-secondary'}`}>
-                  <input type="checkbox" aria-label={cap} className="sr-only" checked={newCaps.includes(cap)} onChange={() => setNewCaps((prev) => prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap])} />
+                <label
+                  key={cap}
+                  className={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-3 font-mono text-xs focus-within:ring-2 focus-within:ring-accent ${newCaps.includes(cap) ? 'border-accent bg-accent/10 text-accent' : 'border-border text-text-secondary'}`}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={cap}
+                    className="sr-only"
+                    checked={newCaps.includes(cap)}
+                    onChange={() =>
+                      setNewCaps((prev) =>
+                        prev.includes(cap) ? prev.filter((c) => c !== cap) : [...prev, cap],
+                      )
+                    }
+                    disabled={isMutating}
+                  />
                   {cap}
                 </label>
               ))}
             </div>
           </fieldset>
-          <Button type="submit" disabled={patch.isPending || !newBaseUrl.trim()}>{patch.isPending ? 'Отправляем...' : 'Отправить декларацию'}</Button>
+          <Button type="submit" disabled={isMutating || !newBaseUrl.trim()}>
+            {patch.isPending ? 'Отправляем...' : 'Отправить декларацию'}
+          </Button>
+          {patch.isError && (
+            <p role="alert" className="text-sm text-danger">
+              {patch.error instanceof Error
+                ? patch.error.message
+                : 'Не удалось отправить декларацию'}
+            </p>
+          )}
         </form>
       )}
 
-      <section><h2 className="mb-2 text-sm font-semibold">История деклараций</h2><div className="divide-y divide-border border-y border-border">{declarations.map((declaration) => <div key={declaration.id} className="py-3 text-sm"><div className="flex justify-between gap-3"><span>v{declaration.service_contract_version} · декларация {declaration.declaration_version}</span><span className={declaration.approval_status === 'approved' ? 'text-success' : declaration.approval_status === 'pending' ? 'text-warning' : 'text-text-muted'}>{APPROVAL_LABELS[declaration.approval_status] ?? declaration.approval_status}</span></div><div className="mt-1 break-all font-mono text-xs text-text-muted">{declaration.integration_base_url}</div></div>)}{declarations.length === 0 && <p className="py-4 text-sm text-text-muted">Деклараций пока нет.</p>}</div></section>
+      <section>
+        <h2 className="mb-2 text-sm font-semibold">История деклараций</h2>
+        <div className="divide-y divide-border border-y border-border">
+          {declarations.map((declaration) => (
+            <div key={declaration.id} className="py-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span>
+                  v{declaration.service_contract_version} · декларация{' '}
+                  {declaration.declaration_version}
+                </span>
+                <span
+                  className={
+                    declaration.approval_status === 'approved'
+                      ? 'text-success'
+                      : declaration.approval_status === 'pending'
+                        ? 'text-warning'
+                        : 'text-text-muted'
+                  }
+                >
+                  {APPROVAL_LABELS[declaration.approval_status] ?? declaration.approval_status}
+                </span>
+              </div>
+              <div className="mt-1 break-all font-mono text-xs text-text-muted">
+                {declaration.integration_base_url}
+              </div>
+            </div>
+          ))}
+          {declarations.length === 0 && (
+            <p className="py-4 text-sm text-text-muted">Деклараций пока нет.</p>
+          )}
+        </div>
+      </section>
 
-      <Dialog open={Boolean(statusTarget)} onOpenChange={(open) => { if (!open && !changeStatus.isPending) setStatusTarget(null) }}>
+      <Dialog
+        open={Boolean(statusTarget)}
+        onOpenChange={(open) => {
+          if (!open && !changeStatus.isPending) setStatusTarget(null)
+        }}
+      >
         <DialogContent>
-          <DialogHeader><DialogTitle>{statusTarget === 'retire' ? 'Вывести сервис из эксплуатации?' : 'Отключить сервис?'}</DialogTitle></DialogHeader>
-          <p className="text-sm text-text-secondary">{entry.display_name} · {entry.service_key}</p>
-          <p className="text-sm text-text-muted">{statusTarget === 'retire' ? 'Сервис перестанет быть активным в каталоге.' : 'Сервис станет недоступен для новых интеграций.'}</p>
+          <DialogHeader>
+            <DialogTitle>
+              {statusTarget === 'retire' ? 'Вывести сервис из эксплуатации?' : 'Отключить сервис?'}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-text-secondary">
+            {entry.display_name} · {entry.service_key}
+          </p>
+          <p className="text-sm text-text-muted">
+            {statusTarget === 'retire'
+              ? 'Сервис перестанет быть активным в каталоге.'
+              : 'Сервис станет недоступен для новых интеграций.'}
+          </p>
           <DialogFooter>
-            <Button variant="outline" disabled={changeStatus.isPending} onClick={() => setStatusTarget(null)}>Отмена</Button>
-            <Button variant="destructive" disabled={changeStatus.isPending} onClick={() => statusTarget && changeStatus.mutate({ action: statusTarget, version }, { onSuccess: () => { toast.success(statusTarget === 'retire' ? 'Сервис выведен из эксплуатации' : 'Сервис отключён'); setStatusTarget(null) }, onError: (error) => toast.error(error.message) })}>
-              {changeStatus.isPending ? 'Сохраняем…' : statusTarget === 'retire' ? 'Вывести' : 'Отключить'}
+            <Button
+              variant="outline"
+              disabled={changeStatus.isPending}
+              onClick={() => setStatusTarget(null)}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={changeStatus.isPending}
+              onClick={() =>
+                statusTarget &&
+                changeStatus.mutate(
+                  { action: statusTarget, version },
+                  {
+                    onSuccess: () => {
+                      toast.success(
+                        statusTarget === 'retire'
+                          ? 'Сервис выведен из эксплуатации'
+                          : 'Сервис отключён',
+                      )
+                      setStatusTarget(null)
+                    },
+                    onError: (error) => toast.error(error.message),
+                  },
+                )
+              }
+            >
+              {changeStatus.isPending
+                ? 'Сохраняем…'
+                : statusTarget === 'retire'
+                  ? 'Вывести'
+                  : 'Отключить'}
             </Button>
           </DialogFooter>
         </DialogContent>
