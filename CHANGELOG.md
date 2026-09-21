@@ -28,6 +28,10 @@
 - API: `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, CRUD `/api/v1/role-bindings`; actor identity мутаций и аудита — реальный central-субъект.
 - Опубликован OpenAPI 3.1 контракт (`openapi/openapi.json`, gen-openapi bin, CI drift-gate).
 
+### Fixed
+
+- Брендинг: после ошибки публикации повтор использует уже созданный черновик; форма блокируется на время запроса, а смена значений явно начинает новую ревизию.
+
 ## [1.0.0] — 2026-09-05
 
 ### Added
