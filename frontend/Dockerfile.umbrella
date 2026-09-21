@@ -3,7 +3,11 @@
 # (../../services-base/frontend) resolves.
 FROM node:26-slim AS builder
 
-RUN corepack enable && corepack prepare pnpm@10.23.0 --activate
+# Node 26 no longer bundles Corepack; pin its bootstrap before activating the
+# repository's pnpm version so Docker and CI resolve the same package manager.
+RUN npm install --global corepack@0.31.0 \
+    && corepack enable \
+    && corepack prepare pnpm@10.23.0 --activate
 
 WORKDIR /app
 COPY admin-panel/frontend/package.json admin-panel/frontend/pnpm-lock.yaml* ./
