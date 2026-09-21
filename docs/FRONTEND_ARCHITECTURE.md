@@ -53,7 +53,26 @@ Frontend получает access token через согласованный flo
 
 Формы разделяют draft и published state, показывают validation errors, причину конфликта и автора/время текущей ревизии. Опасные изменения требуют явного подтверждения. UI не предлагает «выполнить команду на сервисе», shell, URL произвольного webhook или иной удалённый произвольный контроль.
 
-## 7. Качество
+## 7. UI Shell Contract
+
+Admin Panel follows the Base [UI Shell Standard](https://github.com/FerrPOINT/services-base/blob/main/docs/platform/UI_SHELL_STANDARD.md). `AppShell` owns the shared 264 px/72 px left navigation, 60 px header and full-width right work area. Routes use only `wide`, `reading/form` or `detail-with-aside`; they do not select Admin Panel-specific shell geometry.
+
+- Overview, integration catalog, revision history, audit and health use `wide`.
+  Filters and tables keep local overflow inside their own container.
+- Integration and revision detail use `detail-with-aside`: a fluid primary column
+  with a 320 px contextual rail. Draft/publish forms use `reading/form`, with
+  only a 760 px inner column bounded without narrowing catalog or audit routes.
+- Expanded desktop sidebar, compact tablet rail and mobile drawer preserve the
+  same role-aware navigation order and active state. Drawer behavior includes
+  keyboard focus handling, Escape close and focus restoration.
+- Service/profile/theme controls stay in the single global header row. Page
+  title, revision state, filters and publication actions live below it in
+  page-owned header/action rows.
+- Shell/layout changes require browser evidence at 375, 1440 and 2560 px:
+  active navigation, header alignment, no document overflow and a keyboard
+  drawer flow.
+
+## 8. Качество
 
 Тесты: Vitest + Testing Library для features и преобразований, MSW для контрактных ответов, Playwright для входа, просмотра конфигурации, публикации, отказа в доступе и fallback. Маршруты загружаются лениво; длинные таблицы виртуализируются при подтверждённой необходимости.
 
