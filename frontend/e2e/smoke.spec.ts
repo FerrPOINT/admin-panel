@@ -185,6 +185,43 @@ async function installApiMocks(page: Page) {
         ],
       })
     }
+    if (method === 'GET' && path === '/services/ci-cd/checks') {
+      return routeJson(route, {
+        checks: [
+          {
+            id: '55555555-5555-7555-8555-555555555551',
+            registry_entry_id: services[0].id,
+            declaration_id: '33333333-3333-7333-8333-333333333399',
+            capability_key: 'health.read',
+            triggered_by_subject: 'admin@base.local',
+            started_at: now,
+            finished_at: now,
+            outcome: 'success',
+            http_status: 200,
+            summary: 'HTTP 200',
+            request_id: 'req-check-1',
+          },
+        ],
+        total: 1,
+      })
+    }
+    if (method === 'POST' && path === '/services/ci-cd/checks') {
+      const capability = request.postDataJSON().capability
+      return routeJson(
+        route,
+        {
+          check_run: {
+            id: '55555555-5555-7555-8555-555555555552',
+            service_key: 'ci-cd',
+            capability,
+            outcome: 'success',
+            http_status: 200,
+            summary: 'HTTP 200',
+          },
+        },
+        202,
+      )
+    }
     if (method === 'GET' && path === '/auth/me') {
       const auth = request.headers()['authorization'] ?? ''
       if (auth !== 'Bearer e2e-token') {
@@ -281,6 +318,21 @@ test('services catalog lists fleet entries', async ({ page }) => {
 test('service detail shows approved declaration', async ({ page }) => {
   await page.goto('/services/ci-cd')
   await expect(page.getByText('http://localhost:7712').first()).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Проверки интеграции' })).toBeVisible()
+  await expect(page.getByText('admin@base.local').first()).toBeVisible()
+})
+
+test('service detail runs only the selected bounded capability check', async ({ page }) => {
+  await page.goto('/services/ci-cd')
+  await page.getByLabel('Возможность').selectOption('branding.runtime.read')
+  const request = page.waitForRequest(
+    (candidate) =>
+      candidate.method() === 'POST' &&
+      new URL(candidate.url()).pathname === '/api/v1/services/ci-cd/checks',
+  )
+  await page.getByRole('button', { name: 'Запустить проверку' }).click()
+  expect((await request).postDataJSON()).toEqual({ capability: 'branding.runtime.read' })
+  await expect(page.getByText('Проверка завершена успешно')).toBeVisible()
 })
 
 test('audit page lists branding.published event', async ({ page }) => {

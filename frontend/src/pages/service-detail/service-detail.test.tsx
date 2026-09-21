@@ -6,7 +6,9 @@ import {
   useApproveService,
   useChangeServiceStatus,
   usePatchService,
+  useRunServiceCheck,
   useService,
+  useServiceChecks,
 } from '@/shared/api/hooks'
 import { useAuth } from '@/shared/auth/auth-context'
 import { ServiceDetailPage } from './index'
@@ -16,16 +18,22 @@ vi.mock('@/shared/api/hooks', () => ({
   useApproveService: vi.fn(),
   usePatchService: vi.fn(),
   useChangeServiceStatus: vi.fn(),
+  useServiceChecks: vi.fn(),
+  useRunServiceCheck: vi.fn(),
 }))
 vi.mock('@/shared/auth/auth-context', () => ({ useAuth: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 const changeStatus = vi.fn()
 const patchService = vi.fn()
+const refetchChecks = vi.fn()
+const runCheck = vi.fn()
 
 beforeEach(() => {
   changeStatus.mockClear()
   patchService.mockClear()
+  refetchChecks.mockClear()
+  runCheck.mockClear()
   vi.mocked(toast.success).mockClear()
   vi.mocked(useAuth).mockReturnValue({ canMutate: true } as ReturnType<typeof useAuth>)
   vi.mocked(useService).mockReturnValue({
@@ -57,6 +65,18 @@ beforeEach(() => {
     isPending: false,
     mutate: changeStatus,
   } as unknown as ReturnType<typeof useChangeServiceStatus>)
+  vi.mocked(useServiceChecks).mockReturnValue({
+    isLoading: false,
+    isFetching: false,
+    isError: false,
+    data: { checks: [], total: 0 },
+    refetch: refetchChecks,
+  } as unknown as ReturnType<typeof useServiceChecks>)
+  vi.mocked(useRunServiceCheck).mockReturnValue({
+    isPending: false,
+    isError: false,
+    mutate: runCheck,
+  } as unknown as ReturnType<typeof useRunServiceCheck>)
 })
 
 describe('ServiceDetailPage', () => {
@@ -287,6 +307,103 @@ describe('ServiceDetailPage', () => {
     )
   })
 
+  it('runs only a declared known capability and renders check history', () => {
+    vi.mocked(useService).mockReturnValue({
+      isLoading: false,
+      isError: false,
+      data: {
+        service: {
+          id: 's-1',
+          service_key: 'admin-panel',
+          display_name: 'Admin Panel',
+          owner_team: 'platform',
+          status: 'active',
+          version: 3,
+          active_declaration_id: 'd-1',
+        },
+        declarations: [
+          {
+            id: 'd-1',
+            declaration_version: 4,
+            integration_base_url: 'http://admin-api:7771',
+            public_ui_url: null,
+            service_contract_version: '1.0.0',
+            capabilities: ['health.read', 'branding.runtime.read', 'unknown.write'],
+            approval_status: 'approved',
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof useService>)
+    vi.mocked(useServiceChecks).mockReturnValue({
+      isLoading: false,
+      isFetching: false,
+      isError: false,
+      data: {
+        total: 1,
+        checks: [
+          {
+            id: 'check-1',
+            capability_key: 'health.read',
+            outcome: 'success',
+            http_status: 200,
+            summary: 'HTTP 200',
+            triggered_by_subject: 'operator@example.test',
+            started_at: '2026-09-21T09:00:00Z',
+          },
+        ],
+      },
+      refetch: refetchChecks,
+    } as unknown as ReturnType<typeof useServiceChecks>)
+    render(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'P' &&
+          Boolean(element.textContent?.includes('operator@example.test')),
+      ),
+    ).toBeVisible()
+    expect(screen.getByText('HTTP 200')).toBeVisible()
+    const capability = screen.getByLabelText('Возможность')
+    expect(within(capability).queryByRole('option', { name: 'unknown.write' })).toBeNull()
+    fireEvent.change(capability, { target: { value: 'branding.runtime.read' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Запустить проверку' }))
+    expect(runCheck).toHaveBeenCalledWith('branding.runtime.read', expect.any(Object))
+    act(() =>
+      runCheck.mock.calls[0]![1].onSuccess({
+        check_run: { outcome: 'success' },
+      }),
+    )
+    expect(toast.success).toHaveBeenCalledWith('Проверка завершена успешно')
+  })
+
+  it('offers retry when check history fails', () => {
+    vi.mocked(useServiceChecks).mockReturnValue({
+      isLoading: false,
+      isFetching: false,
+      isError: true,
+      data: undefined,
+      refetch: refetchChecks,
+    } as unknown as ReturnType<typeof useServiceChecks>)
+    render(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить историю проверок')
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
+    expect(refetchChecks).toHaveBeenCalledOnce()
+  })
+
   it('keeps the detail read-only for a viewer', () => {
     vi.mocked(useAuth).mockReturnValue({ canMutate: false } as ReturnType<typeof useAuth>)
     render(
@@ -299,5 +416,6 @@ describe('ServiceDetailPage', () => {
     expect(screen.getByText('Admin Panel')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Отправить декларацию' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Отключить' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Запустить проверку' })).not.toBeInTheDocument()
   })
 })
