@@ -34,6 +34,23 @@ export interface Declaration {
   content_hash: string
 }
 
+export type ServiceCheckOutcome =
+  'success' | 'unreachable' | 'timeout' | 'rejected' | 'invalid_response' | 'internal_error'
+
+export interface ServiceCheckRun {
+  id: string
+  registry_entry_id: string
+  declaration_id: string
+  capability_key: string
+  triggered_by_subject: string
+  started_at: string
+  finished_at: string | null
+  outcome: ServiceCheckOutcome
+  http_status: number | null
+  summary: string
+  request_id: string
+}
+
 export interface BrandingDocument {
   product_name: string
   product_short_name: string
@@ -84,6 +101,16 @@ export function useService(serviceKey: string) {
     queryFn: () =>
       api.get<{ service: RegistryEntry; declarations: Declaration[] }>(
         `/api/v1/services/${serviceKey}`,
+      ),
+  })
+}
+
+export function useServiceChecks(serviceKey: string) {
+  return useQuery({
+    queryKey: ['service-checks', serviceKey],
+    queryFn: () =>
+      api.get<{ checks: ServiceCheckRun[]; total: number }>(
+        `/api/v1/services/${serviceKey}/checks`,
       ),
   })
 }
@@ -170,5 +197,23 @@ export function useChangeServiceStatus(serviceKey: string) {
       void queryClient.invalidateQueries({ queryKey: ['services'] })
       void queryClient.invalidateQueries({ queryKey: ['service', serviceKey] })
     },
+  })
+}
+
+export function useRunServiceCheck(serviceKey: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (capability: string) =>
+      api.post<{
+        check_run: {
+          id: string
+          service_key: string
+          capability: string
+          outcome: ServiceCheckOutcome
+          http_status: number | null
+          summary: string
+        }
+      }>(`/api/v1/services/${serviceKey}/checks`, { capability }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['service-checks', serviceKey] }),
   })
 }
