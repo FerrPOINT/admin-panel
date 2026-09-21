@@ -71,6 +71,19 @@ describe('AppShell', () => {
     expect(trigger).toHaveFocus()
   })
 
+  it('closes the mobile drawer after navigating to a section', async () => {
+    renderShell()
+    const trigger = screen.getByRole('button', { name: 'Открыть навигацию' })
+
+    fireEvent.click(trigger)
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('link', { name: 'Обзор' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'Overview content' })).toBeVisible()
+    expect(trigger).toHaveFocus()
+  })
+
   it('keeps global controls in the header and signs out through auth', () => {
     renderShell()
     const header = within(screen.getByRole('banner'))

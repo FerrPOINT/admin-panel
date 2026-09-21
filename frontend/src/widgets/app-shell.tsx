@@ -115,7 +115,15 @@ export function AppShell() {
   )
 }
 
-function ShellNavigation({ items, compact = false }: { items: NavItem[]; compact?: boolean }) {
+function ShellNavigation({
+  items,
+  compact = false,
+  onNavigate,
+}: {
+  items: NavItem[]
+  compact?: boolean
+  onNavigate?: () => void
+}) {
   return (
     <nav className="space-y-1" aria-label="Разделы">
       {items.map((item) => (
@@ -123,6 +131,7 @@ function ShellNavigation({ items, compact = false }: { items: NavItem[]; compact
           key={item.to}
           to={item.to}
           end={item.to === '/'}
+          onClick={onNavigate}
           aria-label={compact ? item.label : undefined}
           title={compact ? item.label : undefined}
           className={({ isActive }) =>
@@ -165,7 +174,7 @@ function MobileNavigation({ items, operatorName }: { items: NavItem[]; operatorN
           </div>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
-          <ShellNavigation items={items} />
+          <ShellNavigation items={items} onNavigate={() => setOpen(false)} />
           <div className="mt-auto border-t border-border px-3 pt-4">
             <p className="truncate text-sm font-medium text-text-primary">{operatorName}</p>
           </div>
