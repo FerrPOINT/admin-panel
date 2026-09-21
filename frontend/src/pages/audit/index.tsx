@@ -96,15 +96,17 @@ export function AuditPage() {
     queryKey: ['audit-events', action, entityType, page],
     queryFn: () => api.get<{ events: AuditEvent[]; total: number }>(`/api/v1/audit-events?${params.toString()}`),
   })
+  const isLoadingPage = audit.isPending || audit.isFetching
+  const visiblePage = audit.isSuccess && !isLoadingPage ? audit.data : null
 
   useEffect(() => {
-    if (audit.data && page > 0 && page * PAGE_SIZE >= audit.data.total) {
-      setPage(Math.max(0, Math.ceil(audit.data.total / PAGE_SIZE) - 1))
+    if (visiblePage && page > 0 && page * PAGE_SIZE >= visiblePage.total) {
+      setPage(Math.max(0, Math.ceil(visiblePage.total / PAGE_SIZE) - 1))
     }
-  }, [audit.data, page])
+  }, [visiblePage, page])
 
-  const events = audit.data?.events ?? []
-  const total = audit.data?.total ?? 0
+  const events = visiblePage?.events ?? []
+  const total = visiblePage?.total ?? 0
   const hasMore = (page + 1) * PAGE_SIZE < total
   const rangeStart = total ? page * PAGE_SIZE + 1 : 0
   const rangeEnd = page * PAGE_SIZE + events.length
@@ -174,8 +176,8 @@ export function AuditPage() {
         <div className="hidden grid-cols-[130px_minmax(160px,1.3fr)_minmax(120px,1fr)_minmax(100px,1fr)_24px] gap-3 border-b border-border px-4 py-2 text-xs font-medium text-text-muted lg:grid">
           <span>Время</span><span>Действие</span><span>Сущность</span><span>Автор</span><span />
         </div>
-        {audit.isPending && <p role="status" className="px-4 py-5 text-sm text-text-muted">Загрузка аудита…</p>}
-        {audit.isError && (
+        {isLoadingPage && <p role="status" className="px-4 py-5 text-sm text-text-muted">{audit.isPending ? 'Загрузка аудита…' : 'Обновляем журнал…'}</p>}
+        {audit.isError && !isLoadingPage && (
           <div role="alert" className="flex flex-wrap items-center gap-2 px-4 py-3 text-sm text-danger">
             <span>Не удалось загрузить журнал.</span>
             <button type="button" className="inline-flex min-h-10 items-center gap-2 rounded-md border border-danger/40 px-3 hover:bg-danger/10 focus-visible:outline-2 focus-visible:outline-accent" onClick={() => void audit.refetch()}>
@@ -184,7 +186,7 @@ export function AuditPage() {
           </div>
         )}
         {events.map((event) => <AuditRow key={event.id} event={event} />)}
-        {audit.data && events.length === 0 && <p className="px-4 py-6 text-sm text-text-muted">Нет событий по выбранным фильтрам.</p>}
+        {visiblePage && events.length === 0 && <p className="px-4 py-6 text-sm text-text-muted">Нет событий по выбранным фильтрам.</p>}
       </div>
 
       <div className="flex items-center justify-between gap-3">
@@ -192,7 +194,7 @@ export function AuditPage() {
           <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Назад
         </button>
         <span className="text-center text-xs text-text-muted">
-          {audit.isPending ? 'Загрузка…' : audit.isError ? 'Число событий недоступно' : `${rangeStart}–${rangeEnd} из ${total}`}
+          {isLoadingPage ? 'Загрузка…' : audit.isError ? 'Число событий недоступно' : `${rangeStart}–${rangeEnd} из ${total}`}
         </span>
         <button type="button" onClick={() => setPage((current) => current + 1)} disabled={!hasMore || audit.isFetching} className="inline-flex min-h-10 items-center gap-1 rounded-md border border-border px-3 text-sm disabled:opacity-40">
           Вперёд <ChevronRight className="h-4 w-4" aria-hidden="true" />

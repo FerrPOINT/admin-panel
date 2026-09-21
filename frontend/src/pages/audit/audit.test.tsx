@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { api } from '@/shared/api/client'
@@ -38,7 +38,7 @@ function mockEvents(events: ReturnType<typeof event>[]) {
 
 function renderAudit() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={queryClient}><AuditPage /></QueryClientProvider>)
+  return Object.assign(render(<QueryClientProvider client={queryClient}><AuditPage /></QueryClientProvider>), { queryClient })
 }
 
 describe('AuditPage', () => {
@@ -144,5 +144,56 @@ describe('AuditPage', () => {
     await screen.findByText('Нет событий по выбранным фильтрам.')
     expect(screen.getByText('0–0 из 0')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Вперёд' })).toBeDisabled()
+  })
+
+  it('hides a stale page during revalidation and after failure, then restores current data on retry', async () => {
+    let rejectRefresh: (error: Error) => void = () => {}
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ events: [event(1, 'branding.published')], total: 1 })
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectRefresh = reject }))
+      .mockResolvedValueOnce({ events: [event(2)], total: 1 })
+    const user = userEvent.setup()
+    const view = renderAudit()
+    await screen.findByText('Опубликован брендинг', { selector: 'span' })
+    expect(screen.getByText('1–1 из 1')).toBeInTheDocument()
+
+    act(() => { void view.queryClient.invalidateQueries({ queryKey: ['audit-events'] }) })
+    expect(await screen.findByText('Обновляем журнал…')).toBeInTheDocument()
+    expect(screen.queryByText('Опубликован брендинг', { selector: 'span' })).not.toBeInTheDocument()
+    expect(screen.queryByText('1–1 из 1')).not.toBeInTheDocument()
+
+    await act(async () => { rejectRefresh(new Error('unavailable')) })
+    expect(await screen.findByText('Не удалось загрузить журнал.')).toBeInTheDocument()
+    expect(screen.queryByText('Опубликован брендинг', { selector: 'span' })).not.toBeInTheDocument()
+    expect(screen.getByText('Число событий недоступно')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+    expect(await screen.findByText('Добавлен пользователь', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.queryByText('Опубликован брендинг', { selector: 'span' })).not.toBeInTheDocument()
+    expect(screen.getByText('1–1 из 1')).toBeInTheDocument()
+  })
+
+  it('keeps the selected page after a failed refresh', async () => {
+    const records = Array.from({ length: 21 }, (_, index) => event(index))
+    let secondPageRequests = 0
+    vi.mocked(api.get).mockImplementation(async (path) => {
+      const offset = Number(new URL(path, 'http://test.local').searchParams.get('offset') ?? 0)
+      if (offset === 20 && ++secondPageRequests === 2) throw new Error('unavailable')
+      return { events: records.slice(offset, offset + 20), total: records.length } as never
+    })
+    const user = userEvent.setup()
+    const view = renderAudit()
+    await screen.findByText('1–20 из 21')
+    await user.click(screen.getByRole('button', { name: 'Вперёд' }))
+    await screen.findByText('21–21 из 21')
+
+    act(() => { void view.queryClient.invalidateQueries({ queryKey: ['audit-events', '', '', 1] }) })
+    await screen.findByText('Не удалось загрузить журнал.')
+    expect(screen.getByText('Число событий недоступно')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Назад' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Повторить' }))
+    await screen.findByText('21–21 из 21')
+    expect(vi.mocked(api.get).mock.lastCall?.[0]).toContain('offset=20')
   })
 })
