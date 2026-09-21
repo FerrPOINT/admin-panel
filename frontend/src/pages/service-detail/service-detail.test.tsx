@@ -80,6 +80,20 @@ beforeEach(() => {
 })
 
 describe('ServiceDetailPage', () => {
+  it('keeps selected capability labels readable on the tinted background', () => {
+    render(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const selected = screen.getByLabelText('health.read').closest('label')
+    expect(selected).toHaveClass('text-text-primary')
+    expect(selected).not.toHaveClass('text-accent')
+  })
+
   it('requires confirmation before disabling a service', async () => {
     render(
       <MemoryRouter initialEntries={['/services/admin-panel']}>

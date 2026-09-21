@@ -328,7 +328,7 @@ export function ServiceDetailPage() {
                   {KNOWN_CAPABILITIES.map((cap) => (
                     <label
                       key={cap}
-                      className={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-3 font-mono text-xs focus-within:ring-2 focus-within:ring-accent ${newCaps.includes(cap) ? 'border-accent bg-accent/10 text-accent' : 'border-border text-text-secondary'}`}
+                      className={`inline-flex min-h-10 cursor-pointer items-center rounded-md border px-3 font-mono text-xs focus-within:ring-2 focus-within:ring-accent ${newCaps.includes(cap) ? 'border-accent bg-accent/10 text-text-primary' : 'border-border text-text-secondary'}`}
                     >
                       <input
                         type="checkbox"
