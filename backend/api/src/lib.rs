@@ -330,12 +330,10 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
         Err(err) => return internal(err),
     };
     let mut catalog: Vec<serde_json::Value> = Vec::new();
-    let mut max_version: i64 = 0;
     for entry in entries {
         if !matches!(entry.status, admin_panel_domain::ServiceStatus::Active) {
             continue;
         }
-        max_version = max_version.max(entry.version);
         let Some(decl_id) = entry.active_declaration_id else {
             continue;
         };
@@ -381,7 +379,7 @@ async fn runtime_services(State(state): State<SharedState>, headers: HeaderMap) 
         };
         (order, key.to_owned())
     });
-    let etag = format!("\"services-v{max_version}-{}\"", catalog.len());
+    let etag = runtime_catalog_etag(&catalog);
     if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok())
         && if_none_match == etag
     {
@@ -1432,6 +1430,11 @@ fn requested_by_matches_caller(requested_by: Option<&str>, caller_subject: &str)
     requested_by.is_none_or(|requested_by| requested_by == caller_subject)
 }
 
+fn runtime_catalog_etag(catalog: &[serde_json::Value]) -> String {
+    let body = serde_json::to_string(catalog).expect("JSON values are serializable");
+    format!("\"{}\"", content_hash(&[&body]))
+}
+
 fn error_response(status: StatusCode, code: &str, message: &str) -> Response {
     (
         status,
@@ -1487,7 +1490,9 @@ fn validation(field: &str, reason: &str) -> Response {
 mod tests {
     use super::{
         ListAuditQuery, audit_page_bounds, declaration_content_hash, requested_by_matches_caller,
+        runtime_catalog_etag,
     };
+    use serde_json::json;
 
     #[test]
     fn declaration_author_cannot_be_spoofed() {
@@ -1517,6 +1522,31 @@ mod tests {
         );
         assert_ne!(base, first);
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn runtime_catalog_etag_tracks_visible_changes() {
+        let original = vec![json!({
+            "key": "wiki",
+            "label": "Wiki",
+            "url": "http://wiki-api.test",
+            "ui_url": "http://wiki-ui.test",
+            "health": "healthy",
+            "capabilities": ["ui.render"],
+            "contract_version": "1.0.0",
+        })];
+        let original_etag = runtime_catalog_etag(&original);
+        assert_eq!(original_etag, runtime_catalog_etag(&original));
+
+        for (field, value) in [
+            ("health", json!("unreachable")),
+            ("label", json!("Updated Wiki")),
+            ("url", json!("http://updated-wiki-api.test")),
+        ] {
+            let mut changed = original.clone();
+            changed[0][field] = value;
+            assert_ne!(original_etag, runtime_catalog_etag(&changed), "{field}");
+        }
     }
 
     #[test]

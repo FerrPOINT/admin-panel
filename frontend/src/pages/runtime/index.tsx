@@ -61,6 +61,7 @@ export function RuntimePage() {
   const [status, setStatus] = useState<string>('Не запрашивалось')
   const [brandingState, setBrandingState] = useState<LoadState>('idle')
   const [services, setServices] = useState<CatalogService[]>([])
+  const [hasServicesSnapshot, setHasServicesSnapshot] = useState(false)
   const [servicesEtag, setServicesEtag] = useState<string>('')
   const [servicesStatus, setServicesStatus] = useState<string>('Не запрашивалось')
   const [servicesState, setServicesState] = useState<LoadState>('idle')
@@ -70,6 +71,7 @@ export function RuntimePage() {
     setStatus('Загрузка...')
     try {
       const response = await fetch(endpoint, {
+        cache: 'no-cache',
         headers: etag ? { 'If-None-Match': etag } : undefined,
       })
       if (response.status === 404) {
@@ -81,15 +83,18 @@ export function RuntimePage() {
       }
       if (!response.ok && response.status !== 304) throw new Error(`HTTP ${response.status}`)
       setStatus(`${response.status} ${response.statusText}`)
-      const nextEtag = response.headers.get('etag')
-      if (nextEtag) setEtag(nextEtag)
       if (response.status !== 304) {
         const payload = brandingSchema.safeParse(await response.json())
         if (!payload.success) throw new Error('Некорректный ответ брендинга')
         setBranding(payload.data)
+        setEtag(response.headers.get('etag') ?? '')
         setBrandingState('success')
       } else {
-        setBrandingState(branding ? 'success' : 'empty')
+        if (!branding) {
+          setEtag('')
+          throw new Error('304 без сохранённого ответа брендинга')
+        }
+        setBrandingState('success')
       }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Ошибка запроса')
@@ -102,13 +107,16 @@ export function RuntimePage() {
     setServicesStatus('Загрузка...')
     try {
       const response = await fetch(`${base}/api/v1/runtime/services`, {
+        cache: 'no-cache',
         headers: servicesEtag ? { 'If-None-Match': servicesEtag } : undefined,
       })
       setServicesStatus(`${response.status} ${response.statusText}`)
       if (!response.ok && response.status !== 304) throw new Error(`HTTP ${response.status}`)
-      const nextEtag = response.headers.get('etag')
-      if (nextEtag) setServicesEtag(nextEtag)
       if (response.status === 304) {
+        if (!hasServicesSnapshot) {
+          setServicesEtag('')
+          throw new Error('304 без сохранённого ответа каталога')
+        }
         setServicesState(services.length > 0 ? 'success' : 'empty')
         return
       }
@@ -116,6 +124,8 @@ export function RuntimePage() {
       if (!payload.success) throw new Error('Некорректный ответ каталога')
       const nextServices: CatalogService[] = payload.data.services
       setServices(nextServices)
+      setHasServicesSnapshot(true)
+      setServicesEtag(response.headers.get('etag') ?? '')
       setServicesState(nextServices.length > 0 ? 'success' : 'empty')
     } catch (error) {
       setServicesStatus(error instanceof Error ? error.message : 'Ошибка запроса')
@@ -171,7 +181,7 @@ export function RuntimePage() {
             Обновить
           </Button>
         </div>
-        {brandingState === 'loading' && !body && <p role="status" className="py-4 text-sm text-text-muted">Загрузка брендинга...</p>}
+        {brandingState === 'loading' && <p role="status" className="py-4 text-sm text-text-muted">{body ? 'Обновление брендинга. Показан предыдущий ответ.' : 'Загрузка брендинга...'}</p>}
         {brandingState === 'error' && <p role="alert" className="py-4 text-sm text-danger">Не удалось загрузить брендинг: {status}{body ? ' Показан предыдущий ответ.' : ''}</p>}
         {brandingState === 'empty' && <p className="py-4 text-sm text-text-muted">Нет опубликованного документа: приложения применят настройки по умолчанию.</p>}
         {body && <details className="group border-b border-border">
@@ -194,7 +204,7 @@ export function RuntimePage() {
           </Button>
         </div>
         <div className="divide-y divide-border border-b border-border">
-          {services.map((service) => (
+          {servicesState === 'success' && services.map((service) => (
             <details key={service.key} className="group">
               <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-sm hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
                 <span className="flex min-w-0 items-center gap-2">
@@ -217,7 +227,7 @@ export function RuntimePage() {
           {servicesState === 'empty' && <p className="py-4 text-sm text-text-muted">Каталог пуст. Проверьте активные декларации.</p>}
           {servicesState === 'error' && <p role="alert" className="py-4 text-sm text-danger">Не удалось загрузить каталог: {servicesStatus}</p>}
         </div>
-        {allCapabilities.length > 0 && <details className="group border-b border-border">
+        {servicesState === 'success' && allCapabilities.length > 0 && <details className="group border-b border-border">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-xs text-text-muted focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
             Возможности каталога: {allCapabilities.length}
             <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
