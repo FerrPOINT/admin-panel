@@ -1,29 +1,45 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router'
-import { AuthProvider } from '@/shared/auth/auth-context'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router'
 import { ThemeProvider } from '@sdlc/ui/lib'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppShell } from './app-shell'
 
-function withProviders(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
+const auth = vi.hoisted(() => ({ logout: vi.fn() }))
+
+vi.mock('@/shared/auth/auth-context', () => ({
+  useAuth: () => ({
+    session: {
+      subject: 'user-1',
+      email: 'operator@example.test',
+    },
+    logout: auth.logout,
+  }),
+}))
+
+function renderShell(path = '/services/service-a') {
   return render(
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <MemoryRouter initialEntries={['/services']}>{ui}</MemoryRouter>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>,
+    <ThemeProvider>
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<h1>Overview content</h1>} />
+            <Route path="/services/:serviceKey" element={<h1>Service content</h1>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </ThemeProvider>,
   )
 }
 
 describe('AppShell', () => {
-  it('renders all approved navigation sections', () => {
-    withProviders(<AppShell />)
+  beforeEach(() => {
+    auth.logout.mockReset()
+  })
+
+  it('renders the approved navigation and keeps a direct detail route active', () => {
+    renderShell()
+
+    expect(screen.getByRole('heading', { name: 'Service content' })).toBeVisible()
     for (const label of [
       'Обзор',
       'Брендинг',
@@ -31,23 +47,49 @@ describe('AppShell', () => {
       'Конфигурации',
       'Аудит',
       'Runtime',
+      'Локальные настройки',
+      'Пользователи',
+      'API-токены',
     ]) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
+    expect(screen.getByRole('link', { name: 'Каталог сервисов' })).toHaveClass('bg-surface-raised')
   })
 
-  it('marks the active section', () => {
-    withProviders(<AppShell />)
-    const active = screen.getByText('Каталог сервисов').closest('a')
-    expect(active?.className).toContain('bg-surface-raised')
+  it('closes the mobile drawer with Escape and returns focus to its trigger', async () => {
+    renderShell()
+    const trigger = screen.getByRole('button', { name: 'Открыть навигацию' })
+
+    fireEvent.click(trigger)
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByRole('link', { name: 'Каталог сервисов' })).toHaveClass(
+      'bg-surface-raised',
+    )
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(trigger).toHaveFocus()
   })
 
-  it('keeps service navigation available in the mobile header', () => {
-    withProviders(<AppShell />)
-    expect(
-      within(screen.getByRole('banner')).getByRole('button', {
-        name: 'Открыть список сервисов',
-      }),
-    ).toBeInTheDocument()
+  it('closes the mobile drawer after navigating to a section', async () => {
+    renderShell()
+    const trigger = screen.getByRole('button', { name: 'Открыть навигацию' })
+
+    fireEvent.click(trigger)
+    const dialog = await screen.findByRole('dialog')
+    fireEvent.click(within(dialog).getByRole('link', { name: 'Обзор' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: 'Overview content' })).toBeVisible()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('keeps global controls in the header and signs out through auth', () => {
+    renderShell()
+    const header = within(screen.getByRole('banner'))
+
+    expect(header.getByRole('button', { name: 'Открыть список сервисов' })).toBeVisible()
+    fireEvent.click(header.getByRole('button', { name: 'Выйти' }))
+    expect(auth.logout).toHaveBeenCalledOnce()
   })
 })
