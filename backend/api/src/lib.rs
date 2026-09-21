@@ -495,6 +495,9 @@ async fn create_service(
     if let Err(err) = admin_panel_domain::validate_capabilities(&req.declaration.capabilities) {
         return validation("capabilities", &err.to_string());
     }
+    if !requested_by_matches_caller(req.declaration.requested_by.as_deref(), &caller.subject) {
+        return validation("requested_by", "must_match_authenticated_subject");
+    }
     let entry = admin_panel_domain::RegistryEntry {
         id: uuid::Uuid::now_v7(),
         service_key: req.service_key.clone(),
@@ -511,11 +514,12 @@ async fn create_service(
     };
     let mut capabilities = req.declaration.capabilities.clone();
     capabilities.sort();
-    let content_hash = content_hash(&[
+    let content_hash = declaration_content_hash(
         &req.declaration.integration_base_url,
-        &serde_json::to_string(&capabilities).unwrap(),
+        req.declaration.public_ui_url.as_deref(),
+        &capabilities,
         &req.declaration.service_contract_version,
-    ]);
+    );
     let declaration = admin_panel_domain::Declaration {
         id: uuid::Uuid::now_v7(),
         registry_entry_id: entry.id,
@@ -581,7 +585,7 @@ async fn patch_service(
     let Some(expected_version) = match_if_match(&headers, current.version) else {
         return precondition_failed();
     };
-    if let Some(decl) = req.declaration {
+    let declaration = if let Some(decl) = req.declaration {
         if !admin_panel_domain::valid_integration_base_url(&decl.integration_base_url) {
             return validation("integration_base_url", "must_be_https_origin");
         }
@@ -591,14 +595,18 @@ async fn patch_service(
         if let Err(err) = admin_panel_domain::validate_capabilities(&decl.capabilities) {
             return validation("capabilities", &err.to_string());
         }
+        if !requested_by_matches_caller(decl.requested_by.as_deref(), &caller.subject) {
+            return validation("requested_by", "must_match_authenticated_subject");
+        }
         let mut capabilities = decl.capabilities.clone();
         capabilities.sort();
-        let content_hash = content_hash(&[
+        let content_hash = declaration_content_hash(
             &decl.integration_base_url,
-            &serde_json::to_string(&capabilities).unwrap(),
+            decl.public_ui_url.as_deref(),
+            &capabilities,
             &decl.service_contract_version,
-        ]);
-        let declaration = admin_panel_domain::Declaration {
+        );
+        Some(admin_panel_domain::Declaration {
             id: uuid::Uuid::now_v7(),
             registry_entry_id: current.id,
             declaration_version: decl.declaration_version,
@@ -606,27 +614,24 @@ async fn patch_service(
             public_ui_url: decl.public_ui_url.clone().filter(|u| !u.is_empty()),
             capabilities,
             service_contract_version: decl.service_contract_version,
-            declared_by_subject: decl.requested_by.unwrap_or_else(|| caller.subject.clone()),
+            declared_by_subject: caller.subject.clone(),
             declared_at: chrono::Utc::now(),
             approval_status: admin_panel_domain::ApprovalStatus::Pending,
             approved_by_subject: None,
             approved_at: None,
             content_hash,
-        };
-        match state.registry.insert_declaration(&declaration).await {
-            Ok(()) => {}
-            // Same content already declared (idempotent PATCH): reuse it.
-            Err(admin_panel_domain::DomainError::Conflict(_)) => {}
-            Err(err) => return internal(err),
-        }
-    }
+        })
+    } else {
+        None
+    };
     match state
         .registry
-        .update_metadata(
+        .patch_entry(
             &service_key,
             req.display_name.as_deref().unwrap_or(&current.display_name),
             req.owner_team.as_deref().unwrap_or(&current.owner_team),
             expected_version,
+            declaration.as_ref(),
         )
         .await
     {
@@ -637,6 +642,7 @@ async fn patch_service(
         )
             .into_response(),
         Err(admin_panel_domain::DomainError::PreconditionFailed(_)) => precondition_failed(),
+        Err(admin_panel_domain::DomainError::Conflict(msg)) => conflict(&msg),
         Err(err) => internal(err),
     }
 }
@@ -1408,6 +1414,24 @@ fn content_hash(parts: &[&str]) -> String {
     hex::encode(hasher.finalize())
 }
 
+fn declaration_content_hash(
+    integration_base_url: &str,
+    public_ui_url: Option<&str>,
+    capabilities: &[String],
+    service_contract_version: &str,
+) -> String {
+    content_hash(&[
+        integration_base_url,
+        public_ui_url.unwrap_or_default(),
+        &serde_json::to_string(capabilities).unwrap(),
+        service_contract_version,
+    ])
+}
+
+fn requested_by_matches_caller(requested_by: Option<&str>, caller_subject: &str) -> bool {
+    requested_by.is_none_or(|requested_by| requested_by == caller_subject)
+}
+
 fn error_response(status: StatusCode, code: &str, message: &str) -> Response {
     (
         status,
@@ -1461,7 +1485,39 @@ fn validation(field: &str, reason: &str) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use super::{ListAuditQuery, audit_page_bounds};
+    use super::{
+        ListAuditQuery, audit_page_bounds, declaration_content_hash, requested_by_matches_caller,
+    };
+
+    #[test]
+    fn declaration_author_cannot_be_spoofed() {
+        assert!(requested_by_matches_caller(None, "real-user"));
+        assert!(requested_by_matches_caller(Some("real-user"), "real-user"));
+        assert!(!requested_by_matches_caller(
+            Some("local-bootstrap"),
+            "real-user"
+        ));
+    }
+
+    #[test]
+    fn declaration_hash_includes_public_ui_url() {
+        let capabilities = vec!["health.read".to_owned(), "ui.render".to_owned()];
+        let base = declaration_content_hash("http://localhost:8080", None, &capabilities, "v1");
+        let first = declaration_content_hash(
+            "http://localhost:8080",
+            Some("http://localhost:7772"),
+            &capabilities,
+            "v1",
+        );
+        let second = declaration_content_hash(
+            "http://localhost:8080",
+            Some("http://localhost:7722"),
+            &capabilities,
+            "v1",
+        );
+        assert_ne!(base, first);
+        assert_ne!(first, second);
+    }
 
     #[test]
     fn audit_page_bounds_clamp_invalid_input() {
