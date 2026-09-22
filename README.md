@@ -154,8 +154,6 @@ Admin Panel storage или audit.
 
 Publication меняет только управляемый versioned document. Audit evidence доступен для approved/reported service operations и branding publication/withdrawal; создание/изменение registry, service status и role bindings остаются явным coverage gap до отдельного audit-closure изменения.
 
-### Mobile evidence
-
 <a name="quality"></a>
 
 ## Качество
