@@ -19,6 +19,7 @@ interface IssuedToken extends PersonalToken { secret: string }
 const services = [
   ['admin-panel', 'Admin Panel'], ['ci-cd', 'CI/CD'], ['task-tracker', 'Task Tracker'],
   ['wiki', 'Wiki'], ['fleet-control', 'Fleet Control'], ['project-workflow', 'Project Workflow'],
+  ['service-pulse', 'Service Pulse'],
 ] as const
 const PAGE_SIZE = 10
 type TokenState = 'all' | 'active' | 'expired' | 'revoked'
