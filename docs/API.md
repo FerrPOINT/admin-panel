@@ -55,6 +55,7 @@ Runtime endpoints не содержат credentials, private integration configu
 | `POST` | `/api/v1/users/{id}/status` | Отключить или восстановить; отключение отзывает sessions и personal tokens. |
 | `POST` | `/api/v1/users/{id}/password-link` | Отменить прежнюю и отправить новую одноразовую setup-link. |
 | `GET`, `POST` | `/api/v1/tokens` | Список metadata или выпуск scoped personal token; secret возвращается один раз. |
+| `GET` | `/api/v1/token-services` | Проксирует упорядоченный каталог допустимых PAT-сервисов и scopes из Central Auth. |
 | `DELETE` | `/api/v1/tokens/{id}` | Отозвать personal token. |
 
 Admin Panel проксирует эти операции в Central Auth с bearer пользователя и не

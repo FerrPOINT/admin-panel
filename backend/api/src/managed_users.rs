@@ -90,6 +90,21 @@ pub(super) async fn list_personal_tokens(
     .await
 }
 
+pub(super) async fn list_personal_token_services(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+) -> Response {
+    forward(
+        &state,
+        &headers,
+        reqwest::Method::GET,
+        "/auth/token-services",
+        None,
+        None,
+    )
+    .await
+}
+
 pub(super) async fn create_personal_token(
     State(state): State<SharedState>,
     headers: HeaderMap,
