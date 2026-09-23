@@ -169,6 +169,10 @@ pub fn router(state: SharedState) -> Router {
             get(managed_users::list_personal_tokens).post(managed_users::create_personal_token),
         )
         .route(
+            "/api/v1/token-services",
+            get(managed_users::list_personal_token_services),
+        )
+        .route(
             "/api/v1/tokens/{id}",
             axum::routing::delete(managed_users::revoke_personal_token),
         )
