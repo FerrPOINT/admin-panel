@@ -108,7 +108,7 @@ export function UsersPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Пользователи</h1>
-        <Button onClick={openCreate}><Plus className="h-4 w-4" /> Добавить</Button>
+        <Button className="h-10" onClick={openCreate}><Plus className="h-4 w-4" /> Добавить</Button>
       </div>
       <label className="flex max-w-md items-center gap-2 rounded-md border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-focus">
         <Search className="h-4 w-4 shrink-0 text-text-muted" />

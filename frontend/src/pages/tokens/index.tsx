@@ -115,6 +115,7 @@ export function TokensPage() {
         <h1 className="text-xl font-semibold">Личные API-токены</h1>
         <Button
           ref={createButtonRef}
+          className="h-10"
           disabled={!services.data || services.isError}
           onClick={() => {
             create.reset()

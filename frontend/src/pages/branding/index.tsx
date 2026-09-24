@@ -156,7 +156,7 @@ export function BrandingPage() {
               disabled={formLocked}
               value={document.product_name}
               onChange={(e) => update('product_name', e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
+              className="min-h-10 w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
             />
           </label>
           <label className="block text-sm">
@@ -165,7 +165,7 @@ export function BrandingPage() {
               disabled={formLocked}
               value={document.product_short_name}
               onChange={(e) => update('product_short_name', e.target.value)}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
+              className="min-h-10 w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
             />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -205,7 +205,7 @@ export function BrandingPage() {
               value={document.support_url ?? ''}
               onChange={(e) => update('support_url', e.target.value || null)}
               placeholder="https://..."
-              className="w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
+              className="min-h-10 w-full rounded-md border border-border bg-background px-3 py-2 outline-none focus:border-accent"
             />
           </label>
         </section>
