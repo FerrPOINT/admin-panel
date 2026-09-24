@@ -117,6 +117,10 @@ flowchart LR
 | Registry, branding, audit | Bearer | Любой активный central user. |
 | Users and personal tokens | Bearer | Прокси к Central Auth; секрет token показывается один раз. |
 
+`/api/v1/auth/me` сообщает effective capabilities: browser SSO сохраняет
+полный доступ ADR-0008, а PAT может изменять данные только со scope
+`admin-panel:write`. Исторические role bindings в central mode недоступны.
+
 Integration checks are intentionally bounded: the caller chooses a declared capability, while server code chooses the fixed path and method from a local allowlist. The API is neither a proxy nor a remote shell.
 
 <a name="evidence"></a>

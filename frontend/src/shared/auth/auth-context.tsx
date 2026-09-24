@@ -1,4 +1,12 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { endSso, type SsoSession } from '@sdlc/ui/sso'
 
 export type PanelRole = 'platform_viewer' | 'platform_operator' | 'platform_admin'
@@ -11,6 +19,8 @@ interface AuthSession {
   email: string | null
   centralRole: string | null
   panelRole: PanelRole
+  canMutate: boolean
+  canManageBindings: boolean
 }
 
 interface AuthContextValue {
@@ -22,7 +32,10 @@ interface AuthContextValue {
   canManageBindings: boolean
 }
 
-export const ssoConfig = { issuer: import.meta.env.VITE_AUTH_ISSUER ?? 'http://localhost:7701', clientId: 'admin-panel' }
+export const ssoConfig = {
+  issuer: import.meta.env.VITE_AUTH_ISSUER ?? 'http://localhost:7701',
+  clientId: 'admin-panel',
+}
 let accessToken: string | null = null
 const AuthContext = createContext<AuthContextValue | null>(null)
 
@@ -42,6 +55,8 @@ async function readMe(token: string): Promise<AuthSession> {
     email: body.email ?? null,
     centralRole: body.central_role ?? null,
     panelRole: role(body.panel_role),
+    canMutate: body.capabilities?.mutate === true,
+    canManageBindings: body.capabilities?.manage_bindings === true,
   }
 }
 
@@ -83,20 +98,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const acceptSso = useCallback(async (sso: SsoSession) => {
     const next = await readMe(sso.accessToken)
-    if (next.subject !== sso.subject) throw new Error('Central Auth вернул несовпадающего пользователя')
+    if (next.subject !== sso.subject)
+      throw new Error('Central Auth вернул несовпадающего пользователя')
     accessToken = sso.accessToken
     setSession(next)
     setStatus('authenticated')
   }, [])
 
-  const value = useMemo<AuthContextValue>(() => ({
-    status,
-    session,
-    acceptSso,
-    logout,
-    canMutate: Boolean(session),
-    canManageBindings: false,
-  }), [acceptSso, logout, session, status])
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      status,
+      session,
+      acceptSso,
+      logout,
+      canMutate: session?.canMutate ?? false,
+      canManageBindings: session?.canManageBindings ?? false,
+    }),
+    [acceptSso, logout, session, status],
+  )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

@@ -102,8 +102,13 @@ export function ServicesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold">Каталог сервисов</h1>
+          {!canMutate && (
+            <span className="rounded border border-border px-2 py-1 text-xs text-text-muted">
+              Только чтение
+            </span>
+          )}
         </div>
         {canMutate && (
           <Button

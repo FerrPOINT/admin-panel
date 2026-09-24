@@ -111,6 +111,7 @@ async function installMocks(page: Page) {
           subject: 'services-e2e-user',
           email: 'services@example.test',
           panel_role: 'platform_admin',
+          capabilities: { mutate: true, manage_bindings: false },
         },
       })
     } else if (pathname === '/api/v1/services' && route.request().method() === 'GET') {

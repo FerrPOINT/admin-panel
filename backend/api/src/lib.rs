@@ -39,6 +39,22 @@ pub struct Caller {
     pub email: Option<String>,
     pub central_role: Option<String>,
     pub role: admin_panel_domain::PanelRole,
+    pub can_mutate: bool,
+    pub can_manage_bindings: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct EffectiveCapabilities {
+    mutate: bool,
+    manage_bindings: bool,
+}
+
+fn effective_capabilities(ctx: &sdlc_auth_core::AuthContext) -> EffectiveCapabilities {
+    EffectiveCapabilities {
+        mutate: ctx.session_id.is_some() || ctx.has_scope("admin-panel:write"),
+        // ADR-0008 keeps historical role bindings disabled in central mode.
+        manage_bindings: false,
+    }
 }
 
 async fn require_role(
@@ -85,11 +101,14 @@ async fn bearer_auth(
             if !ctx.allows_service("admin-panel", req.method().as_str()) {
                 return Err(StatusCode::FORBIDDEN);
             }
+            let capabilities = effective_capabilities(&ctx);
             Caller {
                 subject: ctx.user_id.clone(),
                 email: ctx.email.clone(),
                 central_role: ctx.role.clone(),
                 role: admin_panel_domain::PanelRole::PlatformAdmin,
+                can_mutate: capabilities.mutate,
+                can_manage_bindings: capabilities.manage_bindings,
             }
         }
         auth::CentralCheck::Expired => return Err(StatusCode::UNAUTHORIZED),
@@ -1206,8 +1225,8 @@ async fn auth_login(State(state): State<SharedState>, Json(req): Json<LoginReque
     }
 }
 
-/// Identity snapshot for the SPA: who the caller is and what the panel
-/// allows. Local `role_bindings` may elevate the central claim.
+/// Identity snapshot for the SPA. Browser sessions may mutate; personal tokens
+/// need `admin-panel:write`. Legacy role bindings stay disabled in central mode.
 #[utoipa::path(
     get,
     path = "/api/v1/auth/me",
@@ -1226,8 +1245,8 @@ async fn auth_me(axum::extract::Extension(caller): axum::extract::Extension<Call
             "central_role": caller.central_role,
             "panel_role": caller.role.as_str(),
             "capabilities": {
-                "mutate": caller.role.allows(admin_panel_domain::PanelRole::PlatformOperator),
-                "manage_bindings": caller.role.allows(admin_panel_domain::PanelRole::PlatformAdmin),
+                "mutate": caller.can_mutate,
+                "manage_bindings": caller.can_manage_bindings,
             },
         })),
     )
@@ -1493,10 +1512,46 @@ fn validation(field: &str, reason: &str) -> Response {
 #[cfg(test)]
 mod tests {
     use super::{
-        ListAuditQuery, audit_page_bounds, declaration_content_hash, requested_by_matches_caller,
-        runtime_catalog_etag,
+        ListAuditQuery, audit_page_bounds, declaration_content_hash, effective_capabilities,
+        requested_by_matches_caller, runtime_catalog_etag,
     };
     use serde_json::json;
+    use std::collections::HashSet;
+
+    fn auth_context(session: bool, scopes: &[&str]) -> sdlc_auth_core::AuthContext {
+        sdlc_auth_core::AuthContext {
+            user_id: "caller-1".into(),
+            role: None,
+            scopes: scopes
+                .iter()
+                .map(|scope| (*scope).to_owned())
+                .collect::<HashSet<_>>(),
+            session_id: session.then(|| "session-1".into()),
+            email: None,
+            token: "redacted".into(),
+        }
+    }
+
+    #[test]
+    fn browser_sessions_keep_full_panel_access_without_legacy_bindings() {
+        let capabilities = effective_capabilities(&auth_context(true, &[]));
+        assert!(capabilities.mutate);
+        assert!(!capabilities.manage_bindings);
+    }
+
+    #[test]
+    fn personal_tokens_need_the_exact_write_scope_to_mutate() {
+        let read = effective_capabilities(&auth_context(false, &["admin-panel:read"]));
+        assert!(!read.mutate);
+        assert!(!read.manage_bindings);
+
+        let write = effective_capabilities(&auth_context(false, &["admin-panel:write"]));
+        assert!(write.mutate);
+        assert!(!write.manage_bindings);
+
+        let unrelated = effective_capabilities(&auth_context(false, &["wiki:write"]));
+        assert!(!unrelated.mutate);
+    }
 
     #[test]
     fn declaration_author_cannot_be_spoofed() {

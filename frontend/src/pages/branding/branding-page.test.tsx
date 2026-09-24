@@ -3,10 +3,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/shared/api/client'
 import { useBrandingRevisions } from '@/shared/api/hooks'
+import { useAuth } from '@/shared/auth/auth-context'
 import { BrandingPage } from './index'
 
 vi.mock('@/shared/api/client', () => ({ api: { post: vi.fn() } }))
 vi.mock('@/shared/api/hooks', () => ({ useBrandingRevisions: vi.fn() }))
+vi.mock('@/shared/auth/auth-context', () => ({ useAuth: vi.fn() }))
 
 function renderBranding() {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
@@ -19,6 +21,7 @@ function renderBranding() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(useAuth).mockReturnValue({ canMutate: true } as ReturnType<typeof useAuth>)
   vi.mocked(useBrandingRevisions).mockReturnValue({
     isPending: false,
     isError: false,
@@ -45,6 +48,18 @@ beforeEach(() => {
 })
 
 describe('BrandingPage publication', () => {
+  it('keeps branding readable without exposing publication controls', () => {
+    vi.mocked(useAuth).mockReturnValue({ canMutate: false } as ReturnType<typeof useAuth>)
+    renderBranding()
+
+    expect(screen.getByText('Только чтение')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Название платформы')).toHaveValue('SDLC')
+    expect(screen.getByLabelText('Название платформы')).toBeDisabled()
+    expect(screen.getByLabelText('Основной цвет: HEX')).toBeDisabled()
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
   it('retries publishing the saved draft without creating another revision', async () => {
     vi.mocked(api.post)
       .mockResolvedValueOnce({ revision: { revision: 4 } })

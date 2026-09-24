@@ -3,10 +3,12 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/shared/api/client'
 import { useBrandingRevisions } from '@/shared/api/hooks'
+import { useAuth } from '@/shared/auth/auth-context'
 import { RevisionsPage } from './index'
 
 vi.mock('@/shared/api/client', () => ({ api: { post: vi.fn() } }))
 vi.mock('@/shared/api/hooks', () => ({ useBrandingRevisions: vi.fn() }))
+vi.mock('@/shared/auth/auth-context', () => ({ useAuth: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }))
 
 function renderRevisions() {
@@ -20,6 +22,7 @@ function renderRevisions() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(useAuth).mockReturnValue({ canMutate: true } as ReturnType<typeof useAuth>)
   vi.mocked(api.post).mockResolvedValue({})
   vi.mocked(useBrandingRevisions).mockReturnValue({
     isLoading: false,
@@ -78,6 +81,18 @@ beforeEach(() => {
 })
 
 describe('RevisionsPage', () => {
+  it('keeps draft comparison available in read-only mode without mutation commands', () => {
+    vi.mocked(useAuth).mockReturnValue({ canMutate: false } as ReturnType<typeof useAuth>)
+    renderRevisions()
+
+    expect(screen.getAllByText('Только чтение')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Отозвать' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Сравнить' })[0]!)
+    expect(screen.getByText('Изменения относительно базовой ревизии')).toBeInTheDocument()
+    expect(api.post).not.toHaveBeenCalled()
+  })
+
   it('does not publish until the specific revision is confirmed', async () => {
     renderRevisions()
 

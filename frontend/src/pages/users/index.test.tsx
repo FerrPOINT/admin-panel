@@ -1,14 +1,22 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { UsersPage } from './index'
-import { AuthProvider } from '@/shared/auth/auth-context'
+import { useAuth } from '@/shared/auth/auth-context'
+
+vi.mock('@/shared/auth/auth-context', () => ({ useAuth: vi.fn(), authToken: () => null }))
 
 afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => {
+  vi.mocked(useAuth).mockReturnValue({
+    canMutate: true,
+    session: { subject: 'current-user' },
+  } as ReturnType<typeof useAuth>)
+})
 
 function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><AuthProvider><UsersPage /></AuthProvider></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}><UsersPage /></QueryClientProvider>)
 }
 
 function managedUser(index: number) {
@@ -23,6 +31,27 @@ function managedUser(index: number) {
 }
 
 describe('UsersPage', () => {
+  it('keeps the directory searchable in read-only mode without account commands', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      canMutate: false,
+      session: { subject: 'current-user' },
+    } as ReturnType<typeof useAuth>)
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([managedUser(1)]))
+    vi.stubGlobal('fetch', fetchMock)
+    renderPage()
+
+    expect(await screen.findByText('Пользователь 1')).toBeInTheDocument()
+    expect(screen.getByText('Только чтение')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Добавить' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Изменить имя/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Отправить ссылку/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Отключить/ })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('Имя или email'), {
+      target: { value: 'user1' },
+    })
+    expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true)
+  })
+
   it('shows twenty users per page without losing the current server batch', async () => {
     const users = Array.from({ length: 25 }, (_, index) => ({
       id: `u-${index + 1}`,

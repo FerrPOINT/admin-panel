@@ -10,15 +10,44 @@ function Probe() {
       <span data-testid="role">{session?.panelRole ?? 'none'}</span>
       <span data-testid="mutate">{String(canMutate)}</span>
       <span data-testid="bindings">{String(canManageBindings)}</span>
-      <button onClick={() => void acceptSso({ accessToken: 'tok-1', expiresAt: Date.now() + 60_000, subject: 'u-1', email: 'admin@base.local', name: 'Admin', returnTo: '/' })}>Accept SSO</button>
+      <button
+        onClick={() =>
+          void acceptSso({
+            accessToken: 'tok-1',
+            expiresAt: Date.now() + 60_000,
+            subject: 'u-1',
+            email: 'admin@base.local',
+            name: 'Admin',
+            returnTo: '/',
+          })
+        }
+      >
+        Accept SSO
+      </button>
     </div>
   )
 }
 
-function loginResponse(me = false) {
+function loginResponse(
+  me = false,
+  capabilities: unknown = { mutate: true, manage_bindings: false },
+) {
   const body = me
-    ? { subject: 'u-1', email: 'admin@base.local', central_role: 'member', panel_role: 'platform_admin', capabilities: {} }
-    : { access_token: 'tok-1', token_type: 'Bearer', expires_in: 900, subject: 'u-1', central_role: 'member', panel_role: 'platform_viewer' }
+    ? {
+        subject: 'u-1',
+        email: 'admin@base.local',
+        central_role: 'member',
+        panel_role: 'platform_admin',
+        capabilities,
+      }
+    : {
+        access_token: 'tok-1',
+        token_type: 'Bearer',
+        expires_in: 900,
+        subject: 'u-1',
+        central_role: 'member',
+        panel_role: 'platform_viewer',
+      }
   return { ok: true, status: 200, json: async () => body }
 }
 
@@ -34,7 +63,11 @@ describe('AuthProvider', () => {
   })
 
   it('starts anonymous without a stored token', async () => {
-    render(<AuthProvider><Probe /></AuthProvider>)
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('anonymous'))
     expect(screen.getByTestId('role').textContent).toBe('none')
     expect(screen.getByTestId('mutate').textContent).toBe('false')
@@ -42,7 +75,11 @@ describe('AuthProvider', () => {
 
   it('accepts a verified SSO session via /auth/me without browser storage', async () => {
     vi.mocked(fetch).mockResolvedValue(loginResponse(true) as unknown as Response)
-    render(<AuthProvider><Probe /></AuthProvider>)
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Accept SSO' }))
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
     expect(screen.getByTestId('role').textContent).toBe('platform_admin')
@@ -55,9 +92,44 @@ describe('AuthProvider', () => {
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer tok-1')
   })
 
+  it('honors read-only capabilities from the verified session', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      loginResponse(true, { mutate: false, manage_bindings: false }) as unknown as Response,
+    )
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Accept SSO' }))
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
+    expect(screen.getByTestId('mutate').textContent).toBe('false')
+    expect(screen.getByTestId('bindings').textContent).toBe('false')
+  })
+
+  it.each([null, {}, { mutate: 'yes', manage_bindings: 1 }])(
+    'fails closed for malformed capabilities: %p',
+    async (capabilities) => {
+      vi.mocked(fetch).mockResolvedValue(loginResponse(true, capabilities) as unknown as Response)
+      render(
+        <AuthProvider>
+          <Probe />
+        </AuthProvider>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Accept SSO' }))
+      await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
+      expect(screen.getByTestId('mutate').textContent).toBe('false')
+      expect(screen.getByTestId('bindings').textContent).toBe('false')
+    },
+  )
+
   it('discards a legacy stored token without using it', async () => {
     sessionStorage.setItem('base.admin.token', 'stale')
-    render(<AuthProvider><Probe /></AuthProvider>)
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('anonymous'))
     expect(sessionStorage.getItem('base.admin.token')).toBeNull()
     expect(fetch).not.toHaveBeenCalled()

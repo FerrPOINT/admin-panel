@@ -22,7 +22,7 @@ const PAGE_SIZE = 20
 const BATCH_SIZE = 100
 
 export function UsersPage() {
-  const { session } = useAuth()
+  const { session, canMutate } = useAuth()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -92,14 +92,16 @@ export function UsersPage() {
   })
 
   function openCreate() {
+    if (!canMutate) return
     setEditing(null); setEmail(''); setDisplayName(''); setDeliveryFailedId(null); setSaveError(null); setOpen(true)
   }
   function openEdit(user: ManagedUser) {
+    if (!canMutate) return
     setEditing(user); setEmail(user.email); setDisplayName(user.display_name); setDeliveryFailedId(null); setSaveError(null); setOpen(true)
   }
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (save.isPending) return
+    if (!canMutate || save.isPending) return
     if (!displayName.trim() || (!editing && !email.trim())) return
     save.mutate()
   }
@@ -107,8 +109,11 @@ export function UsersPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Пользователи</h1>
-        <Button className="h-10" onClick={openCreate}><Plus className="h-4 w-4" /> Добавить</Button>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">Пользователи</h1>
+          {!canMutate && <span className="rounded border border-border px-2 py-1 text-xs text-text-muted">Только чтение</span>}
+        </div>
+        {canMutate && <Button className="h-10" onClick={openCreate}><Plus className="h-4 w-4" /> Добавить</Button>}
       </div>
       <label className="flex max-w-md items-center gap-2 rounded-md border border-border bg-surface px-3 focus-within:ring-2 focus-within:ring-focus">
         <Search className="h-4 w-4 shrink-0 text-text-muted" />
@@ -129,14 +134,14 @@ export function UsersPage() {
                 </div>
                 <p className="truncate text-xs text-text-muted">{user.email}{user.setup_delivery_status === 'failed' ? ' · Письмо не доставлено' : ''}</p>
               </div>
-              <div className="hidden items-center gap-1 md:flex">
+              {canMutate && <div className="hidden items-center gap-1 md:flex">
                 <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Изменить имя: ${user.email}`} title="Изменить имя" onClick={() => openEdit(user)}><Pencil className="h-4 w-4" /></Button>
                 {user.status !== 'disabled' && <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`Отправить ссылку: ${user.email}`} title="Отправить ссылку" disabled={resend.isPending} onClick={() => resend.mutate(user.id)}><RotateCw className="h-4 w-4" /></Button>}
                 <Button variant="ghost" size="icon" className="h-10 w-10" aria-label={`${user.status === 'disabled' ? 'Восстановить' : 'Отключить'}: ${user.email}`} title={user.status === 'disabled' ? 'Восстановить' : 'Отключить'} disabled={user.id === session?.subject || changeStatus.isPending} onClick={() => setStatusTarget(user)}>
                   {user.status === 'disabled' ? <UserRoundCheck className="h-4 w-4" /> : <UserRoundX className="h-4 w-4" />}
                 </Button>
-              </div>
-              <DropdownMenu>
+              </div>}
+              {canMutate && <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-10 w-10 md:hidden" aria-label={`Действия с пользователем: ${user.email}`} title="Действия с пользователем"><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
@@ -145,7 +150,7 @@ export function UsersPage() {
                   {user.status !== 'disabled' && <DropdownMenuItem className="min-h-10" disabled={resend.isPending} onSelect={() => resend.mutate(user.id)}><RotateCw className="mr-2 h-4 w-4" />Отправить ссылку</DropdownMenuItem>}
                   <DropdownMenuItem className="min-h-10" disabled={user.id === session?.subject || changeStatus.isPending} onSelect={() => setStatusTarget(user)}>{user.status === 'disabled' ? <UserRoundCheck className="mr-2 h-4 w-4" /> : <UserRoundX className="mr-2 h-4 w-4" />}{user.status === 'disabled' ? 'Восстановить' : 'Отключить'}</DropdownMenuItem>
                 </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu>}
             </div>
           ))}
         </div>
@@ -157,7 +162,7 @@ export function UsersPage() {
       </div>
       {needsNextBatch && nextBatch.isError && <p role="alert" className="text-sm text-destructive">Не удалось проверить следующую страницу. <Button variant="ghost" className="h-10" onClick={() => void nextBatch.refetch()}>Повторить</Button></p>}
 
-      <Dialog open={open} onOpenChange={(next) => { if (!save.isPending) setOpen(next) }}>
+      <Dialog open={canMutate && open} onOpenChange={(next) => { if (!save.isPending) setOpen(next) }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editing ? 'Изменить имя' : 'Добавить пользователя'}</DialogTitle></DialogHeader>
           <form className="space-y-4" onSubmit={submit} aria-busy={save.isPending}>
@@ -174,7 +179,7 @@ export function UsersPage() {
           </form>
         </DialogContent>
       </Dialog>
-      <Dialog open={Boolean(statusTarget)} onOpenChange={(next) => { if (!next && !changeStatus.isPending) setStatusTarget(null) }}>
+      <Dialog open={canMutate && Boolean(statusTarget)} onOpenChange={(next) => { if (!next && !changeStatus.isPending) setStatusTarget(null) }}>
         <DialogContent>
           <DialogHeader><DialogTitle>{statusTarget?.status === 'disabled' ? 'Восстановить пользователя?' : 'Отключить пользователя?'}</DialogTitle></DialogHeader>
           <p className="text-sm text-text-muted">{statusTarget?.email}</p>

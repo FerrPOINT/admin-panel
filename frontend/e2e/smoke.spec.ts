@@ -119,7 +119,11 @@ function routeJson(route: Route, body: unknown, status = 200) {
   })
 }
 
-async function installApiMocks(page: Page) {
+async function installApiMocks(
+  page: Page,
+  capabilities = { mutate: true, manage_bindings: false },
+  revisionFixtures = revisions,
+) {
   let nonce = ''
   await page.route('http://localhost:7701/oidc/**', async (route) => {
     const url = new URL(route.request().url())
@@ -159,7 +163,10 @@ async function installApiMocks(page: Page) {
       method === 'GET' &&
       (path === '/branding/revisions' || path.split('?')[0] === '/branding-revisions')
     ) {
-      return routeJson(route, { revisions, total: revisions.length })
+      return routeJson(route, {
+        revisions: revisionFixtures,
+        total: revisionFixtures.length,
+      })
     }
     if (method === 'GET' && path.split('?')[0] === '/services') {
       return routeJson(route, { services, total: services.length })
@@ -232,7 +239,7 @@ async function installApiMocks(page: Page) {
         email: 'admin@base.local',
         central_role: 'member',
         panel_role: 'platform_admin',
-        capabilities: { mutate: true, manage_bindings: false },
+        capabilities,
       })
     }
     if (method === 'GET' && path === '/users') {
@@ -252,7 +259,11 @@ async function installApiMocks(page: Page) {
     }
     if (method === 'GET' && path === '/token-services') {
       return routeJson(route, [
-        { key: 'admin-panel', label: 'Admin Panel', scopes: ['admin-panel:read', 'admin-panel:write'] },
+        {
+          key: 'admin-panel',
+          label: 'Admin Panel',
+          scopes: ['admin-panel:read', 'admin-panel:write'],
+        },
       ])
     }
     if (method === 'GET' && path === '/health/ready') {
@@ -392,6 +403,70 @@ test('users page lists centrally managed accounts', async ({ page }) => {
   await page.goto('/users')
   await expect(page.getByRole('heading', { name: 'Пользователи' })).toBeVisible()
   await expect(page.getByText('admin@base.local').first()).toBeVisible()
+})
+
+test('read-only capabilities keep data visible without exposing mutation commands', async ({
+  page,
+}) => {
+  const writes: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    if (url.pathname.startsWith('/api/v1/') && request.method() !== 'GET') {
+      writes.push(`${request.method()} ${url.pathname}`)
+    }
+  })
+  const readOnlyRevisions = [
+    {
+      ...revisions[0],
+      id: '22222222-2222-7222-8222-222222222223',
+      revision: 3,
+      state: 'draft',
+      published_by_subject: null,
+      published_at: null,
+      based_on_revision: 2,
+    },
+    ...revisions,
+  ]
+  await page.unrouteAll()
+  await installApiMocks(page, { mutate: false, manage_bindings: false }, readOnlyRevisions)
+
+  const identityResponse = page.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith('/api/v1/auth/me'),
+  )
+  await page.goto('/branding')
+  await expect((await identityResponse).json()).resolves.toMatchObject({
+    capabilities: { mutate: false, manage_bindings: false },
+  })
+  await expect(page.getByText('Только чтение').first()).toBeVisible()
+  await expect(page.getByLabel('Название платформы')).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Опубликовать' })).toHaveCount(0)
+
+  await page.goto('/revisions')
+  await expect(page.getByText('Только чтение').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Опубликовать' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Отозвать' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Сравнить' }).first()).toBeVisible()
+
+  await page.goto('/services')
+  await expect(page.getByText('Только чтение').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Добавить сервис' })).toHaveCount(0)
+
+  await page.goto('/services/ci-cd')
+  await expect(page.getByText('Только чтение').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Запустить проверку' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Новая декларация' })).toHaveCount(0)
+
+  await page.goto('/users')
+  await expect(page.getByText('admin@base.local').first()).toBeVisible()
+  await expect(page.getByText('Только чтение').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Добавить' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /Действия с пользователем/ })).toHaveCount(0)
+
+  await page.goto('/tokens')
+  await expect(page.getByText('Токенов пока нет.')).toBeVisible()
+  await expect(page.getByText('Только чтение').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Создать' })).toHaveCount(0)
+  expect(writes).toEqual([])
 })
 
 test('branding and primary management controls remain touch-sized on mobile and tablet', async ({

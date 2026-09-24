@@ -12,6 +12,7 @@ import {
   Input,
 } from '@sdlc/ui/ui'
 import { api } from '@/shared/api/client'
+import { useAuth } from '@/shared/auth/auth-context'
 
 interface PersonalToken {
   id: string
@@ -46,6 +47,7 @@ const stateLabels: Record<Exclude<TokenState, 'all'>, string> = {
 }
 
 export function TokensPage() {
+  const { canMutate } = useAuth()
   const queryClient = useQueryClient()
   const createButtonRef = useRef<HTMLButtonElement>(null)
   const revokeButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -66,6 +68,7 @@ export function TokensPage() {
   const services = useQuery({
     queryKey: ['personal-token-services'],
     queryFn: () => api.get<PersonalTokenService[]>('/api/v1/token-services'),
+    enabled: canMutate,
   })
   const filteredTokens = (tokens.data ?? []).filter(
     (token) =>
@@ -107,30 +110,39 @@ export function TokensPage() {
   }
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (label.trim() && scopes.length && days >= 1 && days <= 365) create.mutate()
+    if (canMutate && label.trim() && scopes.length && days >= 1 && days <= 365) create.mutate()
   }
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Личные API-токены</h1>
-        <Button
-          ref={createButtonRef}
-          className="h-10"
-          disabled={!services.data || services.isError}
-          onClick={() => {
-            create.reset()
-            setOpen(true)
-          }}
-        >
-          <Plus className="h-4 w-4" /> Создать
-        </Button>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">Личные API-токены</h1>
+          {!canMutate && (
+            <span className="rounded border border-border px-2 py-1 text-xs text-text-muted">
+              Только чтение
+            </span>
+          )}
+        </div>
+        {canMutate && (
+          <Button
+            ref={createButtonRef}
+            className="h-10"
+            disabled={!services.data || services.isError}
+            onClick={() => {
+              create.reset()
+              setOpen(true)
+            }}
+          >
+            <Plus className="h-4 w-4" /> Создать
+          </Button>
+        )}
       </div>
-      {services.isPending && (
+      {canMutate && services.isPending && (
         <p role="status" className="text-sm text-text-muted">
           Загружаем доступные сервисы...
         </p>
       )}
-      {services.isError && (
+      {canMutate && services.isError && (
         <p role="alert" className="text-sm text-destructive">
           Не удалось загрузить доступы из Central Auth.{' '}
           <Button variant="ghost" onClick={() => void services.refetch()}>
@@ -199,7 +211,7 @@ export function TokensPage() {
                 {stateLabels[tokenState(token)]}
               </p>
             </div>
-            {!token.revoked_at && (
+            {canMutate && !token.revoked_at && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -243,7 +255,7 @@ export function TokensPage() {
         </div>
       )}
       <Dialog
-        open={open}
+        open={canMutate && open}
         onOpenChange={(next) => {
           if (!create.isPending) setOpen(next)
         }}
@@ -316,7 +328,7 @@ export function TokensPage() {
         </DialogContent>
       </Dialog>
       <Dialog
-        open={Boolean(issued)}
+        open={canMutate && Boolean(issued)}
         onOpenChange={(next) => {
           if (!next) setIssued(null)
         }}
@@ -355,7 +367,7 @@ export function TokensPage() {
         </DialogContent>
       </Dialog>
       <Dialog
-        open={Boolean(revokeTarget)}
+        open={canMutate && Boolean(revokeTarget)}
         onOpenChange={(next) => {
           if (!next && !revoke.isPending) setRevokeTarget(null)
         }}

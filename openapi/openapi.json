@@ -91,7 +91,7 @@
         "tags": [
           "auth"
         ],
-        "summary": "Identity snapshot for the SPA: who the caller is and what the panel\nallows. Local `role_bindings` may elevate the central claim.",
+        "summary": "Identity snapshot for the SPA. Browser sessions may mutate; personal tokens\nneed `admin-panel:write`. Legacy role bindings stay disabled in central mode.",
         "operationId": "auth_me",
         "responses": {
           "200": {

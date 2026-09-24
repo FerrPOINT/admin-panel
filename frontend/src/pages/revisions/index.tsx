@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from '@sdlc/ui/ui'
 import { api } from '@/shared/api/client'
+import { useAuth } from '@/shared/auth/auth-context'
 import {
   type BrandingDocument,
   type BrandingRevision,
@@ -92,6 +93,7 @@ function RevisionDiff({
 }
 
 export function RevisionsPage() {
+  const { canMutate } = useAuth()
   const revisions = useBrandingRevisions()
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState<number | null>(null)
@@ -121,13 +123,14 @@ export function RevisionsPage() {
   const actionError = pendingAction?.type === 'publish' ? publish.isError : withdraw.isError
 
   function openAction(type: 'publish' | 'withdraw', revision: number) {
+    if (!canMutate) return
     publish.reset()
     withdraw.reset()
     setPendingAction({ type, revision })
   }
 
   function confirmAction() {
-    if (!pendingAction || actionPending) return
+    if (!canMutate || !pendingAction || actionPending) return
     if (pendingAction.type === 'publish') publish.mutate(pendingAction.revision)
     else withdraw.mutate(pendingAction.revision)
   }
@@ -205,7 +208,7 @@ export function RevisionsPage() {
                   {new Date(revision.created_at).toLocaleString('ru-RU')}
                 </span>
                 <span className="flex flex-wrap gap-2">
-                  {revision.state === 'draft' ? (
+                  {revision.state === 'draft' && canMutate ? (
                     <>
                       <button
                         type="button"
@@ -264,7 +267,7 @@ export function RevisionsPage() {
         ) : null}
       </div>
       <AlertDialog
-        open={pendingAction !== null}
+        open={canMutate && pendingAction !== null}
         onOpenChange={(open) => {
           if (!open && !actionPending) setPendingAction(null)
         }}
