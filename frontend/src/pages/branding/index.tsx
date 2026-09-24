@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check, Palette } from 'lucide-react'
 import { api } from '@/shared/api/client'
 import { type BrandingDocument, useBrandingRevisions } from '@/shared/api/hooks'
+import { useAuth } from '@/shared/auth/auth-context'
 
 const DEFAULT_BRANDING: BrandingDocument = {
   product_name: 'Base Platform',
@@ -30,6 +31,7 @@ export function readableForeground(color: string): '#000000' | '#ffffff' {
 }
 
 export function BrandingPage() {
+  const { canMutate } = useAuth()
   const revisions = useBrandingRevisions()
   const queryClient = useQueryClient()
   const [form, setForm] = useState<BrandingDocument | null>(null)
@@ -51,14 +53,14 @@ export function BrandingPage() {
   })
 
   const saving = createDraft.isPending || publish.isPending
-  const formLocked = saving || draftRevision !== null
+  const formLocked = !canMutate || saving || draftRevision !== null
   const update = <K extends keyof BrandingDocument>(key: K, value: BrandingDocument[K]) => {
     setForm({ ...document, [key]: value })
     setPublished(null)
   }
 
   const saveAndPublish = async () => {
-    if (savingRef.current) return
+    if (!canMutate || savingRef.current) return
     savingRef.current = true
     setPublished(null)
     try {
@@ -84,18 +86,24 @@ export function BrandingPage() {
             Публикуется как проверяемая конфигурация. Произвольный CSS не допускается.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={saveAndPublish}
-          disabled={revisions.isPending || revisions.isError || saving}
-          className="min-h-10 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
-        >
-          {saving
-            ? 'Публикация...'
-            : draftRevision !== null
-              ? 'Повторить публикацию'
-              : 'Опубликовать'}
-        </button>
+        {canMutate ? (
+          <button
+            type="button"
+            onClick={saveAndPublish}
+            disabled={revisions.isPending || revisions.isError || saving}
+            className="min-h-10 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            {saving
+              ? 'Публикация...'
+              : draftRevision !== null
+                ? 'Повторить публикацию'
+                : 'Опубликовать'}
+          </button>
+        ) : (
+          <span className="rounded border border-border px-2 py-1 text-xs text-text-muted">
+            Только чтение
+          </span>
+        )}
       </div>
 
       {revisions.isPending && (

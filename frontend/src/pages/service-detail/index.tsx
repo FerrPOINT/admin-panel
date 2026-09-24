@@ -134,7 +134,14 @@ export function ServiceDetailPage() {
         <ArrowLeft className="h-4 w-4" aria-hidden /> Каталог сервисов
       </Link>
       <div>
-        <h1 className="text-xl font-semibold">{entry.display_name}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold">{entry.display_name}</h1>
+          {!canMutate && (
+            <span className="rounded border border-border px-2 py-1 text-xs text-text-muted">
+              Только чтение
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-text-muted">Контракт, проверки и история интеграции</p>
       </div>
 

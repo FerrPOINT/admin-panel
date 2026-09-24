@@ -26,6 +26,12 @@ UI выполняет Central Auth Authorization Code + PKCE через публ
 token secrets. Все активные вошедшие люди имеют одинаковые права; локальные
 role-binding mutations в central mode возвращают `410 ROLES_DISABLED`.
 
+`GET /auth/me` возвращает effective `capabilities`: browser SSO имеет
+`mutate: true`, PAT требует точный scope `admin-panel:write`, а
+`manage_bindings` в central mode всегда `false`. Frontend трактует отсутствующие
+или не-boolean значения fail closed. Окончательная проверка каждого запроса
+всё равно выполняется API по session/service scope.
+
 ## Маршруты
 
 ### Health и runtime
