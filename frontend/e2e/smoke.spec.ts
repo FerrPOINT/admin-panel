@@ -247,6 +247,14 @@ async function installApiMocks(page: Page) {
         },
       ])
     }
+    if (method === 'GET' && path === '/tokens') {
+      return routeJson(route, [])
+    }
+    if (method === 'GET' && path === '/token-services') {
+      return routeJson(route, [
+        { key: 'admin-panel', label: 'Admin Panel', scopes: ['admin-panel:read', 'admin-panel:write'] },
+      ])
+    }
     if (method === 'GET' && path === '/health/ready') {
       return routeJson(route, { status: 'ok', database: 'up' })
     }
@@ -384,6 +392,47 @@ test('users page lists centrally managed accounts', async ({ page }) => {
   await page.goto('/users')
   await expect(page.getByRole('heading', { name: 'Пользователи' })).toBeVisible()
   await expect(page.getByText('admin@base.local').first()).toBeVisible()
+})
+
+test('branding and primary management controls remain touch-sized on mobile and tablet', async ({
+  page,
+}) => {
+  for (const width of [375, 768]) {
+    await page.setViewportSize({ width, height: width === 375 ? 812 : 1024 })
+    for (const [path, heading] of [
+      ['/branding', 'Брендинг платформы'],
+      ['/users', 'Пользователи'],
+      ['/tokens', 'Личные API-токены'],
+    ] as const) {
+      await page.goto(path)
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible()
+      const smallTargets = await page
+        .locator('main button, main input:not([type="checkbox"]), main select, main textarea')
+        .evaluateAll((elements) =>
+          elements
+            .filter((element) => {
+              const rect = element.getBoundingClientRect()
+              return rect.width > 0 && rect.height > 0
+            })
+            .map((element) => {
+              const rect = element.getBoundingClientRect()
+              return {
+                label:
+                  element.getAttribute('aria-label') ??
+                  ('labels' in element
+                    ? [...(element.labels ?? [])]
+                        .map((label) => label.textContent?.trim())
+                        .join(' ')
+                    : element.textContent?.trim()),
+                width: Math.round(rect.width * 10) / 10,
+                height: Math.round(rect.height * 10) / 10,
+              }
+            })
+            .filter((target) => target.width < 40 || target.height < 40),
+        )
+      expect(smallTargets, `${path} at ${width}px`).toEqual([])
+    }
+  }
 })
 
 test('protected routes initiate Central Auth', async ({ page }) => {

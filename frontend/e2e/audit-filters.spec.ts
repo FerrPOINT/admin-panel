@@ -103,6 +103,15 @@ async function installMocks(page: Page, count: number, tokens: unknown[] = []) {
       } else {
         await route.fulfill({ json: tokens })
       }
+    } else if (url.pathname === '/api/v1/token-services') {
+      await route.fulfill({ json: [
+        { key: 'admin-panel', label: 'Admin Panel', scopes: ['admin-panel:read', 'admin-panel:write'] },
+        { key: 'ci-cd', label: 'CI/CD', scopes: ['ci-cd:read', 'ci-cd:write'] },
+        { key: 'task-tracker', label: 'Task Tracker', scopes: ['task-tracker:read', 'task-tracker:write'] },
+        { key: 'wiki', label: 'Wiki', scopes: ['wiki:read', 'wiki:write'] },
+        { key: 'fleet-control', label: 'Fleet Control', scopes: ['fleet-control:read', 'fleet-control:write'] },
+        { key: 'project-workflow', label: 'Project Workflow', scopes: ['project-workflow:read', 'project-workflow:write'] },
+      ] })
     } else if (url.pathname === '/api/v1/runtime/services') {
       await route.fulfill({ json: { services: [] } })
     } else if (url.pathname === '/api/v1/runtime/branding') {
