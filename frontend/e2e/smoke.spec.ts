@@ -311,6 +311,51 @@ test.beforeEach(async ({ page }) => {
   await installApiMocks(page)
 })
 
+test('uses the shared work-area geometry across semantic page modes', async ({ page }, testInfo) => {
+  for (const viewport of [
+    { width: 375, height: 812 },
+    { width: 1440, height: 900 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport)
+
+    for (const [path, mode, heading] of [
+      ['/', 'wide', 'Обзор платформы'],
+      ['/branding', 'reading', 'Брендинг платформы'],
+      ['/services/ci-cd', 'detail-with-aside', 'CI/CD'],
+    ] as const) {
+      await page.goto(path)
+      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+      const layout = page.locator('[data-page-layout]')
+      await expect(layout).toHaveAttribute('data-page-layout', mode)
+
+      const geometry = await layout.evaluate((element) => {
+        const frame = element.parentElement
+        const frameStyle = frame ? getComputedStyle(frame) : null
+        return {
+          documentFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          layoutWidth: element.getBoundingClientRect().width,
+          availableWidth:
+            (frame?.getBoundingClientRect().width ?? 0) -
+            Number.parseFloat(frameStyle?.paddingLeft ?? '0') -
+            Number.parseFloat(frameStyle?.paddingRight ?? '0'),
+        }
+      })
+
+      expect(geometry.documentFits).toBe(true)
+      if (mode === 'reading') {
+        expect(geometry.layoutWidth).toBeLessThanOrEqual(761)
+      } else {
+        expect(Math.abs(geometry.layoutWidth - geometry.availableWidth)).toBeLessThanOrEqual(1)
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`shell-${viewport.width}-${mode}.png`),
+        fullPage: true,
+      })
+    }
+  }
+})
+
 test('overview renders platform summary', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: /обзор/i })).toBeVisible()
