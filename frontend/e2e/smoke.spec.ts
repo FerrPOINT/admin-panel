@@ -1,4 +1,6 @@
 import { generateKeyPairSync, sign } from 'node:crypto'
+import { mkdirSync } from 'node:fs'
+import path from 'node:path'
 import { expect, test, type Page, type Route } from '@playwright/test'
 
 // Admin Panel e2e smoke: every shell page renders with mocked admin API.
@@ -309,6 +311,46 @@ async function installApiMocks(
 
 test.beforeEach(async ({ page }) => {
   await installApiMocks(page)
+})
+
+test('captures README interface evidence', async ({ page }) => {
+  test.skip(process.env.UPDATE_README_SCREENSHOTS !== '1')
+
+  const outputDir = path.resolve(process.cwd(), '..', 'docs', 'screenshots')
+  const mobileOutputDir = path.join(outputDir, '375x812')
+  mkdirSync(mobileOutputDir, { recursive: true })
+
+  const capture = async (route: string, outputPath: string) => {
+    await page.goto(route)
+    await expect(page.locator('[data-page-layout]')).toBeVisible()
+    await page.waitForTimeout(1000)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({ path: outputPath, fullPage: true })
+  }
+
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  for (const [route, name] of [
+    ['/', 'overview.png'],
+    ['/services', 'services.png'],
+    ['/services/ci-cd', 'service-detail.png'],
+    ['/branding', 'branding.png'],
+    ['/audit', 'audit.png'],
+  ] as const) {
+    await capture(route, path.join(outputDir, name))
+  }
+
+  await page.setViewportSize({ width: 375, height: 812 })
+  for (const [route, name] of [
+    ['/', 'wide.png'],
+    ['/branding', 'reading.png'],
+    ['/services/ci-cd', 'detail-with-aside.png'],
+  ] as const) {
+    await capture(route, path.join(mobileOutputDir, name))
+  }
 })
 
 test('uses the shared work-area geometry across semantic page modes', async ({ page }, testInfo) => {

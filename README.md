@@ -127,6 +127,15 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 
 ## Интерфейс
 
+Все кадры ниже пересняты из одного Playwright fixture после проверки общей
+геометрии рабочей области и отсутствия горизонтального переполнения. Desktop
+использует `1920x1080`; три mobile-кадра `375x812` фиксируют режимы `wide`,
+`reading` и `detail-with-aside`.
+
+| Wide | Reading | Detail with aside |
+|---|---|---|
+| ![Обзор платформы, mobile](docs/screenshots/375x812/wide.png) | ![Брендинг, mobile](docs/screenshots/375x812/reading.png) | ![Карточка сервиса, mobile](docs/screenshots/375x812/detail-with-aside.png) |
+
 ### Обзор платформы
 
 ![Обзор платформы](docs/screenshots/overview.png)
