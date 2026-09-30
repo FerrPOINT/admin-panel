@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function fetchResponse(path: string, init?: RequestInit): Promise<Response> {
   const token = authToken()
   const response = await fetch(`${BASE}${path}`, {
     ...init,
@@ -37,12 +37,28 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(response.status, code, message)
   }
+  return response
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetchResponse(path, init)
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
 
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getStatus: async (path: string): Promise<number> => {
+    const response = await fetchResponse(path)
+    if (response.headers.get('content-type')?.includes('text/html')) {
+      throw new ApiError(
+        502,
+        'INVALID_STATUS_RESPONSE',
+        'Получена HTML-страница вместо статуса API',
+      )
+    }
+    return response.status
+  },
   post: <T>(path: string, body?: unknown, etag?: string) =>
     request<T>(path, {
       method: 'POST',

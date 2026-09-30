@@ -1,20 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/shared/api/client'
+import { RefreshCw } from 'lucide-react'
+import { Button } from '@sdlc/ui/ui'
+import { api, ApiError } from '@/shared/api/client'
 import { useAuth } from '@/shared/auth/auth-context'
-
-interface ReadyReport {
-  status: string
-  database?: string
-  migrations?: number | string
-  version?: string
-  [key: string]: unknown
-}
 
 export function SettingsPage() {
   const { session } = useAuth()
   const ready = useQuery({
     queryKey: ['health-ready'],
-    queryFn: () => api.get<ReadyReport>('/health/ready'),
+    queryFn: () => api.getStatus('/health/ready'),
     retry: false,
   })
 
@@ -25,11 +19,15 @@ export function SettingsPage() {
     ['Доставка конфигурации', 'Прямой API'],
     [
       'Готовность',
-      ready.data
-        ? `${ready.data.status}${ready.data.database ? ` · ${ready.data.database}` : ''}`
+      ready.isFetching
+        ? 'Проверка…'
         : ready.isError
-          ? 'Недоступна'
-          : 'Загрузка…',
+          ? ready.error instanceof ApiError && ready.error.status === 503
+            ? 'Не готова'
+            : 'Недоступна'
+          : ready.data === 200
+            ? 'Готова'
+            : 'Недоступна',
     ],
   ]
 
@@ -43,7 +41,16 @@ export function SettingsPage() {
         </p>
       </div>
       <section className="rounded-lg border border-border bg-surface p-5">
-        <h2 className="text-sm font-medium">Состояние интеграции</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium">Состояние интеграции</h2>
+          <Button
+            variant="outline"
+            disabled={ready.isFetching}
+            onClick={() => void ready.refetch()}
+          >
+            <RefreshCw size={16} aria-hidden="true" /> Проверить готовность
+          </Button>
+        </div>
         <dl className="mt-4 space-y-3 text-sm">
           {rows.map(([term, value]) => (
             <div

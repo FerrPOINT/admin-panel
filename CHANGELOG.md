@@ -10,6 +10,7 @@
   Central Auth контракта; product-specific scopes больше не зашиты во frontend.
 
 ### Fixed
+- Экран локальных настроек читает status-only readiness endpoint через production nginx: пустое 200 означает готовность, 503 и ошибка сети различаются, повторная проверка не показывает устаревший успех.
 - `/auth/me` теперь сообщает фактические возможности: browser SSO сохраняет
   полный доступ ADR-0008, read-only PAT не получает mutation controls, а
   отключённые legacy role bindings не показываются как доступные.
