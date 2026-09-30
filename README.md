@@ -127,26 +127,21 @@ Integration checks are intentionally bounded: the caller chooses a declared capa
 
 ## Интерфейс
 
-Все кадры ниже пересняты из одного Playwright fixture после проверки общей
-геометрии рабочей области и отсутствия горизонтального переполнения. Desktop
-использует `1920x1080`; три mobile-кадра `375x812` фиксируют режимы `wide`,
-`reading` и `detail-with-aside`.
+Представительные desktop-кадры сняты на реальных маршрутах при `1920x1080` в
+default theme с безопасной fixture. Responsive QA, включая `375px`, ведётся в
+Playwright и screenshot manifest, а не в README.
 
-| Wide | Reading | Detail with aside |
-|---|---|---|
-| ![Обзор платформы, mobile](docs/screenshots/375x812/wide.png) | ![Брендинг, mobile](docs/screenshots/375x812/reading.png) | ![Карточка сервиса, mobile](docs/screenshots/375x812/detail-with-aside.png) |
-
-### Обзор платформы
+### Обзор платформы (`wide`)
 
 ![Обзор платформы](docs/screenshots/overview.png)
 
+### Брендинг (`reading/form`)
+
+![Брендинг](docs/screenshots/branding.png)
+
 Единая operational view: published branding, registry count, problem count, recent audit events и состояние сервисов. Screenshot uses safe evidence data; real personal identifiers, tokens and secrets are never part of README evidence.
 
-### Каталог сервисов
-
-![Каталог сервисов](docs/screenshots/services.png)
-
-### Карточка сервиса
+### Карточка сервиса (`detail-with-aside`)
 
 ![Карточка сервиса](docs/screenshots/service-detail.png)
 
@@ -161,11 +156,9 @@ Admin Panel storage или audit.
 
 ### Брендинг и аудит
 
-![Брендинг](docs/screenshots/branding.png)
-
-![Аудит изменений](docs/screenshots/audit.png)
-
 Publication меняет только управляемый versioned document. Audit evidence доступен для approved/reported service operations и branding publication/withdrawal; создание/изменение registry, service status и role bindings остаются явным coverage gap до отдельного audit-closure изменения.
+
+Полная карта screenshot capture и маршрутный responsive QA: [manifest](docs/screenshots/manifest.md).
 
 <a name="quality"></a>
 
