@@ -57,6 +57,22 @@ class VerifyReadmeTests(unittest.TestCase):
 
         self.assertIn("RMD003", "\n".join(validator.validate(root)))
 
+    def test_rejects_mobile_screenshot_in_readme(self) -> None:
+        validator = load_validator()
+        root = self.make_repo("![Mobile](docs/screenshots/375x812/wide.png)\n")
+
+        self.assertIn("RMD007", "\n".join(validator.validate(root)))
+
+    def test_ui_gallery_requires_all_semantic_layout_labels(self) -> None:
+        validator = load_validator()
+        root = self.make_repo(
+            "### Overview (`wide`)\n![Overview](docs/screenshots/overview.png)\n"
+            "### Form (`reading/form`)\n![Form](docs/screenshots/form.png)\n"
+        )
+
+        findings = "\n".join(validator.validate(root))
+        self.assertIn("RMD008", findings)
+
     def test_reports_missing_header_anchor(self) -> None:
         validator = load_validator()
         root = self.make_repo('<a href="#quality"><img src="badge.svg" alt="Quality" /></a>\n', {"badge.svg": "<svg/>"})

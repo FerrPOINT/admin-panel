@@ -35,9 +35,12 @@ def validate(root: Path) -> list[str]:
     findings: list[str] = []
     images = set(MARKDOWN_IMAGE_RE.findall(text)) | set(HTML_IMAGE_RE.findall(text))
     links = set(MARKDOWN_LINK_RE.findall(text))
+    has_ui_gallery = any("docs/screenshots/" in raw for raw in images)
 
     for raw in sorted(images):
         target = local_target(raw)
+        if target and re.search(r"(?:^|/)(?:\d+x\d+|mobile)(?:/|[-_.])", target, re.IGNORECASE) and "1920x1080" not in target:
+            findings.append("RMD007: README.md: mobile screenshot included in README gallery")
         if target and not (root / target).is_file():
             findings.append(f"RMD003: README.md: missing local image {target}")
 
@@ -55,6 +58,10 @@ def validate(root: Path) -> list[str]:
         findings.append("RMD005: README.md: unresolved template placeholder")
     if LOCAL_PATH_RE.search(text):
         findings.append("RMD006: README.md: local filesystem path leaked")
+    if has_ui_gallery:
+        for layout in ("wide", "reading/form", "detail-with-aside"):
+            if not re.search(rf"^### .+\(`{re.escape(layout)}`\)$", text, re.MULTILINE):
+                findings.append(f"RMD008: README.md: missing desktop layout example: {layout}")
 
     for workflow in sorted(set(CI_BADGE_RE.findall(text))):
         if not (root / ".github" / "workflows" / workflow).is_file():

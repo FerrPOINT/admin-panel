@@ -40,6 +40,10 @@ describe('AppShell', () => {
     renderShell()
 
     expect(screen.getByRole('heading', { name: 'Service content' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Service content' }).parentElement).toHaveAttribute(
+      'data-page-layout',
+      'detail-with-aside',
+    )
     for (const label of [
       'Обзор',
       'Брендинг',
