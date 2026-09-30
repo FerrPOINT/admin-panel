@@ -71,9 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
-    clearSession()
     endSso(ssoConfig)
-  }, [clearSession])
+  }, [])
 
   useEffect(() => {
     sessionStorage.removeItem('base.admin.token')

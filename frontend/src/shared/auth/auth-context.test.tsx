@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { AuthProvider, authToken, useAuth } from './auth-context'
 
+const sso = vi.hoisted(() => ({ endSso: vi.fn() }))
+vi.mock('@sdlc/ui/sso', () => ({ endSso: sso.endSso }))
+
 function Probe() {
-  const { status, session, canMutate, canManageBindings, acceptSso } = useAuth()
+  const { status, session, canMutate, canManageBindings, acceptSso, logout } = useAuth()
   return (
     <div>
       <span data-testid="status">{status}</span>
@@ -24,6 +27,7 @@ function Probe() {
       >
         Accept SSO
       </button>
+      <button onClick={logout}>Logout</button>
     </div>
   )
 }
@@ -54,6 +58,7 @@ function loginResponse(
 describe('AuthProvider', () => {
   beforeEach(() => {
     sessionStorage.clear()
+    sso.endSso.mockReset()
     vi.stubGlobal('fetch', vi.fn())
   })
   afterEach(() => {
@@ -105,6 +110,22 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
     expect(screen.getByTestId('mutate').textContent).toBe('false')
     expect(screen.getByTestId('bindings').textContent).toBe('false')
+  })
+
+  it('hands logout to Central Auth without entering the automatic login route', async () => {
+    vi.mocked(fetch).mockResolvedValue(loginResponse(true) as unknown as Response)
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Accept SSO' }))
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('authenticated'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Logout' }))
+
+    expect(sso.endSso).toHaveBeenCalledOnce()
+    expect(screen.getByTestId('status').textContent).toBe('authenticated')
   })
 
   it.each([null, {}, { mutate: 'yes', manage_bindings: 1 }])(
