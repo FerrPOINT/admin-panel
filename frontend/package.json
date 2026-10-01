@@ -64,5 +64,10 @@
     "yaml": "^2.9.0",
     "openapi-typescript": "7.13.0"
   },
-  "packageManager": "pnpm@10.28.1"
+  "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "overrides": {
+      "jsdom>nwsapi": "2.2.28"
+    }
+  }
 }

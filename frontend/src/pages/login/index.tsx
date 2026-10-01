@@ -31,13 +31,14 @@ export function LoginPage() {
         )}
         <Button
           className="w-full"
-          onClick={() =>
+          onClick={() => {
+            setError(null)
             void beginSso(ssoConfig, destination, { interactive: true }).catch((error: unknown) =>
               setError(
                 isSsoNavigationInterruption(error) ? null : 'Central Auth временно недоступен.',
               ),
             )
-          }
+          }}
         >
           Войти через SDLC
         </Button>
