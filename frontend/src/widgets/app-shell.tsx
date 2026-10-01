@@ -1,4 +1,4 @@
-import { useState, type ElementType } from 'react'
+import { useEffect, useState, type ElementType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import {
   History,
@@ -21,9 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   PageFrame,
   PlatformMark,
-  ServiceSwitcher,
+  PlatformHeader,
   ThemeToggle,
 } from '@sdlc/ui/ui'
 import { useAuth } from '@/shared/auth/auth-context'
@@ -59,62 +63,52 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background text-text-primary">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--shell-sidebar-compact)] flex-col border-r border-border bg-surface px-2 py-3 md:flex xl:w-[var(--shell-sidebar-expanded)] xl:px-3">
-        <div className="mb-4 flex h-10 items-center justify-center gap-3 px-1 xl:justify-start xl:px-2">
-          <PlatformMark withName={false} />
-          <div className="hidden min-w-0 xl:block">
-            <p className="truncate text-sm font-semibold text-text-primary">Admin Panel</p>
-            <p className="truncate text-xs text-text-muted">Управление платформой</p>
-          </div>
-        </div>
+      <PlatformHeader
+        currentServiceKey="admin-panel"
+        leading={
+          <>
+            <MobileNavigation items={navItems} />
+            <NavLink
+              to="/"
+              aria-label="Admin Panel"
+              className="flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <PlatformMark size="sm" withName={false} />
+            </NavLink>
+          </>
+        }
+        actions={
+          <>
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Аккаунт"
+                  title="Аккаунт"
+                >
+                  <UserRound className="h-4 w-4" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-2rem)]">
+                <div className="break-words px-2 py-2 text-sm font-medium text-text-primary">
+                  {operatorName}
+                </div>
+                <DropdownMenuItem onSelect={logout} className="min-h-11 gap-2 md:min-h-10">
+                  <LogOut className="h-4 w-4" aria-hidden />
+                  Выйти
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+      <aside className="fixed bottom-0 left-0 top-[var(--shell-header-height)] z-20 hidden w-[var(--shell-sidebar-compact)] flex-col border-r border-border bg-surface px-2 py-3 md:flex xl:w-[var(--shell-sidebar-expanded)] xl:px-3">
         <ShellNavigation items={navItems} compact />
-        <div className="mt-auto border-t border-border px-1 pt-3 xl:px-2">
-          <div
-            className="flex min-h-10 items-center justify-center gap-3 text-text-secondary xl:justify-start"
-            title={operatorName}
-          >
-            <UserRound className="h-4 w-4 shrink-0" aria-hidden />
-            <p className="hidden min-w-0 truncate text-sm font-medium text-text-primary xl:block">
-              {operatorName}
-            </p>
-            <span className="sr-only xl:hidden">{operatorName}</span>
-          </div>
-        </div>
       </aside>
-
-      <div className="min-w-0 overflow-x-hidden md:pl-[var(--shell-sidebar-compact)] xl:pl-[var(--shell-sidebar-expanded)]">
-        <header className="sticky top-0 z-20 h-[var(--shell-header-height)] border-b border-border bg-background/95 backdrop-blur">
-          <div className="flex h-full items-center gap-2 px-4 md:px-5 xl:px-6">
-            <MobileNavigation items={navItems} operatorName={operatorName} />
-            <div className="min-w-0 md:hidden">
-              <p className="truncate text-sm font-semibold text-text-primary">Admin Panel</p>
-              <p className="truncate text-xs text-text-muted">Управление платформой</p>
-            </div>
-
-            <p className="ml-auto hidden min-w-0 truncate text-xs font-medium text-text-primary lg:block">
-              {operatorName}
-            </p>
-            <div className="ml-auto flex shrink-0 items-center gap-1 sm:ml-0 sm:gap-2 lg:ml-0">
-              <ServiceSwitcher currentKey="admin-panel" />
-              <div className="[&>button]:h-10 [&>button]:min-h-10 [&>button]:w-10 [&>button]:min-w-10">
-                <ThemeToggle />
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="h-10 min-h-10 w-10 min-w-10 sm:w-auto sm:px-3"
-                aria-label="Выйти"
-                title="Выйти"
-                onClick={logout}
-              >
-                <LogOut className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Выйти</span>
-              </Button>
-            </div>
-          </div>
-        </header>
-
+      <div className="min-w-0 md:pl-[var(--shell-sidebar-compact)] xl:pl-[var(--shell-sidebar-expanded)]">
         <main className="shell-main min-h-[calc(100dvh-var(--shell-header-height))]">
           <PageFrame mode={pageLayout}>
             <Outlet />
@@ -145,7 +139,7 @@ function ShellNavigation({
           aria-label={compact ? item.label : undefined}
           title={compact ? item.label : undefined}
           className={({ isActive }) =>
-            `flex h-10 items-center gap-3 rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+            `flex min-h-11 items-center gap-3 rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:min-h-10 ${
               compact ? 'justify-center xl:justify-start' : ''
             } ${isActive ? 'bg-surface-raised text-text-primary' : ''}`
           }
@@ -158,8 +152,17 @@ function ShellNavigation({
   )
 }
 
-function MobileNavigation({ items, operatorName }: { items: NavItem[]; operatorName: string }) {
+function MobileNavigation({ items }: { items: NavItem[] }) {
   const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!window.matchMedia) return
+    const media = window.matchMedia('(min-width: 768px)')
+    const closeOnDesktop = () => {
+      if (media.matches) setOpen(false)
+    }
+    media.addEventListener('change', closeOnDesktop)
+    return () => media.removeEventListener('change', closeOnDesktop)
+  }, [])
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -175,7 +178,7 @@ function MobileNavigation({ items, operatorName }: { items: NavItem[]; operatorN
           <Menu className="h-5 w-5" aria-hidden />
         </Button>
       </DialogTrigger>
-      <DialogContent className="!left-0 !top-0 !flex !h-dvh !max-h-dvh !w-[min(320px,calc(100%-2rem))] !max-w-none !translate-x-0 !translate-y-0 !flex-col !gap-0 !rounded-none !border-y-0 !border-l-0 !p-0 [&>button]:h-10 [&>button]:min-h-10 [&>button]:w-10 [&>button]:min-w-10">
+      <DialogContent className="!left-0 !top-0 !flex !h-dvh !max-h-dvh !w-[min(320px,calc(100%-2rem))] !max-w-none !translate-x-0 !translate-y-0 !flex-col !gap-0 !rounded-none !border-y-0 !border-l-0 !p-0 [&>button]:h-11 [&>button]:min-h-11 [&>button]:w-11 [&>button]:min-w-11">
         <DialogHeader className="flex h-[var(--shell-header-height)] flex-row items-center gap-3 border-b border-border px-4 pr-14 text-left">
           <PlatformMark withName={false} />
           <div className="min-w-0">
@@ -185,9 +188,6 @@ function MobileNavigation({ items, operatorName }: { items: NavItem[]; operatorN
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-4">
           <ShellNavigation items={items} onNavigate={() => setOpen(false)} />
-          <div className="mt-auto border-t border-border px-3 pt-4">
-            <p className="truncate text-sm font-medium text-text-primary">{operatorName}</p>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

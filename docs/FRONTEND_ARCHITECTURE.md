@@ -55,7 +55,7 @@ Frontend получает access token через согласованный flo
 
 ## 7. UI Shell Contract
 
-Admin Panel follows the Base [UI Shell Standard](https://github.com/FerrPOINT/services-base/blob/main/docs/platform/UI_SHELL_STANDARD.md). `AppShell` owns the shared 264 px/72 px left navigation, 60 px header and full-width right work area. Routes use only `wide`, `reading/form` or `detail-with-aside`; they do not select Admin Panel-specific shell geometry.
+Admin Panel follows the Base [UI Shell Standard](https://github.com/FerrPOINT/services-base/blob/main/docs/platform/UI_SHELL_STANDARD.md). `AppShell` composes the shared `PlatformHeader` outside the sidebar-offset work area. Base owns its 60 px height and leading/services/actions slots; the 264 px/72 px left navigation starts below it. Routes use only `wide`, `reading/form` or `detail-with-aside`; they do not select Admin Panel-specific shell geometry.
 
 - Overview, integration catalog, revision history, audit and health use `wide`.
   Filters and tables keep local overflow inside their own container.
@@ -68,6 +68,11 @@ Admin Panel follows the Base [UI Shell Standard](https://github.com/FerrPOINT/se
 - Service/profile/theme controls stay in the single global header row. Page
   title, revision state, filters and publication actions live below it in
   page-owned header/action rows.
+- Operator identity appears only in the account menu, together with central
+  logout. The sidebar contains product navigation, not duplicated profile
+  controls. Switching to desktop closes an open mobile drawer.
+- The installed Base snapshot and lockfile are updated together. React Router
+  8.4 satisfies the common UI peer contract; this does not alter Admin APIs.
 - Shell/layout changes require browser evidence at 375, 1440 and 2560 px:
   active navigation, header alignment, no document overflow and a keyboard
   drawer flow.

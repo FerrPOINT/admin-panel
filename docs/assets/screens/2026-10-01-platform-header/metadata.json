@@ -1,0 +1,22 @@
+{
+  "mock_api": false,
+  "base_commit": "f7726b150b1d04c3ba2f96dc4900e544d8b22432",
+  "runtime_image_ref": "sha256:5c21bf51674f8a810b20f5da2136deccf40b2a8f0bc74d21dd59249ccfca3691",
+  "build_config_digest": "sha256:c37e2c2240b8089ae17f3b6fd7fa25b78e822896e916e5a2440388da51aef26d",
+  "effective_service_config_hash": "f9c2088c0e961124d244488df9df5a6067ce0e672deb7fe6d9df05dc4b92057c",
+  "app_shell_sha256": "921fa7a3b40fc8957abac573016667b1a2f22d7c429aa084e261ca91d6938b1b",
+  "pnpm_lock_sha256": "c36d192cb7693906b378c1e30c4dfc6d2adf95f8ee1b2bd81a8792a313eecd71",
+  "javascript": {
+    "file": "index-Bbd-pwnE.js",
+    "sha256": "f0e65174863906f7abf508b75151d7d3b9f7647412d8f7d0cc3d61a338c595f5"
+  },
+  "css": {
+    "file": "index-unIQ2_WB.css",
+    "sha256": "8197d6b50b8286a8c4d313fb911b51341aacfb246a1654fa48aefd8063837125"
+  },
+  "limitations": [
+    "Header slice acceptance, not complete SDLC release acceptance",
+    "Source fingerprints, not an OCI revision attestation",
+    "Screenshots contain isolated QA records, not production credentials"
+  ]
+}
