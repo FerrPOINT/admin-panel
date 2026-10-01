@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-10-01T00:13:15Z",
+  "mode": "live-isolated-production",
+  "mocked_api": false,
+  "source_base": "664ebb5ace0a3d5aa0ff3704d67dc767ff94edb6",
+  "source_branch": "fix/service-detail-shared-rail",
+  "source_fingerprints_sha256": {
+    "frontend/src/pages/service-detail/index.tsx": "D87472279F3EF401A3F1F237CDC5DF62C84BDF67C466B3C4955333483BC44446"
+  },
+  "shared_base_commit": "a679930167bcfc176831e53269c25eb53329bc58",
+  "runtime_image": "sha256:b0a45ec93bf06167017b322d080b5f9e578ca0ba7e2edaa97edaa516515698d6",
+  "runtime_config_hash": "f9c2088c0e961124d244488df9df5a6067ce0e672deb7fe6d9df05dc4b92057c",
+  "passed": 3,
+  "failed": 0,
+  "skipped": 0,
+  "retries": 0,
+  "duration_minutes": 1.3,
+  "geometry_combinations": 54,
+  "route_matrix_combinations": 120,
+  "api_mutations_in_detail_qa": 0,
+  "themes": ["light", "gray", "dark"],
+  "geometry_viewport_widths": [375, 768, 1023, 1024, 1279, 1280, 1440, 1920, 2560],
+  "rail_width": 320,
+  "rail_breakpoint": 1024,
+  "limitations": [
+    "Source fingerprint and checkout are not an OCI revision attestation.",
+    "Working sdlc-demo was not rolled out.",
+    "Header/profile ownership and final platform release gate remain open."
+  ]
+}

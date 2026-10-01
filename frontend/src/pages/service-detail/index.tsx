@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
@@ -58,6 +58,7 @@ export function ServiceDetailPage() {
   const [initializedFor, setInitializedFor] = useState('')
   const [draftDirty, setDraftDirty] = useState(false)
   const [statusTarget, setStatusTarget] = useState<'disable' | 'retire' | null>(null)
+  const statusTrigger = useRef<HTMLButtonElement | null>(null)
   const activeDeclaration = service.data?.declarations.find(
     (declaration) => declaration.id === service.data?.service.active_declaration_id,
   )
@@ -145,97 +146,8 @@ export function ServiceDetailPage() {
         <p className="mt-1 text-sm text-text-muted">Контракт, проверки и история интеграции</p>
       </div>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <aside className="space-y-4 xl:col-start-2 xl:row-start-1 xl:sticky xl:top-20">
-          <section className="rounded-lg border border-border bg-surface p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold">Состояние сервиса</h2>
-              <span
-                className={`rounded-md border px-2.5 py-1 text-xs font-medium ${STATUS_CLASSES[entry.status] ?? 'border-border text-text-secondary'}`}
-              >
-                {STATUS_LABELS[entry.status] ?? entry.status}
-              </span>
-            </div>
-            <dl className="mt-4 divide-y divide-border text-sm">
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2 first:pt-0">
-                <dt className="text-text-muted">Ключ</dt>
-                <dd className="break-all text-right font-mono text-xs text-text-primary">
-                  {entry.service_key}
-                </dd>
-              </div>
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2">
-                <dt className="text-text-muted">Команда</dt>
-                <dd className="break-words text-right text-text-primary">{entry.owner_team}</dd>
-              </div>
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2">
-                <dt className="text-text-muted">Версия</dt>
-                <dd className="text-right text-text-primary">{entry.version}</dd>
-              </div>
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2">
-                <dt className="text-text-muted">Декларации</dt>
-                <dd className="text-right text-text-primary">{declarations.length}</dd>
-              </div>
-              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2 last:pb-0">
-                <dt className="text-text-muted">Активная</dt>
-                <dd className="text-right text-text-primary">
-                  {active ? `v${active.declaration_version}` : 'Нет'}
-                </dd>
-              </div>
-            </dl>
-
-            {canMutate ? (
-              <div className="mt-4 space-y-2 border-t border-border pt-4">
-                <h3 className="text-xs font-medium uppercase text-text-muted">Действия</h3>
-                {pending ? (
-                  <Button
-                    className="h-10 w-full"
-                    disabled={isMutating}
-                    onClick={() =>
-                      approve.mutate(
-                        { declarationId: pending.id, version },
-                        {
-                          onSuccess: () => toast.success('Декларация одобрена'),
-                          onError: (error) =>
-                            toast.error(
-                              error instanceof Error ? error.message : 'Не удалось одобрить',
-                            ),
-                        },
-                      )
-                    }
-                  >
-                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Одобрить декларацию v
-                    {pending.declaration_version}
-                  </Button>
-                ) : null}
-                {entry.status !== 'disabled' && entry.status !== 'retired' ? (
-                  <div className="grid gap-2">
-                    <Button
-                      variant="outline"
-                      className="h-10 w-full"
-                      disabled={isMutating}
-                      onClick={() => setStatusTarget('disable')}
-                    >
-                      Отключить
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-10 w-full"
-                      disabled={isMutating}
-                      onClick={() => setStatusTarget('retire')}
-                    >
-                      Вывести из эксплуатации
-                    </Button>
-                  </div>
-                ) : null}
-                {!pending && (entry.status === 'disabled' || entry.status === 'retired') ? (
-                  <p className="text-xs text-text-muted">Доступных действий нет.</p>
-                ) : null}
-              </div>
-            ) : null}
-          </section>
-        </aside>
-
-        <div className="min-w-0 space-y-5 xl:col-start-1 xl:row-start-1">
+      <div className="page-split items-start" data-page-layout="detail-with-aside">
+        <div className="min-w-0 space-y-5">
           <section className="rounded-lg border border-border bg-surface p-4 sm:p-5">
             <h2 className="mb-4 flex items-center gap-2 text-sm font-medium">
               <ShieldCheck className="h-4 w-4 text-accent" aria-hidden /> Активный контракт
@@ -412,6 +324,103 @@ export function ServiceDetailPage() {
             </div>
           </section>
         </div>
+        <aside
+          className="min-w-0 space-y-4 lg:sticky lg:top-20"
+          aria-label="Состояние и действия сервиса"
+        >
+          <section className="rounded-lg border border-border bg-surface p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold">Состояние сервиса</h2>
+              <span
+                className={`rounded-md border px-2.5 py-1 text-xs font-medium ${STATUS_CLASSES[entry.status] ?? 'border-border text-text-secondary'}`}
+              >
+                {STATUS_LABELS[entry.status] ?? entry.status}
+              </span>
+            </div>
+            <dl className="mt-4 divide-y divide-border text-sm">
+              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2 first:pt-0">
+                <dt className="text-text-muted">Ключ</dt>
+                <dd className="break-all text-right font-mono text-xs text-text-primary">
+                  {entry.service_key}
+                </dd>
+              </div>
+              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2">
+                <dt className="text-text-muted">Команда</dt>
+                <dd className="break-words text-right text-text-primary">{entry.owner_team}</dd>
+              </div>
+              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2">
+                <dt className="text-text-muted">Версия</dt>
+                <dd className="text-right text-text-primary">{entry.version}</dd>
+              </div>
+              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2">
+                <dt className="text-text-muted">Декларации</dt>
+                <dd className="text-right text-text-primary">{declarations.length}</dd>
+              </div>
+              <div className="grid grid-cols-[100px_minmax(0,1fr)] gap-3 py-2 last:pb-0">
+                <dt className="text-text-muted">Активная</dt>
+                <dd className="text-right text-text-primary">
+                  {active ? `v${active.declaration_version}` : 'Нет'}
+                </dd>
+              </div>
+            </dl>
+
+            {canMutate ? (
+              <div className="mt-4 space-y-2 border-t border-border pt-4">
+                <h3 className="text-xs font-medium uppercase text-text-muted">Действия</h3>
+                {pending ? (
+                  <Button
+                    className="h-10 w-full"
+                    disabled={isMutating}
+                    onClick={() =>
+                      approve.mutate(
+                        { declarationId: pending.id, version },
+                        {
+                          onSuccess: () => toast.success('Декларация одобрена'),
+                          onError: (error) =>
+                            toast.error(
+                              error instanceof Error ? error.message : 'Не удалось одобрить',
+                            ),
+                        },
+                      )
+                    }
+                  >
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Одобрить декларацию v
+                    {pending.declaration_version}
+                  </Button>
+                ) : null}
+                {entry.status !== 'disabled' && entry.status !== 'retired' ? (
+                  <div className="grid gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-10 w-full"
+                      disabled={isMutating}
+                      onClick={(event) => {
+                        statusTrigger.current = event.currentTarget
+                        setStatusTarget('disable')
+                      }}
+                    >
+                      Отключить
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-10 w-full"
+                      disabled={isMutating}
+                      onClick={(event) => {
+                        statusTrigger.current = event.currentTarget
+                        setStatusTarget('retire')
+                      }}
+                    >
+                      Вывести из эксплуатации
+                    </Button>
+                  </div>
+                ) : null}
+                {!pending && (entry.status === 'disabled' || entry.status === 'retired') ? (
+                  <p className="text-xs text-text-muted">Доступных действий нет.</p>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+        </aside>
       </div>
 
       <Dialog
@@ -420,7 +429,14 @@ export function ServiceDetailPage() {
           if (!open && !changeStatus.isPending) setStatusTarget(null)
         }}
       >
-        <DialogContent>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            if (statusTrigger.current?.isConnected) {
+              event.preventDefault()
+              statusTrigger.current.focus()
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               {statusTarget === 'retire' ? 'Вывести сервис из эксплуатации?' : 'Отключить сервис?'}
