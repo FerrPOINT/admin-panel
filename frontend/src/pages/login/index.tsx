@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router'
-import { beginSso } from '@sdlc/ui/sso'
+import { beginSso, isSsoNavigationInterruption } from '@sdlc/ui/sso'
 import { Button, PlatformMark } from '@sdlc/ui/ui'
 import { useAuth, ssoConfig } from '@/shared/auth/auth-context'
 
@@ -13,7 +13,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (status !== 'anonymous' || loggedOut) return
-    void beginSso(ssoConfig, destination).catch(() => setError('Central Auth временно недоступен.'))
+    void beginSso(ssoConfig, destination).catch((error: unknown) =>
+      setError(isSsoNavigationInterruption(error) ? null : 'Central Auth временно недоступен.'),
+    )
   }, [status, loggedOut, destination])
 
   if (status === 'authenticated') return <Navigate to={destination} replace />
@@ -30,8 +32,10 @@ export function LoginPage() {
         <Button
           className="w-full"
           onClick={() =>
-            void beginSso(ssoConfig, destination).catch(() =>
-              setError('Central Auth временно недоступен.'),
+            void beginSso(ssoConfig, destination, { interactive: true }).catch((error: unknown) =>
+              setError(
+                isSsoNavigationInterruption(error) ? null : 'Central Auth временно недоступен.',
+              ),
             )
           }
         >
