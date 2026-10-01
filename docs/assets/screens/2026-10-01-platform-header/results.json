@@ -1,0 +1,509 @@
+{
+  "mock_api": false,
+  "retries": 0,
+  "cases": [
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 320
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 375
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 767
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 768
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 1023
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 1024
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 1279
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 1280
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 1440
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 1920
+    },
+    {
+      "route": "/services",
+      "theme": "light",
+      "width": 2560
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 320
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 375
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 767
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 768
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 1023
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 1024
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 1279
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 1280
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 1440
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 1920
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "light",
+      "width": 2560
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 320
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 375
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 767
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 768
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 1023
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 1024
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 1279
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 1280
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 1440
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 1920
+    },
+    {
+      "route": "/users",
+      "theme": "light",
+      "width": 2560
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 320
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 375
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 767
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 768
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 1023
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 1024
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 1279
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 1280
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 1440
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 1920
+    },
+    {
+      "route": "/services",
+      "theme": "gray",
+      "width": 2560
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 320
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 375
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 767
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 768
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 1023
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 1024
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 1279
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 1280
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 1440
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 1920
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "gray",
+      "width": 2560
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 320
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 375
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 767
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 768
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 1023
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 1024
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 1279
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 1280
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 1440
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 1920
+    },
+    {
+      "route": "/users",
+      "theme": "gray",
+      "width": 2560
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 320
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 375
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 767
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 768
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 1023
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 1024
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 1279
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 1280
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 1440
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 1920
+    },
+    {
+      "route": "/services",
+      "theme": "dark",
+      "width": 2560
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 320
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 375
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 767
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 768
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 1023
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 1024
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 1279
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 1280
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 1440
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 1920
+    },
+    {
+      "route": "/services/admin-panel",
+      "theme": "dark",
+      "width": 2560
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 320
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 375
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 767
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 768
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 1023
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 1024
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 1279
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 1280
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 1440
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 1920
+    },
+    {
+      "route": "/users",
+      "theme": "dark",
+      "width": 2560
+    }
+  ],
+  "runtime_errors": [],
+  "admin_writes": [],
+  "interactions": [
+    "service keyboard/touch/outside/focus",
+    "drawer navigation/Escape/desktop resize",
+    "profile keyboard/focus",
+    "central logout/re-entry"
+  ]
+}

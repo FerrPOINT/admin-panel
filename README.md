@@ -42,6 +42,10 @@
 
 ## Snapshot
 
+Общий Header проверяется на production-образе с настоящими Central Auth и API:
+[приёмка 320–2560 px, три темы, клавиатура, touch и выход](docs/assets/screens/2026-10-01-platform-header/README.md).
+Он занимает всю ширину; sidebar содержит только разделы, аккаунт и выход находятся в меню шапки.
+
 | Поле | Значение |
 |---|---|
 | Backend | Rust 2024, Axum 0.8, SQLx 0.8, PostgreSQL 17 |

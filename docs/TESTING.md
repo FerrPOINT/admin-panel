@@ -62,6 +62,20 @@
 
 ## Команды и контроль качества
 
+Для приёмки общего Header на уже запущенном QA-стенде:
+
+```powershell
+$env:SDLC_LIVE_QA = '1'
+$env:SDLC_QA_SESSION_FILE = '<absolute-private-qa-session-path>'
+$env:PLAYWRIGHT_BASE_URL = 'http://localhost:7772'
+pnpm -C frontend exec playwright test e2e/platform-header-live.spec.ts --project chromium --workers 1 --retries 0
+```
+
+Учётка — отдельная QA identity, credentials не публикуются. Тест не создаёт
+и не меняет Admin записи, но выполняет настоящий глобальный выход. Не запускать
+его параллельно с другими тестами, использующими ту же browser session.
+Другие проверки страницы/detail и платформенный SSO suite дополняют этот тест.
+
 Фактические команды определяются после выбора стека. Минимальный pipeline: форматирование и статический анализ, unit, integration с PostgreSQL, contract runtime API, E2E утвержденных экранов, проверка миграции на чистой и обновляемой базе. Сборка или релиз не допускаются при провале любой обязательной группы.
 
 ## Критерии приемки
