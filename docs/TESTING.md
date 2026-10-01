@@ -66,6 +66,22 @@
 
 ## Критерии приемки
 
+Карточка сервиса дополнительно проверяется no-mock тестом
+`frontend/e2e/service-detail-layout-live.spec.ts`. На уже работающем стенде:
+
+```powershell
+$env:SDLC_LIVE_QA = '1'
+$env:PLAYWRIGHT_BASE_URL = 'http://localhost:7772'
+pnpm --dir frontend exec playwright test e2e/service-detail-layout-live.spec.ts --project chromium --workers 1 --retries 0
+```
+
+Учётка читается из `services-base/deploy/.local/qa-session.json` соседнего Base
+либо явного `SDLC_QA_SESSION_FILE`; секреты и trace не публикуются. Проверяются
+карточки UI/API-only, 54 сочетания ширин/тем, actual rail/gap/position/DOM order,
+keyboard confirm/cancel и возврат фокуса. Данные не изменяются. Полная Admin
+route/theme/viewport матрица с axe из Task Tracker запускается на том же образе;
+geometry тест сам по себе не является проверкой accessibility всего приложения.
+
 - Все обязательные тесты проходят воспроизводимо в чистом окружении.
 - Миграции применяются и откатываются в тестовом сценарии согласно политике БД.
 - Есть доказательство conditional GET и fallback на product defaults.

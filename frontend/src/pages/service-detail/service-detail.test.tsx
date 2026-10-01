@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { toast } from 'sonner'
 import {
@@ -80,6 +80,26 @@ beforeEach(() => {
 })
 
 describe('ServiceDetailPage', () => {
+  it('uses the shared detail split with primary content before its named context', () => {
+    render(
+      <MemoryRouter initialEntries={['/services/admin-panel']}>
+        <Routes>
+          <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const rail = screen.getByRole('complementary', { name: 'Состояние и действия сервиса' })
+    const layout = rail.parentElement!
+    expect(layout).toHaveClass('page-split', 'items-start')
+    expect(layout).toHaveAttribute('data-page-layout', 'detail-with-aside')
+    expect(layout.lastElementChild).toBe(rail)
+    expect(
+      within(layout.firstElementChild as HTMLElement).getByText('Активный контракт интеграции'),
+    ).toBeInTheDocument()
+    expect(within(rail).getByRole('button', { name: 'Отключить' })).toBeInTheDocument()
+  })
+
   it('keeps selected capability labels readable on the tinted background', () => {
     render(
       <MemoryRouter initialEntries={['/services/admin-panel']}>
@@ -110,6 +130,27 @@ describe('ServiceDetailPage', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Отключить' }))
     expect(changeStatus).toHaveBeenCalledWith({ action: 'disable', version: 1 }, expect.any(Object))
   })
+
+  it.each(['Отключить', 'Вывести из эксплуатации'])(
+    'returns focus to %s after confirmation cancel without a mutation',
+    async (name) => {
+      render(
+        <MemoryRouter initialEntries={['/services/admin-panel']}>
+          <Routes>
+            <Route path="/services/:serviceKey" element={<ServiceDetailPage />} />
+          </Routes>
+        </MemoryRouter>,
+      )
+      const trigger = screen.getByRole('button', { name })
+      trigger.focus()
+      fireEvent.click(trigger)
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Отмена' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      await waitFor(() => expect(trigger).toHaveFocus())
+      expect(changeStatus).not.toHaveBeenCalled()
+    },
+  )
 
   it('locks declaration fields during submission and preserves them after failure', () => {
     const view = render(
