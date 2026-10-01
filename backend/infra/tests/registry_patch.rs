@@ -51,7 +51,8 @@ async fn patch_entry_is_atomic_and_increments_version_once() {
          declaration_version integer NOT NULL, integration_base_url text NOT NULL, \
          public_ui_url text, capabilities jsonb NOT NULL, service_contract_version text NOT NULL, \
          declared_by_subject text NOT NULL, declared_at timestamptz NOT NULL, \
-         approval_status text NOT NULL, content_hash text NOT NULL, \
+         approval_status text NOT NULL, approved_by_subject text, approved_at timestamptz, \
+         content_hash text NOT NULL, \
          UNIQUE (registry_entry_id, content_hash))",
     )
     .execute(&pool)
@@ -143,6 +144,24 @@ async fn patch_entry_is_atomic_and_increments_version_once() {
     .await
     .expect("count after failures");
     assert_eq!(declarations_after, 2);
+
+    let (approved_entry, approved_declaration) = store
+        .approve_declaration(&entry.service_key, changed.id, "qa-approver", 3)
+        .await
+        .expect("approve declaration with public UI URL");
+    assert_eq!(approved_entry.status, ServiceStatus::Active);
+    assert_eq!(approved_entry.active_declaration_id, Some(changed.id));
+    assert_eq!(
+        approved_declaration.approval_status,
+        ApprovalStatus::Approved
+    );
+    assert_eq!(approved_declaration.public_ui_url, changed.public_ui_url);
+    let published = store
+        .active_declaration(entry.id)
+        .await
+        .expect("read published declaration")
+        .expect("published declaration exists");
+    assert_eq!(published.public_ui_url, changed.public_ui_url);
 }
 
 fn declaration(entry_id: Uuid, content: &str) -> Declaration {
@@ -151,7 +170,7 @@ fn declaration(entry_id: Uuid, content: &str) -> Declaration {
         registry_entry_id: entry_id,
         declaration_version: 1,
         integration_base_url: "http://localhost:8080".into(),
-        public_ui_url: None,
+        public_ui_url: Some("http://localhost:8081".into()),
         capabilities: vec!["health.read".into()],
         service_contract_version: "v1".into(),
         declared_by_subject: "qa-user".into(),

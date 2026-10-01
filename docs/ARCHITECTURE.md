@@ -140,3 +140,7 @@ PostgreSQL Admin Panel — единственный источник правд�
 - `docs/API.md`
 - `docs/RUNTIME.md`
 - `docs/SECURITY.md`
+
+## Общая база
+
+Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).

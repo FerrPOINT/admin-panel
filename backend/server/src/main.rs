@@ -13,12 +13,15 @@ mod health_worker;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .json()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
-        )
-        .init();
+    sdlc_telemetry::init_tracing_with_options(
+        "admin-panel",
+        sdlc_telemetry::TracingOptions {
+            json: true,
+            target: true,
+            current_span: true,
+            default_filter: "info",
+        },
+    );
 
     let config = Arc::new(AppConfig::from_env().expect("failed to load config"));
 
@@ -50,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(String::as_str)
         .collect();
     let cors = tower_http::cors::CorsLayer::new()
+        .expose_headers([axum::http::HeaderName::from_static("x-request-id")])
         .allow_origin(
             allow_origins
                 .iter()
@@ -63,6 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::Method::DELETE,
         ])
         .allow_headers([
+            axum::http::HeaderName::from_static("x-request-id"),
             axum::http::header::CONTENT_TYPE,
             axum::http::header::IF_NONE_MATCH,
             axum::http::header::IF_MATCH,

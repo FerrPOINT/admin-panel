@@ -48,31 +48,38 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: admin-panel
+      - name: Read pinned Base revision
+        id: base
+        working-directory: admin-panel
+        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
       - name: Check out services-base sibling (sdlc-auth-core path dep)
         uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
-          ref: main
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          ref: ${{ steps.base.outputs.sha }}
+      - name: Verify pinned Base checkout
+        working-directory: admin-panel
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
+          toolchain: "1.88.0"
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: admin-panel/backend
       - name: cargo fmt
         run: cargo fmt --all -- --check
-      - name: cargo clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: cargo test
-        run: cargo test --workspace
+      - name: cargo clippy --locked
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: cargo test --locked
+        run: cargo test --locked --workspace
         env:
           ADMIN_PANEL_AUDIT_TEST_DATABASE_URL: postgres://audit_test@localhost:5432/admin_panel_audit_test
       - name: OpenAPI spec is up to date
         run: |
-          cargo run -p admin-panel-api --bin gen-openapi > /tmp/openapi.generated.json
+          cargo run --locked -p admin-panel-api --bin gen-openapi > /tmp/openapi.generated.json
           python3 - <<'PYEOF'
           import json
           gen = json.load(open('/tmp/openapi.generated.json'))
@@ -92,19 +99,26 @@ jobs:
       - uses: actions/checkout@v7
         with:
           path: admin-panel
+      - name: Read pinned Base revision
+        id: base
+        working-directory: admin-panel
+        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
       - name: Check out services-base sibling (@sdlc/ui file dep)
         uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
           path: services-base
-          ref: main
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
+          ref: ${{ steps.base.outputs.sha }}
+      - name: Verify pinned Base checkout
+        working-directory: admin-panel
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
       - uses: pnpm/action-setup@v6
         with:
-          version: 10.23.0
+          version: 10.28.1
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: "22.20.0"
           cache: pnpm
           cache-dependency-path: admin-panel/frontend/pnpm-lock.yaml
       - name: Install
@@ -113,12 +127,29 @@ jobs:
           CI: 'true'
       - name: Lint
         run: pnpm lint
+      - name: Formatting
+        run: pnpm format:check
       - name: Typecheck
         run: pnpm typecheck
       - name: Test
         run: pnpm test
+      - name: OpenAPI drift and immutable lockfiles
+        run: |
+          pnpm openapi:check
+          git diff --exit-code -- src/shared/api/schema.d.ts pnpm-lock.yaml
+      - name: OpenAPI compatibility against target branch
+        run: |
+          git fetch origin main --depth=1
+          pnpm openapi:compat
       - name: Build
         run: pnpm build
+      - name: Packed Base consumer
+        run: python ../../services-base/scripts/check_ui_consumer.py
+      - name: Effective themes in the built consumer
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/theme-preview.log 2>&1 &
+          pnpm theme:check http://127.0.0.1:4173
 
   compose-config:
     runs-on: ubuntu-latest
@@ -126,3 +157,33 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker compose -f docker-compose.dev.yml config -q
+
+  minimum-rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: admin-panel
+      - name: Read pinned Base revision
+        id: base
+        working-directory: admin-panel
+        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: ${{ steps.base.outputs.sha }}
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - name: Verify pinned Base checkout
+        working-directory: admin-panel
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.88.0"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: admin-panel/backend
+      - name: Check declared minimum independently of release builds
+        working-directory: admin-panel/backend
+        run: cargo check --locked --workspace --all-targets

@@ -24,7 +24,9 @@ createRoot(document.getElementById('root')!).render(
         <ThemeProvider>
           <AuthProvider>
             <PlatformProvider configUrl={import.meta.env.VITE_PLATFORM_BRANDING_URL ?? null}>
-              <PlatformServicesProvider catalogUrl={import.meta.env.VITE_PLATFORM_SERVICES_URL ?? null}>
+              <PlatformServicesProvider
+                catalogUrl={import.meta.env.VITE_PLATFORM_SERVICES_URL ?? null}
+              >
                 <RouterProvider router={router} />
               </PlatformServicesProvider>
             </PlatformProvider>

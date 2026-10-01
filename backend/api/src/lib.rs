@@ -228,6 +228,7 @@ pub fn router(state: SharedState) -> Router {
         .merge(authenticated)
         .merge(operator_gated)
         .merge(admin_gated)
+        .layer(middleware::from_fn(sdlc_telemetry::request_id_mw))
 }
 
 /// OpenAPI contract for the Base Admin Panel API (v1).
@@ -1459,11 +1460,11 @@ fn runtime_catalog_etag(catalog: &[serde_json::Value]) -> String {
 }
 
 fn error_response(status: StatusCode, code: &str, message: &str) -> Response {
-    (
+    sdlc_shared::error::error_response(
         status,
-        Json(json!({ "error": { "code": code, "message": message } })),
+        json!({ "error": { "code": code, "message": message } }),
+        None,
     )
-        .into_response()
 }
 
 fn internal(err: impl std::fmt::Display) -> Response {

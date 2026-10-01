@@ -19,7 +19,11 @@ function ProtectedApp() {
   const location = useLocation()
 
   if (status === 'loading') {
-    return <main className="grid min-h-screen place-items-center text-sm text-text-muted">Проверяем сессию...</main>
+    return (
+      <main className="grid min-h-screen place-items-center text-sm text-text-muted">
+        Проверяем сессию...
+      </main>
+    )
   }
   if (status === 'anonymous') {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
