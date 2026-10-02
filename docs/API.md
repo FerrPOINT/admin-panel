@@ -68,6 +68,12 @@ Admin Panel проксирует эти операции в Central Auth с bear
 сохраняет password setup links, browser sessions, raw token secrets или копию
 user directory.
 
+После успешного создания пользователя `central_user.created` содержит UUID
+учётки в `entity_id`. Успешный ответ Central Auth без валидного UUID является
+ошибкой межсервисного контракта: Admin возвращает 502 `CENTRAL_AUTH_RESPONSE`,
+не записывая ложное success-событие. Ошибочные ответы Central Auth сохраняют
+свои status и JSON. Admin не хранит email или пароль в audit metadata.
+
 ### Registry, branding и audit
 
 | Метод | Путь | Назначение |
