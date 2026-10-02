@@ -26,9 +26,11 @@ function event(index: number, action = 'central_user.created', entityType = 'cen
 function mockEvents(events: ReturnType<typeof event>[]) {
   vi.mocked(api.get).mockImplementation(async (path) => {
     const url = new URL(path, 'http://test.local')
-    const filtered = events.filter((item) =>
-      (!url.searchParams.has('action') || item.action === url.searchParams.get('action')) &&
-      (!url.searchParams.has('entity_type') || item.entity_type === url.searchParams.get('entity_type')),
+    const filtered = events.filter(
+      (item) =>
+        (!url.searchParams.has('action') || item.action === url.searchParams.get('action')) &&
+        (!url.searchParams.has('entity_type') ||
+          item.entity_type === url.searchParams.get('entity_type')),
     )
     const offset = Number(url.searchParams.get('offset') ?? 0)
     const limit = Number(url.searchParams.get('limit') ?? 20)
@@ -38,24 +40,33 @@ function mockEvents(events: ReturnType<typeof event>[]) {
 
 function renderAudit() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return Object.assign(render(<QueryClientProvider client={queryClient}><AuditPage /></QueryClientProvider>), { queryClient })
+  return Object.assign(
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AuditPage />
+      </QueryClientProvider>,
+    ),
+    { queryClient },
+  )
 }
 
 describe('AuditPage', () => {
   it('shows a compact event row and reveals technical details on demand', async () => {
     vi.mocked(api.get).mockResolvedValue({
       total: 1,
-      events: [{
-        id: 'event-1',
-        occurred_at: '2026-09-19T08:00:00Z',
-        request_id: 'request-123',
-        actor_subject: 'subject-123',
-        actor_role: 'platform_admin',
-        action: 'branding.published',
-        entity_type: 'branding_revision',
-        entity_id: 'revision-1',
-        metadata: { revision: 3 },
-      }],
+      events: [
+        {
+          id: 'event-1',
+          occurred_at: '2026-09-19T08:00:00Z',
+          request_id: 'request-123',
+          actor_subject: 'subject-123',
+          actor_role: 'platform_admin',
+          action: 'branding.published',
+          entity_type: 'branding_revision',
+          entity_id: 'revision-1',
+          metadata: { revision: 3 },
+        },
+      ],
     })
     const user = userEvent.setup()
     renderAudit()
@@ -68,7 +79,9 @@ describe('AuditPage', () => {
     expect(screen.getByText('request-123')).toBeInTheDocument()
 
     await user.selectOptions(screen.getByRole('combobox', { name: 'Тип сущности' }), 'service')
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('entity_type=service')))
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(expect.stringContaining('entity_type=service')),
+    )
   })
 
   it.each([20, 40])('does not offer an empty page after exactly %i events', async (count) => {
@@ -119,16 +132,26 @@ describe('AuditPage', () => {
     await screen.findByText('1–20 из 20')
     expect(api.get).toHaveBeenCalledWith(expect.stringContaining('entity_type=central_user'))
 
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Действие' }), 'central_user.created')
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('action=central_user.created')))
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Действие' }),
+      'central_user.created',
+    )
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(expect.stringContaining('action=central_user.created')),
+    )
     const callsBeforeModeChange = vi.mocked(api.get).mock.calls.length
     await user.selectOptions(screen.getByRole('combobox', { name: 'Действие' }), 'custom')
     expect(api.get).toHaveBeenCalledTimes(callsBeforeModeChange)
     const callsBeforeTyping = vi.mocked(api.get).mock.calls.length
-    await user.type(screen.getByRole('textbox', { name: 'Точный код действия' }), 'branding.published')
+    await user.type(
+      screen.getByRole('textbox', { name: 'Точный код действия' }),
+      'branding.published',
+    )
     expect(api.get).toHaveBeenCalledTimes(callsBeforeTyping)
     await user.click(screen.getByRole('button', { name: 'Применить' }))
-    await waitFor(() => expect(api.get).toHaveBeenCalledWith(expect.stringContaining('action=branding.published')))
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith(expect.stringContaining('action=branding.published')),
+    )
     expect(screen.getByText('0–0 из 0')).toBeInTheDocument()
   })
 
@@ -150,25 +173,36 @@ describe('AuditPage', () => {
     let rejectRefresh: (error: Error) => void = () => {}
     vi.mocked(api.get)
       .mockResolvedValueOnce({ events: [event(1, 'branding.published')], total: 1 })
-      .mockImplementationOnce(() => new Promise((_, reject) => { rejectRefresh = reject }))
+      .mockImplementationOnce(
+        () =>
+          new Promise((_, reject) => {
+            rejectRefresh = reject
+          }),
+      )
       .mockResolvedValueOnce({ events: [event(2)], total: 1 })
     const user = userEvent.setup()
     const view = renderAudit()
     await screen.findByText('Опубликован брендинг', { selector: 'span' })
     expect(screen.getByText('1–1 из 1')).toBeInTheDocument()
 
-    act(() => { void view.queryClient.invalidateQueries({ queryKey: ['audit-events'] }) })
+    act(() => {
+      void view.queryClient.invalidateQueries({ queryKey: ['audit-events'] })
+    })
     expect(await screen.findByText('Обновляем журнал…')).toBeInTheDocument()
     expect(screen.queryByText('Опубликован брендинг', { selector: 'span' })).not.toBeInTheDocument()
     expect(screen.queryByText('1–1 из 1')).not.toBeInTheDocument()
 
-    await act(async () => { rejectRefresh(new Error('unavailable')) })
+    await act(async () => {
+      rejectRefresh(new Error('unavailable'))
+    })
     expect(await screen.findByText('Не удалось загрузить журнал.')).toBeInTheDocument()
     expect(screen.queryByText('Опубликован брендинг', { selector: 'span' })).not.toBeInTheDocument()
     expect(screen.getByText('Число событий недоступно')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Повторить' }))
-    expect(await screen.findByText('Добавлен пользователь', { selector: 'span' })).toBeInTheDocument()
+    expect(
+      await screen.findByText('Добавлен пользователь', { selector: 'span' }),
+    ).toBeInTheDocument()
     expect(screen.queryByText('Опубликован брендинг', { selector: 'span' })).not.toBeInTheDocument()
     expect(screen.getByText('1–1 из 1')).toBeInTheDocument()
   })
@@ -187,7 +221,9 @@ describe('AuditPage', () => {
     await user.click(screen.getByRole('button', { name: 'Вперёд' }))
     await screen.findByText('21–21 из 21')
 
-    act(() => { void view.queryClient.invalidateQueries({ queryKey: ['audit-events', '', '', 1] }) })
+    act(() => {
+      void view.queryClient.invalidateQueries({ queryKey: ['audit-events', '', '', 1] })
+    })
     await screen.findByText('Не удалось загрузить журнал.')
     expect(screen.getByText('Число событий недоступно')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Назад' })).toBeEnabled()

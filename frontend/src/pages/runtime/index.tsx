@@ -181,61 +181,164 @@ export function RuntimePage() {
             Обновить
           </Button>
         </div>
-        {brandingState === 'loading' && <p role="status" className="py-4 text-sm text-text-muted">{body ? 'Обновление брендинга. Показан предыдущий ответ.' : 'Загрузка брендинга...'}</p>}
-        {brandingState === 'error' && <p role="alert" className="py-4 text-sm text-danger">Не удалось загрузить брендинг: {status}{body ? ' Показан предыдущий ответ.' : ''}</p>}
-        {brandingState === 'empty' && <p className="py-4 text-sm text-text-muted">Нет опубликованного документа: приложения применят настройки по умолчанию.</p>}
-        {body && <details className="group border-b border-border">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
-            <span><span className="font-medium">{branding?.branding.product_name}</span><span className="ml-2 text-xs text-text-muted">Ревизия {branding?.revision}</span></span>
-            <span className="flex shrink-0 items-center gap-2 text-xs text-text-muted">Ответ API <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" /></span>
-          </summary>
-          <pre aria-label="Ответ runtime-брендинга" className="max-h-80 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-surface p-4 text-xs leading-6 text-text-secondary">{body}</pre>
-        </details>}
+        {brandingState === 'loading' && (
+          <p role="status" className="py-4 text-sm text-text-muted">
+            {body ? 'Обновление брендинга. Показан предыдущий ответ.' : 'Загрузка брендинга...'}
+          </p>
+        )}
+        {brandingState === 'error' && (
+          <p role="alert" className="py-4 text-sm text-danger">
+            Не удалось загрузить брендинг: {status}
+            {body ? ' Показан предыдущий ответ.' : ''}
+          </p>
+        )}
+        {brandingState === 'empty' && (
+          <p className="py-4 text-sm text-text-muted">
+            Нет опубликованного документа: приложения применят настройки по умолчанию.
+          </p>
+        )}
+        {body && (
+          <details className="group border-b border-border">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="font-medium">{branding?.branding.product_name}</span>
+                <span className="ml-2 text-xs text-text-muted">Ревизия {branding?.revision}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2 text-xs text-text-muted">
+                Ответ API{' '}
+                <ChevronDown
+                  className="h-4 w-4 transition-transform group-open:rotate-180"
+                  aria-hidden="true"
+                />
+              </span>
+            </summary>
+            <pre
+              aria-label="Ответ runtime-брендинга"
+              className="max-h-80 overflow-auto whitespace-pre-wrap break-all border-t border-border bg-surface p-4 text-xs leading-6 text-text-secondary"
+            >
+              {body}
+            </pre>
+          </details>
+        )}
       </section>
 
       <section>
         <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
           <div>
             <h2 className="text-sm font-semibold">Каталог сервисов</h2>
-            <p className="mt-0.5 text-xs text-text-muted">Источник: Admin Panel runtime · {servicesStatus}</p>
+            <p className="mt-0.5 text-xs text-text-muted">
+              Источник: Admin Panel runtime · {servicesStatus}
+            </p>
           </div>
-          <Button type="button" variant="outline" className="h-10" onClick={() => void loadServices()} disabled={servicesState === 'loading'}>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10"
+            onClick={() => void loadServices()}
+            disabled={servicesState === 'loading'}
+          >
             <RefreshCw className="h-4 w-4" /> Обновить
           </Button>
         </div>
         <div className="divide-y divide-border border-b border-border">
-          {servicesState === 'success' && services.map((service) => (
-            <details key={service.key} className="group">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-sm hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-medium">{service.label}</span>
-                  <code className="hidden truncate text-xs text-text-muted sm:inline">{service.key}</code>
-                </span>
-                <span className="flex shrink-0 items-center gap-3">
-                  <span className={service.health === 'healthy' ? 'text-xs text-success' : service.health === 'unreachable' ? 'text-xs text-danger' : 'text-xs text-text-muted'}>{healthLabel[service.health]}</span>
-                  <ChevronDown className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180" aria-hidden="true" />
-                </span>
-              </summary>
-              <div className="grid gap-2 border-t border-border bg-surface-raised px-3 py-3 text-xs sm:grid-cols-2">
-                <div><span className="text-text-muted">API: </span><code className="break-all text-text-secondary">{service.url}</code></div>
-                <div><span className="text-text-muted">Веб: </span><code className="break-all text-text-secondary">{service.ui_url ?? 'Нет интерфейса'}</code></div>
-                <div className="sm:col-span-2"><span className="text-text-muted">Контракт v{service.contract_version} · Возможности: </span>{service.capabilities.length ? service.capabilities.map((capability, index) => <code key={capability} title={capabilityHelp[capability] ?? 'Возможность интеграции'} className="text-text-secondary">{index ? ', ' : ''}{capability}</code>) : <span className="text-text-muted">не указаны</span>}</div>
-              </div>
-            </details>
-          ))}
-          {servicesState === 'loading' && <p role="status" className="py-4 text-sm text-text-muted">Загрузка каталога...</p>}
-          {servicesState === 'empty' && <p className="py-4 text-sm text-text-muted">Каталог пуст. Проверьте активные декларации.</p>}
-          {servicesState === 'error' && <p role="alert" className="py-4 text-sm text-danger">Не удалось загрузить каталог: {servicesStatus}</p>}
+          {servicesState === 'success' &&
+            services.map((service) => (
+              <details key={service.key} className="group">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 text-sm hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium">{service.label}</span>
+                    <code className="hidden truncate text-xs text-text-muted sm:inline">
+                      {service.key}
+                    </code>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span
+                      className={
+                        service.health === 'healthy'
+                          ? 'text-xs text-success'
+                          : service.health === 'unreachable'
+                            ? 'text-xs text-danger'
+                            : 'text-xs text-text-muted'
+                      }
+                    >
+                      {healthLabel[service.health]}
+                    </span>
+                    <ChevronDown
+                      className="h-4 w-4 text-text-muted transition-transform group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </summary>
+                <div className="grid gap-2 border-t border-border bg-surface-raised px-3 py-3 text-xs sm:grid-cols-2">
+                  <div>
+                    <span className="text-text-muted">API: </span>
+                    <code className="break-all text-text-secondary">{service.url}</code>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Веб: </span>
+                    <code className="break-all text-text-secondary">
+                      {service.ui_url ?? 'Нет интерфейса'}
+                    </code>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-text-muted">
+                      Контракт v{service.contract_version} · Возможности:{' '}
+                    </span>
+                    {service.capabilities.length ? (
+                      service.capabilities.map((capability, index) => (
+                        <code
+                          key={capability}
+                          title={capabilityHelp[capability] ?? 'Возможность интеграции'}
+                          className="text-text-secondary"
+                        >
+                          {index ? ', ' : ''}
+                          {capability}
+                        </code>
+                      ))
+                    ) : (
+                      <span className="text-text-muted">не указаны</span>
+                    )}
+                  </div>
+                </div>
+              </details>
+            ))}
+          {servicesState === 'loading' && (
+            <p role="status" className="py-4 text-sm text-text-muted">
+              Загрузка каталога...
+            </p>
+          )}
+          {servicesState === 'empty' && (
+            <p className="py-4 text-sm text-text-muted">
+              Каталог пуст. Проверьте активные декларации.
+            </p>
+          )}
+          {servicesState === 'error' && (
+            <p role="alert" className="py-4 text-sm text-danger">
+              Не удалось загрузить каталог: {servicesStatus}
+            </p>
+          )}
         </div>
-        {servicesState === 'success' && allCapabilities.length > 0 && <details className="group border-b border-border">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-xs text-text-muted focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
-            Возможности каталога: {allCapabilities.length}
-            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" aria-hidden="true" />
-          </summary>
-          <div className="space-y-1 pb-3">
-            {allCapabilities.map((capability) => <div key={capability} className="flex flex-wrap items-baseline gap-2 text-xs"><code className="text-text-secondary">{capability}</code><span className="text-text-muted">{capabilityHelp[capability] ?? 'Описание не задано'}</span></div>)}
-          </div>
-        </details>}
+        {servicesState === 'success' && allCapabilities.length > 0 && (
+          <details className="group border-b border-border">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-xs text-text-muted focus-visible:outline-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden">
+              Возможности каталога: {allCapabilities.length}
+              <ChevronDown
+                className="h-4 w-4 transition-transform group-open:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
+            <div className="space-y-1 pb-3">
+              {allCapabilities.map((capability) => (
+                <div key={capability} className="flex flex-wrap items-baseline gap-2 text-xs">
+                  <code className="text-text-secondary">{capability}</code>
+                  <span className="text-text-muted">
+                    {capabilityHelp[capability] ?? 'Описание не задано'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </section>
     </div>
   )

@@ -1,3 +1,4 @@
+import type { components } from './schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './client'
 
@@ -134,13 +135,7 @@ export function useAuditEvents(action?: string) {
 
 // ─── Mutations ───────────────────────────────────────────────────────────────
 
-export interface DeclarationInput {
-  declaration_version: number
-  integration_base_url: string
-  public_ui_url?: string | null
-  service_contract_version: string
-  capabilities: string[]
-}
+export type DeclarationInput = components['schemas']['DeclarationInput']
 
 export function useCreateService() {
   const queryClient = useQueryClient()

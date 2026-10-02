@@ -353,7 +353,9 @@ test('captures README interface evidence', async ({ page }) => {
   }
 })
 
-test('uses the shared work-area geometry across semantic page modes', async ({ page }, testInfo) => {
+test('uses the shared work-area geometry across semantic page modes', async ({
+  page,
+}, testInfo) => {
   for (const viewport of [
     { width: 375, height: 812 },
     { width: 1440, height: 900 },
@@ -375,7 +377,8 @@ test('uses the shared work-area geometry across semantic page modes', async ({ p
         const frame = element.parentElement
         const frameStyle = frame ? getComputedStyle(frame) : null
         return {
-          documentFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          documentFits:
+            document.documentElement.scrollWidth <= document.documentElement.clientWidth,
           layoutWidth: element.getBoundingClientRect().width,
           availableWidth:
             (frame?.getBoundingClientRect().width ?? 0) -

@@ -59,12 +59,16 @@ export function RoleBindingsPage() {
       <div>
         <h1 className="text-xl font-semibold">Привязки ролей</h1>
         <p className="mt-1 text-sm text-text-muted">
-          Локальные биндинги повышают panel-роль central-пользователей. Доступно только администраторам.
+          Локальные биндинги повышают panel-роль central-пользователей. Доступно только
+          администраторам.
         </p>
       </div>
 
       {canManageBindings && (
-        <form className="grid gap-3 rounded-lg border border-border bg-surface p-5 sm:grid-cols-[1fr_2fr_1fr_auto]" onSubmit={submit}>
+        <form
+          className="grid gap-3 rounded-lg border border-border bg-surface p-5 sm:grid-cols-[1fr_2fr_1fr_auto]"
+          onSubmit={submit}
+        >
           <label className="text-sm font-medium">
             Claim
             <select
@@ -72,12 +76,22 @@ export function RoleBindingsPage() {
               value={claimName}
               onChange={(e) => setClaimName(e.target.value)}
             >
-              {CLAIMS.map((claim) => <option key={claim} value={claim}>{claim}</option>)}
+              {CLAIMS.map((claim) => (
+                <option key={claim} value={claim}>
+                  {claim}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-medium">
             Значение
-            <Input className="mt-1" value={claimValue} onChange={(e) => setClaimValue(e.target.value)} placeholder="user uuid / email / role" required />
+            <Input
+              className="mt-1"
+              value={claimValue}
+              onChange={(e) => setClaimValue(e.target.value)}
+              placeholder="user uuid / email / role"
+              required
+            />
           </label>
           <label className="text-sm font-medium">
             Роль
@@ -86,7 +100,11 @@ export function RoleBindingsPage() {
               value={panelRole}
               onChange={(e) => setPanelRole(e.target.value)}
             >
-              {ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
+              {ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
             </select>
           </label>
           <div className="flex items-end">
@@ -101,7 +119,9 @@ export function RoleBindingsPage() {
         {bindings.isPending ? (
           <p className="p-5 text-sm text-text-muted">Загрузка...</p>
         ) : bindings.isError ? (
-          <p className="p-5 text-sm text-destructive">Не удалось загрузить биндинги: {bindings.error.message}</p>
+          <p className="p-5 text-sm text-destructive">
+            Не удалось загрузить биндинги: {bindings.error.message}
+          </p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-surface-raised text-left text-xs uppercase tracking-wide text-text-muted">
@@ -117,12 +137,25 @@ export function RoleBindingsPage() {
               {(bindings.data?.bindings ?? []).map((binding) => (
                 <tr key={binding.id} className="border-t border-border">
                   <td className="px-4 py-3 font-mono text-xs">{binding.claim_name}</td>
-                  <td className="max-w-[22rem] truncate px-4 py-3 font-mono text-xs" title={binding.claim_value}>{binding.claim_value}</td>
+                  <td
+                    className="max-w-[22rem] truncate px-4 py-3 font-mono text-xs"
+                    title={binding.claim_value}
+                  >
+                    {binding.claim_value}
+                  </td>
                   <td className="px-4 py-3">{binding.panel_role}</td>
-                  <td className="px-4 py-3 text-text-muted">{new Date(binding.created_at).toLocaleString('ru-RU')}</td>
+                  <td className="px-4 py-3 text-text-muted">
+                    {new Date(binding.created_at).toLocaleString('ru-RU')}
+                  </td>
                   {canManageBindings && (
                     <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" aria-label="Удалить" disabled={remove.isPending} onClick={() => remove.mutate(binding.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Удалить"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(binding.id)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
@@ -130,7 +163,11 @@ export function RoleBindingsPage() {
                 </tr>
               ))}
               {bindings.data?.bindings.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-6 text-center text-text-muted">Биндингов пока нет</td></tr>
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-text-muted">
+                    Биндингов пока нет
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

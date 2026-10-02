@@ -118,3 +118,7 @@ Registry check — не generic remote request. Caller указывает allowe
 - [Architecture](ARCHITECTURE.md)
 - [Security](SECURITY.md)
 - [Runtime](RUNTIME.md)
+
+## Общая база
+
+Подключение версий, границы контрактов и проверки описаны в [BASE_INTEGRATION](BASE_INTEGRATION.md).

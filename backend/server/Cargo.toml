@@ -11,6 +11,7 @@ name = "admin-panel-server"
 path = "src/main.rs"
 
 [dependencies]
+sdlc-telemetry = { path = "../../../services-base/crates/sdlc-telemetry" }
 admin-panel-api = { path = "../api" }
 admin-panel-domain = { path = "../domain" }
 admin-panel-infra = { path = "../infra" }

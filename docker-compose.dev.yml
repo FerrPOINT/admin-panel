@@ -27,8 +27,8 @@ services:
   api:
     image: admin-panel-api-dev
     build:
-      context: .
-      dockerfile: backend/Dockerfile.dev
+      context: ..
+      dockerfile: admin-panel/backend/Dockerfile.dev
     environment:
       ADMINP_DATABASE_URL: postgres://adminpanel:adminpanel_local@postgres:5432/adminpanel
       ADMINP_BIND_ADDRESS: 0.0.0.0

@@ -14,7 +14,11 @@
     "lint": "eslint . --max-warnings=0 && pnpm lint:semantic",
     "lint:semantic": "node scripts/sdlc-semantic-classes-check.mjs --css src/index.css --src src",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "theme:check": "node ../../services-base/frontend/scripts/sdlc-effective-theme-check.mjs",
+    "openapi:compat": "node scripts/base-openapi-compat.mjs",
+    "openapi:generate": "openapi-typescript ../openapi/openapi.json -o src/shared/api/schema.d.ts",
+    "openapi:check": "node ../../services-base/frontend/scripts/sdlc-openapi-check.mjs --spec ../openapi/openapi.json --schema src/shared/api/schema.d.ts"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.13",
@@ -56,6 +60,14 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.31.1",
     "vite": "^6.2.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0",
+    "openapi-typescript": "7.13.0"
+  },
+  "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "overrides": {
+      "jsdom>nwsapi": "2.2.28"
+    }
   }
 }

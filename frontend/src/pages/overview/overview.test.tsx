@@ -15,7 +15,11 @@ const revisionsMock = vi.mocked(useBrandingRevisions)
 const auditMock = vi.mocked(useAuditEvents)
 
 function renderOverview() {
-  return render(<MemoryRouter><OverviewPage /></MemoryRouter>)
+  return render(
+    <MemoryRouter>
+      <OverviewPage />
+    </MemoryRouter>,
+  )
 }
 
 beforeEach(() => {
@@ -25,8 +29,20 @@ beforeEach(() => {
     data: {
       total: 2,
       services: [
-        { id: '1', service_key: 'admin-panel', display_name: 'Admin Panel', status: 'active', health_status: 'healthy' },
-        { id: '2', service_key: 'ci-cd', display_name: 'CI/CD', status: 'pending', health_status: 'unknown' },
+        {
+          id: '1',
+          service_key: 'admin-panel',
+          display_name: 'Admin Panel',
+          status: 'active',
+          health_status: 'healthy',
+        },
+        {
+          id: '2',
+          service_key: 'ci-cd',
+          display_name: 'CI/CD',
+          status: 'pending',
+          health_status: 'unknown',
+        },
       ],
     },
   } as ReturnType<typeof useServices>)
@@ -38,7 +54,9 @@ beforeEach(() => {
   auditMock.mockReturnValue({
     isPending: false,
     isError: false,
-    data: { events: [{ id: 'e1', action: 'central_user.created', occurred_at: '2026-09-19T08:00:00Z' }] },
+    data: {
+      events: [{ id: 'e1', action: 'central_user.created', occurred_at: '2026-09-19T08:00:00Z' }],
+    },
   } as ReturnType<typeof useAuditEvents>)
 })
 
@@ -53,7 +71,12 @@ describe('OverviewPage', () => {
   })
 
   it('keeps services visible when the audit source fails', () => {
-    auditMock.mockReturnValue({ isPending: false, isError: true, data: undefined, refetch: vi.fn() } as unknown as ReturnType<typeof useAuditEvents>)
+    auditMock.mockReturnValue({
+      isPending: false,
+      isError: true,
+      data: undefined,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useAuditEvents>)
     renderOverview()
     expect(screen.getByText('Admin Panel')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить изменения')

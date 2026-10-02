@@ -205,7 +205,7 @@ impl RegistryStore {
             "UPDATE service_declarations SET approval_status = 'approved', \
              approved_by_subject = $2, approved_at = $3 \
              WHERE id = $1 AND registry_entry_id = $4 AND approval_status = 'pending' \
-             RETURNING id, registry_entry_id, declaration_version, integration_base_url, \
+             RETURNING id, registry_entry_id, declaration_version, integration_base_url, public_ui_url, \
              capabilities, service_contract_version, declared_by_subject, declared_at, \
              approval_status::text, approved_by_subject, approved_at, content_hash",
         )
