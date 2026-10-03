@@ -10,26 +10,32 @@ cp .env.example .env 2>/dev/null || true
 
 ## 2. Development Setup
 
-Backend (через rust-контейнер, пин флота 1.86/1.88 по rust-version workspace):
+Backend: Rust 1.98.1 для release; отдельный MSRV gate — 1.88.0.
+Проверенный Base checkout должен находиться рядом, см. [BASE_INTEGRATION](docs/BASE_INTEGRATION.md).
 
 ```bash
-docker run --rm -v "$PWD/backend":/b -w /b rust:1.88-slim-bookworm cargo test
+cd backend
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
 ```
 
-Frontend:
+Frontend: Node 26.10.0 / pnpm 10.28.1 (из корня продукта):
 
 ```bash
 cd frontend
-pnpm install
+pnpm install --frozen-lockfile
 pnpm test
 ```
 
-Локальный стенд: `docker compose -f docker-compose.dev.yml up --build -d`
-(API `7771`, web `7772`, PostgreSQL `7773`).
+Постоянный локальный стенд запускается из корня workspace через `start-local.ps1`.
+Контейнерные проверки выполняются только через отдельный временный Compose
+project с task/purpose labels, собственными ресурсами и cleanup в finally;
+правила принадлежат [Base LOCAL_GROUPS](https://github.com/FerrPOINT/services-base/blob/main/deploy/LOCAL_GROUPS.md).
 
 ## 3. Гейты перед PR
 
-- Backend: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test`.
+- Backend: `cargo fmt --all -- --check`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, `cargo test --locked --workspace`.
 - Frontend: typecheck, tests, lint, build.
 - Docs: `python3 scripts/verify_readme.py`.
 - CI: лёгкий пайп docs + backend + frontend (см. Base CI_CONVENTION).
