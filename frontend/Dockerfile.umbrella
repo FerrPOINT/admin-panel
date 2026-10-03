@@ -1,7 +1,7 @@
 # Umbrella build for the SDLC fleet root compose (context = /opt/dev/sdlc).
 # Stages the sibling services-base frontend so the `@sdlc/ui` file dependency
 # (../../services-base/frontend) resolves.
-FROM node:22.20.0-bookworm-slim AS builder
+FROM node:26.10.0-bookworm-slim AS builder
 
 RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
