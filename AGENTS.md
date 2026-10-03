@@ -2,7 +2,7 @@
 
 ## Текущий статус
 
-Реализация v1 запущена: Rust API (backend/), React UI (frontend/) и docker-compose.dev.yml (7771 API, 7772 web, 7773 PostgreSQL). Тесты: backend — cargo test в контейнере rust:1.88; frontend — pnpm test. Изменения вендорятся только через план в docs/plans/. Не выдавайте проект за работающий сервис и не добавляйте код или конфигурацию, если задача явно не переводит проект к реализации.
+Реализация v1 запущена: Rust API (backend/), React UI (frontend/) и docker-compose.dev.yml (7771 API, 7772 web, 7773 PostgreSQL). Тесты: backend — cargo test в контейнере rust:1.98.1; frontend — pnpm test. Изменения вендорятся только через план в docs/plans/. Не выдавайте проект за работающий сервис и не добавляйте код или конфигурацию, если задача явно не переводит проект к реализации.
 
 ## Предметная область и владение
 
@@ -62,4 +62,4 @@ Admin Panel владеет собственными данными и бизне
 
 См. [BASE_INTEGRATION](docs/BASE_INTEGRATION.md). Обязательны pinned Base SHA,
 locked/frozen зависимости и проверка актуальных checkout до сборки.
-Rust build toolchain 1.88.0, Node 22.20.0, pnpm 10.28.1; MSRV отдельно.
+Rust build toolchain 1.98.1, Node 26.10.0, pnpm 10.28.1; MSRV 1.88.0 отдельно.

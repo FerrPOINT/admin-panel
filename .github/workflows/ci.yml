@@ -64,7 +64,7 @@ jobs:
         run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.88.0"
+          toolchain: "1.98.1"
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
@@ -118,7 +118,7 @@ jobs:
           version: 10.28.1
       - uses: actions/setup-node@v7
         with:
-          node-version: "22.20.0"
+          node-version: "26.10.0"
           cache: pnpm
           cache-dependency-path: admin-panel/frontend/pnpm-lock.yaml
       - name: Install

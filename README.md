@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/FerrPOINT/admin-panel/ci.yml?branch=main&style=flat-square&label=CI" alt="CI" />
-  <img src="https://img.shields.io/badge/Rust-1.88-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 1.88" />
+  <img src="https://img.shields.io/badge/Rust-1.98.1-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 1.98.1" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111827" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9" />
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 17" />
@@ -181,16 +181,23 @@ pnpm typecheck
 pnpm test
 pnpm build
 
-# Backend: documented Rust 1.88 container gate
+# Backend: Rust 1.98.1 release gate; MSRV 1.88.0 checked separately
 cd ..
-docker run --rm \
-  -v "$PWD:/workspace" -v "$(dirname "$PWD")/services-base:/services-base:ro" \
-  -w /workspace/backend rust:1.88-bookworm \
-  sh -lc 'cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace'
+cd backend
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
 
 # Compose syntax
+cd ..
 docker compose -f docker-compose.dev.yml config -q
 ```
+
+Backend-команды выполняются в Rust 1.98.1 среде с проверенным соседним Base.
+Для контейнерных проверок используйте временный Compose project с явными
+`sdlc.task`/`sdlc.purpose` и обязательным `down --remove-orphans` в finally,
+согласно [Base LOCAL_GROUPS](https://github.com/FerrPOINT/services-base/blob/main/deploy/LOCAL_GROUPS.md).
+Постоянный локальный стенд запускается из корня workspace через `start-local.ps1`.
 
 GitHub Actions executes independent backend, frontend and Compose-config gates. It also regenerates OpenAPI and fails if [openapi/openapi.json](openapi/openapi.json) drifts. Browser E2E runs locally when needed. The README gate validates local links, images, explicit navigation anchors, placeholders, local paths and CI badge workflow references.
 
