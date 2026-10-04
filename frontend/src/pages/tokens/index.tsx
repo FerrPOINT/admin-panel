@@ -203,7 +203,8 @@ export function TokensPage() {
           <div key={token.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-sm font-medium">
-                <KeyRound className="h-4 w-4" /> {token.label}
+                <KeyRound className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">{token.label}</span>
               </p>
               <p className="text-xs text-text-muted">
                 {token.scopes.join(', ')} · До{' '}
