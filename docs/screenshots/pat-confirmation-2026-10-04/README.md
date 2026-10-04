@@ -5,7 +5,7 @@ Git tree продукта и pinned Base `9408802dfa978cba2f67162a49adca6f65851b
 Временный Compose использовал собственные Central Auth, PostgreSQL и PAT;
 доступ получен через реальный браузерный SSO/PKCE. API не подменялся.
 
-Chromium / Playwright 1.61.1: 16 сценариев прошли. Двенадцать сочетаний ширин
+Chromium / Playwright 1.62.1: 16 сценариев прошли. Двенадцать сочетаний ширин
 375, 768, 1920, 2560 и dark/gray/light проверили viewport, начальный focus на
 «Отмена», Tab trap, Escape, Cancel и возврат focus. Проверены реальная SQL
 блокировка отзыва, запрет закрытия и дублирования при pending, ответ 204 и
