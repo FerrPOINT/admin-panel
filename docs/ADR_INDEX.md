@@ -2,7 +2,7 @@
 
 ## Статус
 
-На этапе docs-first утверждённых ADR пока нет. Этот индекс создан заранее, чтобы решения, принятые перед реализацией, были проверяемыми и не оставались только в переписке.
+Реестр принятых решений включает действующий API и публикуемую AI/messaging основу. Граница готовности описана в [плане поставки](plans/2026-10-05-ai-foundation-publication.md).
 
 ## Правила ведения ADR
 
@@ -24,6 +24,11 @@
 | 0006 | Service integration contract | Принят | 2026-09-05 |
 | 0007 | Public UI URL в декларациях | Принят | 2026-09-13 |
 | 0008 | Управление пользователями через Central Auth | Принят | 2026-09-19 |
+| 0017 | [Platform event feed](adr/0017-platform-event-feed.md) | Принят | 2026-10-03 |
+| 0018 | [AI provider runtime](adr/0018-ai-providers-runtime.md) | Принят | 2026-10-03 |
+| 0019 | [Messaging retention](adr/0019-messaging-retention-diagnostics.md) | Принят | 2026-10-03 |
+| 0020 | [Scoped AI execution journal](adr/0020-scoped-ai-execution-journal.md) | Принят | 2026-10-04 |
+| 0021 | [Checksum миграций LF/CRLF](adr/0021-migration-line-ending-compatibility.md) | Принят | 2026-10-05 |
 
 ## Кандидаты для первых ADR
 

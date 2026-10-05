@@ -12,10 +12,13 @@ path = "src/main.rs"
 
 [dependencies]
 sdlc-telemetry = { path = "../../../services-base/crates/sdlc-telemetry" }
+sdlc-messaging.workspace = true
+chrono.workspace = true
 admin-panel-api = { path = "../api" }
 admin-panel-domain = { path = "../domain" }
 admin-panel-infra = { path = "../infra" }
 admin-panel-shared = { path = "../shared" }
+admin-panel-migration = { path = "../migration" }
 sqlx = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }

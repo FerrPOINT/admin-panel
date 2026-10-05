@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libs
 WORKDIR /workspace/admin-panel/backend
 COPY services-base/Cargo.toml /workspace/services-base/Cargo.toml
 COPY services-base/crates /workspace/services-base/crates
+COPY services-base/docs/contracts /workspace/services-base/docs/contracts
 COPY admin-panel/backend ./
 RUN cargo build --locked --release --bin admin-panel-server
 

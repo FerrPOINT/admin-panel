@@ -1,0 +1,25 @@
+# Build context: SDLC2 workspace root. No native Codex credentials in this image.
+FROM rust:1.88-bookworm AS builder
+WORKDIR /build/admin-panel/backend
+COPY admin-panel/backend/Cargo.toml admin-panel/backend/Cargo.lock ./
+COPY admin-panel/backend/api ./api
+COPY admin-panel/backend/app ./app
+COPY admin-panel/backend/domain ./domain
+COPY admin-panel/backend/infra ./infra
+COPY admin-panel/backend/shared ./shared
+COPY admin-panel/backend/server ./server
+COPY admin-panel/backend/migration ./migration
+COPY admin-panel/backend/ai-runtime ./ai-runtime
+COPY services-base/Cargo.toml /build/services-base/Cargo.toml
+COPY services-base/crates /build/services-base/crates
+COPY services-base/docs/contracts /build/services-base/docs/contracts
+RUN cargo build --locked --release -p admin-panel-ai-runtime
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 ai-runtime \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin ai-runtime
+COPY --from=builder /build/admin-panel/backend/target/release/admin-panel-ai-runtime /usr/local/bin/ai-runtime
+USER 10001:10001
+ENTRYPOINT ["ai-runtime"]

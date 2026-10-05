@@ -1,0 +1,49 @@
+# Build context is the own workspace's audited, frozen source snapshot.
+FROM debian:bookworm-slim AS codex
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+# Exact official Linux release; verify the npm distribution SHA-512 before extraction.
+RUN curl --fail --location --proto '=https' --tlsv1.2 \
+      https://registry.npmjs.org/@openai/codex/-/codex-0.159.0-alpha.12.1-linux-x64.tgz \
+      -o /tmp/codex.tgz \
+    && printf '%s  %s\n' \
+      cc54e9fc1e4d309f5ddaa28d463bce1e91e85298eb803cbd5cd4c87c5e92357405150b7c153454ae8ecb76f06ee8bc57b3c799470c5f82f88295c8d4d4b74a86 \
+      /tmp/codex.tgz | sha512sum --check --strict \
+    && mkdir -p /opt/package /opt/codex \
+    && tar -xzf /tmp/codex.tgz -C /opt/package --strip-components=1 \
+    && cp -a /opt/package/vendor/x86_64-unknown-linux-musl/. /opt/codex/ \
+    && chmod 755 /opt/codex/bin/codex \
+    && test "$(/opt/codex/bin/codex --version)" = 'codex-cli 0.159.0-alpha.12.1' \
+    && rm /tmp/codex.tgz
+
+FROM rust:1.88-slim-bookworm AS builder
+ENV CARGO_BUILD_JOBS=2
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+COPY services-base/Cargo.toml services-base/Cargo.lock /build/services-base/
+COPY services-base/crates /build/services-base/crates
+COPY services-base/docs/contracts /build/services-base/docs/contracts
+COPY admin-panel/backend /build/admin-panel/backend
+WORKDIR /build/admin-panel/backend
+RUN cargo build --locked --release -p admin-panel-ai-runtime
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 ai-runtime \
+    && useradd --uid 10001 --gid 10001 --no-create-home ai-runtime \
+    && mkdir -p /var/lib/ai-runtime /run/ai-keys /run/codex-home /run/codex-work \
+    && chown 10001:10001 /var/lib/ai-runtime /run/ai-keys /run/codex-home /run/codex-work
+COPY --from=codex /opt/codex /opt/codex
+COPY --chmod=444 admin-panel/backend/ai-runtime/policy/sdlc2-model-policy.json /opt/codex/bin/sdlc2-model-policy.json
+COPY admin-panel/backend/ai-runtime/policy/LICENSE.codex /opt/codex/LICENSE.model-policy
+COPY --from=builder /build/admin-panel/backend/target/release/admin-panel-ai-runtime /usr/local/bin/ai-runtime
+ENV AI_RUNTIME_CODEX_BINARY=/opt/codex/bin/codex \
+    AI_RUNTIME_CODEX_VERSION=0.159.0-alpha.12.1 \
+    AI_RUNTIME_CODEX_HOME=/run/codex-home \
+    AI_RUNTIME_CODEX_WORKDIR=/run/codex-work
+LABEL sdlc.ai.codex.version="0.159.0-alpha.12.1"
+USER 10001:10001
+WORKDIR /run/codex-work
+EXPOSE 8760
+ENTRYPOINT ["ai-runtime"]

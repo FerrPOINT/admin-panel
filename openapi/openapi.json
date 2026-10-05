@@ -6,6 +6,427 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/v1/ai/budget": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "acceptance_budget",
+        "responses": {
+          "200": {
+            "description": "Secret-free aggregate acceptance ledger; decimal microdollars"
+          },
+          "401": {
+            "description": "Active central session required"
+          },
+          "502": {
+            "description": "Invalid runtime projection"
+          },
+          "503": {
+            "description": "Runtime unavailable; no empty-ledger fallback"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "providers",
+        "responses": {
+          "200": {
+            "description": "Saved provider drafts; connection state requires runtime"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "AI not configured"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/chatgpt/account": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "account",
+        "responses": {
+          "200": {
+            "description": "Secret-free managed account state"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Runtime unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/chatgpt/login": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "start_login",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Operation UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device authorization attempt"
+          },
+          "403": {
+            "description": "Write capability required"
+          },
+          "409": {
+            "description": "An unresolved operation prevents login"
+          },
+          "428": {
+            "description": "Operation UUID required"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/chatgpt/login/{operation}": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "login_status",
+        "parameters": [
+          {
+            "name": "operation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorization status readback"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "cancel_login",
+        "parameters": [
+          {
+            "name": "operation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancellation confirmed"
+          },
+          "403": {
+            "description": "Write capability required"
+          },
+          "503": {
+            "description": "Unknown cancellation; read back operation"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/openrouter/credentials": {
+      "put": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "credentials",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Credential generation; secret is write-only"
+          },
+          "403": {
+            "description": "Write capability required"
+          },
+          "409": {
+            "description": "Operation conflict"
+          },
+          "422": {
+            "description": "Invalid credential"
+          },
+          "503": {
+            "description": "Runtime unavailable; read back operation before retry"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/{provider}": {
+      "put": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "save_settings",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "Quoted draft revision",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved draft"
+          },
+          "403": {
+            "description": "Write capability required"
+          },
+          "412": {
+            "description": "Stale draft"
+          },
+          "428": {
+            "description": "If-Match required"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/{provider}/connection": {
+      "delete": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "disconnect",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Operation UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Connection withdrawal confirmed"
+          },
+          "403": {
+            "description": "Write capability required"
+          },
+          "409": {
+            "description": "Operation conflict"
+          },
+          "428": {
+            "description": "Operation UUID required"
+          },
+          "503": {
+            "description": "Unknown withdrawal; read back operation"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/{provider}/models": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "models",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Catalog; access remains unverified"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "503": {
+            "description": "Runtime unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/providers/{provider}/operations/{operation}": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "connection_operation",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free credential or withdrawal receipt"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "409": {
+            "description": "Operation is unknown or belongs to another provider"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/publications/{operation}": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "publication_status",
+        "parameters": [
+          {
+            "name": "operation",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret-free durable pending/published/rejected outcome"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Unknown own-workspace operation"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/selection": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "selection",
+        "responses": {
+          "200": {
+            "description": "Published immutable profile or explicit unconfigured state"
+          },
+          "503": {
+            "description": "AI disabled"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "publish_selection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Immutable candidate pending authenticated runtime acknowledgement"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Write capability required"
+          },
+          "412": {
+            "description": "Stale revision"
+          },
+          "424": {
+            "description": "Runtime-owned verification missing"
+          },
+          "428": {
+            "description": "Strong If-Match required"
+          }
+        }
+      }
+    },
     "/api/v1/audit-events": {
       "get": {
         "tags": [
@@ -220,6 +641,203 @@
         }
       }
     },
+    "/api/v1/messaging/contracts": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "operationId": "contracts",
+        "responses": {
+          "200": {
+            "description": "Pilot contract metadata"
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/messaging/status": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "Independent observations, stale flags and safe aggregates"
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/platform-events": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "occurred_from",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "occurred_to",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "correlation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPageView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/platform-events/{id}": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "operationId": "detail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventView"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": ""
+          },
+          "403": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/api/v1/role-bindings": {
       "get": {
         "tags": [
@@ -287,6 +905,28 @@
           },
           "404": {
             "description": "not found"
+          }
+        }
+      }
+    },
+    "/api/v1/runtime/ai": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "operationId": "runtime_profile",
+        "responses": {
+          "200": {
+            "description": "Authenticated secret-free frozen profile"
+          },
+          "304": {
+            "description": "Unchanged"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "No published profile"
           }
         }
       }
@@ -759,6 +1399,110 @@
           }
         }
       },
+      "EventDataView": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "pipeline_id",
+          "completion_seq",
+          "status",
+          "finished_at"
+        ],
+        "properties": {
+          "completion_seq": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pipeline_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "project_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "EventPageView": {
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventView"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EventView": {
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "type",
+          "schema_version",
+          "occurred_at",
+          "received_at",
+          "correlation_id",
+          "data"
+        ],
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data": {
+            "$ref": "#/components/schemas/EventDataView"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "source": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -815,6 +1559,10 @@
     }
   },
   "tags": [
+    {
+      "name": "ai",
+      "description": "Authenticated AI configuration; credentials are write-only in ai-runtime"
+    },
     {
       "name": "auth",
       "description": "Login proxy and caller identity"

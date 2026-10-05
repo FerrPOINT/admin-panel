@@ -12,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-async function fetchResponse(path: string, init?: RequestInit): Promise<Response> {
+export async function requestResponse(path: string, init?: RequestInit): Promise<Response> {
   const token = authToken()
   const response = await fetch(`${BASE}${path}`, {
     ...init,
@@ -41,7 +41,7 @@ async function fetchResponse(path: string, init?: RequestInit): Promise<Response
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetchResponse(path, init)
+  const response = await requestResponse(path, init)
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
@@ -49,7 +49,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   get: <T>(path: string) => request<T>(path),
   getStatus: async (path: string): Promise<number> => {
-    const response = await fetchResponse(path)
+    const response = await requestResponse(path)
     if (response.headers.get('content-type')?.includes('text/html')) {
       throw new ApiError(
         502,

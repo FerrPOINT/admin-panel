@@ -7,14 +7,15 @@ license-file.workspace = true
 repository.workspace = true
 
 [dependencies]
-sdlc-telemetry = { path = "../../../services-base/crates/sdlc-telemetry" }
 sdlc-shared = { path = "../../../services-base/crates/sdlc-shared" }
+sdlc-telemetry = { path = "../../../services-base/crates/sdlc-telemetry" }
+sdlc-messaging.workspace = true
 admin-panel-domain = { path = "../domain" }
 admin-panel-app = { path = "../app" }
 admin-panel-shared = { path = "../shared" }
 admin-panel-infra = { path = "../infra" }
 sdlc-auth-core = { path = "../../../services-base/crates/sdlc-auth-core" }
-utoipa = { version = "5", features = ["axum_extras", "uuid"] }
+utoipa = { version = "5", features = ["axum_extras", "uuid", "chrono"] }
 sqlx = { workspace = true }
 axum = { workspace = true }
 tokio = { workspace = true }

@@ -150,6 +150,35 @@ jobs:
           pnpm exec playwright install --with-deps chromium
           pnpm exec vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/theme-preview.log 2>&1 &
           pnpm theme:check http://127.0.0.1:4173
+      - name: AI foundation in three browser engines
+        run: |
+          pnpm exec playwright install --with-deps chromium firefox webkit
+          pnpm exec playwright test e2e/ai-foundation.spec.ts
+
+  foundation-integration:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: admin-panel
+      - name: Read pinned Base revision
+        id: base
+        working-directory: admin-panel
+        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          repository: FerrPOINT/services-base
+          path: services-base
+          ref: ${{ steps.base.outputs.sha }}
+          token: ${{ secrets.SERVICES_BASE_TOKEN }}
+      - name: Verify pinned Base checkout
+        working-directory: admin-panel
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+      - name: Owned disposable PostgreSQL and NATS, no provider credentials
+        working-directory: admin-panel
+        run: python3 scripts/test_ai_foundation.py
 
   compose-config:
     runs-on: ubuntu-latest

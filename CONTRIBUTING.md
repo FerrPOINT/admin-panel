@@ -10,29 +10,35 @@ cp .env.example .env 2>/dev/null || true
 
 ## 2. Development Setup
 
-Backend (через rust-контейнер, пин флота 1.86/1.88 по rust-version workspace):
+Backend (Rust 1.88 и соседний Base на SHA из `.base-revision`):
 
 ```bash
-docker run --rm -v "$PWD/backend":/b -w /b rust:1.88-slim-bookworm cargo test
+python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision
+cd backend
+cargo test --locked --workspace
+cd ..
+python3 scripts/test_ai_foundation.py
 ```
 
 Frontend:
 
 ```bash
 cd frontend
-pnpm install
+pnpm install --frozen-lockfile
 pnpm test
 ```
 
-Локальный стенд: `docker compose -f docker-compose.dev.yml up --build -d`
-(API `7771`, web `7772`, PostgreSQL `7773`).
+Для полного workspace используйте его штатный helper и профиль. Standalone
+Compose описан в `docs/LOCAL_SETUP.md`; не запускайте его рядом с действующим
+стендом как дополнительную постоянную группу. Интеграционный harness выше
+создаёт собственный временный Compose project и очищает свои контейнеры.
 
 ## 3. Гейты перед PR
 
-- Backend: `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test`.
+- Backend: `cargo fmt --all -- --check`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, `cargo test --locked --workspace`.
 - Frontend: typecheck, tests, lint, build.
 - Docs: `python3 scripts/verify_readme.py`.
-- CI: лёгкий пайп docs + backend + frontend (см. Base CI_CONVENTION).
+- CI: docs, backend, frontend, minimum-Rust, foundation-integration и Compose config.
 
 ## 4. Соглашения
 
