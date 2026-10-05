@@ -1,5 +1,10 @@
 # Журнал изменений
 
+## [Unreleased] — AI/messaging foundation
+
+- Добавлены AI registry/runtime, утверждённая консоль и messaging consumer. Внутренний клиент принимает canonical ai-backend и совместимый ai-runtime endpoint (BF-006). Реальный inference остаётся закрыт.
+
+
 Все заметные изменения проекта фиксируются в этом файле.
 
 Формат ориентирован на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), а версии будут следовать [Semantic Versioning](https://semver.org/lang/ru/).

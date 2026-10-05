@@ -39,6 +39,8 @@
 | Runtime catalog | Public `GET /api/v1/runtime/services` выдаёт только `active` services с approved declaration для межпродуктовой навигации. |
 | Role bindings | Локальная elevation policy verified `user_id`, `email` или `role` claim → panel role; управление доступно только `platform_admin`. |
 | Audit | Append-only events для approved/reported service operations и branding publication/withdrawal; registry creation/update/status и role-binding mutations пока не имеют complete audit coverage. |
+| AI registry/runtime | [Основа SDLC2](docs/plans/2026-10-05-ai-foundation-publication.md): `/ai`, подключения и per-model context. Проверка модели, публикация и HTTP inference ещё заблокированы. |
+| Platform messaging | Authenticated feed/status через versioned Base SDK; по умолчанию consumer отключён без deployment config. |
 
 ## Snapshot
 
@@ -149,6 +151,15 @@ Playwright и screenshot manifest, а не в README.
 
 ![Карточка сервиса](docs/screenshots/service-detail.png)
 
+### AI-провайдеры (`wide`)
+
+![AI-провайдеры](docs/screenshots/ai-foundation.png)
+
+Кадр использует OIDC/API fixtures: доступ к реальным моделям не подтверждён.
+Registry, черновики и контекст подключены к контракту; verify/activation
+остаются закрыты до реальной capability acceptance.
+[План и граница поставки](docs/plans/2026-10-05-ai-foundation-publication.md).
+
 ### Пользователи и API-токены
 
 Admin Panel создаёт pending account, повторно отправляет одноразовую ссылку
@@ -181,18 +192,21 @@ pnpm typecheck
 pnpm test
 pnpm build
 
-# Backend: documented Rust 1.88 container gate
+# Backend: Rust 1.88, pinned Base checked out as a sibling
+cd ../backend
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo test --locked --workspace
 cd ..
-docker run --rm \
-  -v "$PWD:/workspace" -v "$(dirname "$PWD")/services-base:/services-base:ro" \
-  -w /workspace/backend rust:1.88-bookworm \
-  sh -lc 'cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace'
+
+# Disposable owned PostgreSQL/NATS integration (Docker Compose)
+python3 scripts/test_ai_foundation.py
 
 # Compose syntax
 docker compose -f docker-compose.dev.yml config -q
 ```
 
-GitHub Actions executes independent backend, frontend and Compose-config gates. It also regenerates OpenAPI and fails if [openapi/openapi.json](openapi/openapi.json) drifts. Browser E2E runs locally when needed. The README gate validates local links, images, explicit navigation anchors, placeholders, local paths and CI badge workflow references.
+GitHub Actions executes independent backend, frontend, minimum-Rust, foundation-integration and Compose-config gates. It also regenerates OpenAPI and fails if [openapi/openapi.json](openapi/openapi.json) drifts. AI foundation E2E runs in Chromium, Firefox and WebKit using explicit auth/API fixtures. These fixtures do not prove live SSO or provider access. The README gate validates local links, images, explicit navigation anchors, placeholders, local paths and CI badge workflow references.
 
 ## Security Boundary
 

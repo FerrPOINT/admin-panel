@@ -7,6 +7,7 @@ license-file.workspace = true
 repository.workspace = true
 
 [dependencies]
+sdlc-messaging.workspace = true
 admin-panel-domain = { path = "../domain" }
 sqlx = { workspace = true }
 uuid = { workspace = true }
@@ -17,3 +18,5 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
+reqwest = { workspace = true }
+zeroize = { version = "1.9", features = ["serde"] }

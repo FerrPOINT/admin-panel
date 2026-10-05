@@ -1,6 +1,7 @@
 import { useEffect, useState, type ElementType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import {
+  Bot,
   History,
   Home,
   KeyRound,
@@ -48,6 +49,7 @@ const navItems: NavItem[] = [
   { to: '/settings', icon: Settings, label: 'Локальные настройки' },
   { to: '/users', icon: Users, label: 'Пользователи' },
   { to: '/tokens', icon: KeyRound, label: 'API-токены' },
+  { to: '/ai', icon: Bot, label: 'AI-провайдеры' },
 ]
 
 export function AppShell() {

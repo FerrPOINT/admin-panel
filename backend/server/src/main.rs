@@ -9,7 +9,9 @@ use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+mod ai_publication_worker;
 mod health_worker;
+mod messaging_worker;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,15 +31,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .max_connections(config.database.max_connections)
         .connect(&config.database.url)
         .await?;
-    let migrations = sqlx::migrate::Migrator::new(std::path::Path::new(
-        &std::env::var("ADMINP_MIGRATIONS_DIR").unwrap_or_else(|_| "migration/migrations".into()),
-    ))
+    admin_panel_migration::run(
+        &pool,
+        std::path::Path::new(
+            &std::env::var("ADMINP_MIGRATIONS_DIR")
+                .unwrap_or_else(|_| "migration/migrations".into()),
+        ),
+    )
     .await?;
-    migrations.run(&pool).await?;
     tracing::info!("migrations applied");
     bootstrap_services(&pool).await?;
 
+    let messaging_config = sdlc_messaging::config::from_env("ADMINP", "admin")?;
+    let ai = match std::env::var("ADMINP_AI_WORKSPACE") {
+        Ok(workspace) => {
+            let store = admin_panel_infra::ai::AiStore::new(pool.clone(), &workspace)?;
+            store.initialize_registry().await?;
+            Some(store)
+        }
+        Err(std::env::VarError::NotPresent) => None,
+        Err(error) => return Err(error.into()),
+    };
+
     let state: SharedState = Arc::new(AppState {
+        ai,
+        ai_runtime: match std::env::var("ADMINP_AI_RUNTIME_URL") {
+            Ok(endpoint) => {
+                if std::env::var("ADMINP_AI_WORKSPACE").as_deref() != Ok("sdlc2") {
+                    return Err("AI runtime requires own workspace registry".into());
+                }
+                let file = std::env::var("ADMINP_AI_RUNTIME_TOKEN_FILE")?;
+                Some(
+                    admin_panel_infra::ai_runtime::RuntimeClient::from_deployment(
+                        &endpoint,
+                        std::path::Path::new(&file),
+                    )?,
+                )
+            }
+            Err(std::env::VarError::NotPresent) => None,
+            Err(error) => return Err(error.into()),
+        },
+        messaging: Arc::new(admin_panel_infra::messaging::MessagingRuntime::new(
+            messaging_config.is_some(),
+        )),
         registry: admin_panel_infra::registry::RegistryStore::new(pool.clone()),
         branding: admin_panel_infra::branding::BrandingStore::new(pool.clone()),
         access: admin_panel_infra::access::AccessStore::new(pool.clone()),
@@ -53,7 +89,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(String::as_str)
         .collect();
     let cors = tower_http::cors::CorsLayer::new()
-        .expose_headers([axum::http::HeaderName::from_static("x-request-id")])
         .allow_origin(
             allow_origins
                 .iter()
@@ -64,16 +99,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::http::Method::GET,
             axum::http::Method::POST,
             axum::http::Method::PATCH,
+            axum::http::Method::PUT,
             axum::http::Method::DELETE,
         ])
         .allow_headers([
             axum::http::HeaderName::from_static("x-request-id"),
+            axum::http::header::AUTHORIZATION,
             axum::http::header::CONTENT_TYPE,
             axum::http::header::IF_NONE_MATCH,
             axum::http::header::IF_MATCH,
+            axum::http::HeaderName::from_static("idempotency-key"),
+        ])
+        .expose_headers([
+            axum::http::HeaderName::from_static("x-request-id"),
+            axum::http::header::ETAG,
+            axum::http::HeaderName::from_static("x-total-count"),
         ]);
 
     health_worker::spawn(state.registry.clone());
+
+    let (stop, shutdown) = tokio::sync::watch::channel(false);
+    let mut workers = messaging_worker::spawn(
+        pool.clone(),
+        state.messaging.clone(),
+        messaging_config,
+        shutdown.clone(),
+    );
+    if let Some(worker) = ai_publication_worker::spawn(state.clone(), shutdown.clone()) {
+        workers.push(worker);
+    }
+    let signal = tokio::spawn(async move {
+        let _ = sdlc_messaging::shutdown::requested().await;
+        let _ = stop.send(true);
+    });
 
     let app = admin_panel_api::router(state)
         .layer(cors)
@@ -82,7 +140,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.server.address, config.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!(bind = %addr, "admin-panel api listening");
-    axum::serve(listener, app).await?;
+    let mut http_shutdown = shutdown;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            if !*http_shutdown.borrow() {
+                let _ = http_shutdown.changed().await;
+            }
+        })
+        .await?;
+    for worker in workers {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(15), worker).await;
+    }
+    signal.abort();
     Ok(())
 }
 

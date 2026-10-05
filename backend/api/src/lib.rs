@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+pub mod ai;
 pub mod auth;
 mod managed_users;
+pub mod messaging;
 use managed_users::{
     create_managed_user, list_managed_users, resend_managed_user_link, set_managed_user_status,
     update_managed_user,
@@ -19,6 +21,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub struct AppState {
+    pub ai: Option<admin_panel_infra::ai::AiStore>,
+    pub ai_runtime: Option<admin_panel_infra::ai_runtime::RuntimeClient>,
+    pub messaging: Arc<admin_panel_infra::messaging::MessagingRuntime>,
     pub registry: admin_panel_infra::registry::RegistryStore,
     pub branding: admin_panel_infra::branding::BrandingStore,
     pub access: admin_panel_infra::access::AccessStore,
@@ -182,6 +187,44 @@ pub fn router(state: SharedState) -> Router {
         .route_layer(middleware::from_fn_with_state(state.clone(), bearer_auth));
 
     let authenticated = Router::new()
+        .route("/api/v1/ai/providers", get(ai::providers))
+        .route(
+            "/api/v1/ai/providers/{provider}",
+            axum::routing::put(ai::save_settings),
+        )
+        .route(
+            "/api/v1/ai/selection",
+            get(ai::selection).put(ai::publish_selection),
+        )
+        .route(
+            "/api/v1/ai/publications/{operation}",
+            get(ai::publication_status),
+        )
+        .route("/api/v1/ai/providers/{provider}/models", get(ai::models))
+        .route("/api/v1/ai/budget", get(ai::acceptance_budget))
+        .route("/api/v1/ai/providers/chatgpt/account", get(ai::account))
+        .route(
+            "/api/v1/ai/providers/openrouter/credentials",
+            axum::routing::put(ai::credentials).layer(axum::extract::DefaultBodyLimit::max(65536)),
+        )
+        .route("/api/v1/ai/providers/chatgpt/login", post(ai::start_login))
+        .route(
+            "/api/v1/ai/providers/chatgpt/login/{operation}",
+            get(ai::login_status).delete(ai::cancel_login),
+        )
+        .route(
+            "/api/v1/ai/providers/{provider}/connection",
+            axum::routing::delete(ai::disconnect),
+        )
+        .route(
+            "/api/v1/ai/providers/{provider}/operations/{operation}",
+            get(ai::connection_operation),
+        )
+        .route("/api/v1/runtime/ai", get(ai::runtime_profile))
+        .route("/api/v1/platform-events", get(messaging::list))
+        .route("/api/v1/platform-events/{id}", get(messaging::detail))
+        .route("/api/v1/messaging/status", get(messaging::status))
+        .route("/api/v1/messaging/contracts", get(messaging::contracts))
         .route("/api/v1/auth/me", get(auth_me))
         .route(
             "/api/v1/tokens",
@@ -240,6 +283,21 @@ pub fn router(state: SharedState) -> Router {
         description = "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit."
     ),
     paths(
+        ai::providers,
+        ai::models,
+        ai::account,
+        ai::acceptance_budget,
+        ai::credentials,
+        ai::start_login,
+        ai::login_status,
+        ai::cancel_login,
+        ai::disconnect,
+        ai::connection_operation,
+        ai::save_settings,
+        ai::selection,
+        ai::publish_selection,
+        ai::publication_status,
+        ai::runtime_profile,
         auth_login,
         auth_me,
         health_live,
@@ -263,8 +321,13 @@ pub fn router(state: SharedState) -> Router {
         create_role_binding,
         delete_role_binding,
         list_audit,
+        messaging::list,
+        messaging::detail,
+        messaging::status,
+        messaging::contracts,
     ),
     tags(
+        (name = "ai", description = "Authenticated AI configuration; credentials are write-only in ai-runtime"),
         (name = "auth", description = "Login proxy and caller identity"),
         (name = "health", description = "Liveness/readiness"),
         (name = "runtime", description = "Public runtime endpoints (no auth)"),

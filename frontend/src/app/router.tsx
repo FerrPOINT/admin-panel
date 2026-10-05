@@ -1,5 +1,7 @@
 import { Navigate, createBrowserRouter, useLocation } from 'react-router'
 import { AppShell } from '@/widgets/app-shell'
+import { AiPage } from '@/pages/live/ai'
+import { AiWorkspace, AiLeaveGuard } from '@/shared/ai-ui/workspace'
 import { OverviewPage } from '@/pages/overview'
 import { BrandingPage } from '@/pages/branding'
 import { ServicesPage } from '@/pages/services'
@@ -47,6 +49,15 @@ export const router = createBrowserRouter([
       { path: '/settings', element: <SettingsPage /> },
       { path: '/users', element: <UsersPage /> },
       { path: '/tokens', element: <TokensPage /> },
+      {
+        path: '/ai',
+        element: (
+          <AiWorkspace>
+            <AiLeaveGuard />
+            <AiPage />
+          </AiWorkspace>
+        ),
+      },
     ],
   },
 ])

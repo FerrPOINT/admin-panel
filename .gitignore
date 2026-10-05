@@ -8,4 +8,6 @@ target/
 !.env.example
 backend/target-stage/
 frontend/test-results/
+frontend/playwright-report/
+.local/
 __pycache__/
