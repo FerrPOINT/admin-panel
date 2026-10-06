@@ -114,10 +114,21 @@ pub fn valid_integration_base_url(url: &str) -> bool {
         && !rest.ends_with('.')
 }
 
-/// Optional public UI URL (ADR-0007): http(s) origin without userinfo,
-/// path, query or fragment; same shape rules as integration_base_url.
+/// Public UI may have a deployment prefix; integration origins stay path-free.
 pub fn valid_public_ui_url(url: &str) -> bool {
-    valid_integration_base_url(url)
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return false;
+    };
+    let (authority, path) = rest.split_once('/').unwrap_or((rest, ""));
+    valid_integration_base_url(&format!("{scheme}://{authority}"))
+        && !url.chars().any(|c| c.is_whitespace() || c.is_control())
+        && !path.contains("//")
+        && path.split('/').all(|segment| {
+            !matches!(segment, "." | "..")
+                && segment
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        })
 }
 
 pub fn validate_public_ui_url(url: Option<&String>) -> Result<(), String> {
@@ -126,7 +137,7 @@ pub fn validate_public_ui_url(url: Option<&String>) -> Result<(), String> {
         Some(u) if u.is_empty() => Ok(()),
         Some(u) if valid_public_ui_url(u) => Ok(()),
         Some(_) => {
-            Err("public_ui_url must be an http(s) origin without credentials or path".into())
+            Err("public_ui_url must be an allowed http(s) origin with a safe UI path, without credentials, query or fragment".into())
         }
     }
 }
@@ -488,6 +499,22 @@ mod tests {
         assert!(!valid_integration_base_url("http://insecure.example"));
         assert!(!valid_integration_base_url("https://user:pass@example.com"));
         assert!(!valid_integration_base_url("https://example.com/path"));
+    }
+
+    #[test]
+    fn public_ui_url_supports_safe_deployment_prefixes() {
+        for url in ["https://pdlc.example.test", "https://pdlc.example.test/admin/",
+            "https://pdlc.example.test/fleet/", "http://localhost:7772/admin/"] {
+            assert!(valid_public_ui_url(url), "{url}");
+        }
+        for url in ["https://u:p@pdlc.test/admin/", "http://remote.test/fleet/",
+            "https://pdlc.test/fleet/?next=x", "https://pdlc.test/fleet/#x",
+            "https://pdlc.test/../auth", "https://pdlc.test/%2e%2e/auth",
+            "https://pdlc.test//fleet", "https://pdlc.test/fleet\\auth",
+            "https://pdlc.test/fleet /", "javascript:alert(1)"] {
+            assert!(!valid_public_ui_url(url), "{url}");
+        }
+        assert!(!valid_integration_base_url("https://pdlc.test/admin/"));
     }
 
     #[test]

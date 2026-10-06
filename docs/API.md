@@ -1,5 +1,10 @@
 # API v1: Base Admin Panel
 
+`public_ui_url` допускает безопасный путь раздела единого origin (например,
+`https://pdlc.example.test/admin/`). Credentials, query, fragment, traversal,
+encoded separators и неоднозначные пути запрещены. `integration_base_url`
+остаётся origin без пути. См. [план единого origin](plans/2026-10-06-single-origin.md).
+
 `openapi/openapi.json` — машиночитаемый контракт, генерируемый из Rust handlers. CI сравнивает свежую генерацию с committed file; этот документ — операторская карта, а не дублирующая схема.
 
 ## Базовые адреса

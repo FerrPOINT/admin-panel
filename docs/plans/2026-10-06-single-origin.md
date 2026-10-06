@@ -16,3 +16,8 @@ SDK pins, API contracts, БД и модель авторизации не мен
 переключение и повторный вход; сборка/развёртывание выполняются одной общей
 вехой Base, не после каждого изменения. Тест использует только фиктивный HTTP
 ответ; runtime evidence собирается отдельно на установленном стенде.
+
+`public_ui_url` допускает безопасный deployment prefix; без credentials, query,
+fragment, dot-segments или encoded separators. HTTP для loopback сохраняется.
+`integration_base_url` остаётся origin без path: health/probes и межсервисные
+права не ослабляются. Domain тесты проверяют оба разных контракта.
