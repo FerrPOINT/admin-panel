@@ -44,7 +44,7 @@ function role(value: unknown): PanelRole {
 }
 
 async function readMe(token: string): Promise<AuthSession> {
-  const response = await fetch('/api/v1/auth/me', {
+  const response = await fetch(`${import.meta.env.BASE_URL}api/v1/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!response.ok) throw new Error('session is invalid')

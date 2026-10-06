@@ -3,7 +3,7 @@ import { ChevronDown, RefreshCw } from 'lucide-react'
 import { Button } from '@sdlc/ui/ui'
 import { z } from 'zod'
 
-const base = import.meta.env.VITE_API_BASE_URL ?? ''
+const base = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.BASE_URL.replace(/\/$/, '')
 const endpoint = `${base}/api/v1/runtime/branding`
 
 interface CatalogService {

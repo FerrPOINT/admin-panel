@@ -1,6 +1,6 @@
 import { authToken } from '@/shared/auth/auth-context'
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+const BASE = import.meta.env.VITE_API_BASE_URL ?? import.meta.env.BASE_URL.replace(/\/$/, '')
 
 export class ApiError extends Error {
   constructor(
