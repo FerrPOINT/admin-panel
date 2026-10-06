@@ -40,7 +40,7 @@ export function LoginPage() {
             )
           }}
         >
-          Войти через SDLC
+          Войти через SSO
         </Button>
       </div>
     </main>

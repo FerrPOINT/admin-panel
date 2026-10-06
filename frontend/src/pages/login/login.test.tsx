@@ -45,7 +45,7 @@ describe('admin-panel login recovery', () => {
   it('requires explicit login after logout and marks it interactive', async () => {
     renderLogin('/login?logged_out=1')
     expect(beginSso).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Войти через SDLC' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Войти через SSO' }))
     await waitFor(() =>
       expect(beginSso).toHaveBeenCalledWith(
         expect.objectContaining({ clientId: 'admin-panel' }),
@@ -61,7 +61,7 @@ describe('admin-panel login recovery', () => {
       beginSso.mockRejectedValueOnce(error)
       renderLogin()
       await waitFor(() => expect(beginSso).toHaveBeenCalledOnce())
-      fireEvent.click(screen.getByRole('button', { name: 'Войти через SDLC' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Войти через SSO' }))
       await waitFor(() => expect(beginSso).toHaveBeenCalledTimes(2))
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       expect(beginSso).toHaveBeenLastCalledWith(
@@ -75,10 +75,10 @@ describe('admin-panel login recovery', () => {
   it('keeps real auth failure visible and clears it after retry', async () => {
     beginSso.mockRejectedValueOnce(new Error('private auth details'))
     renderLogin('/login?logged_out=1')
-    fireEvent.click(screen.getByRole('button', { name: 'Войти через SDLC' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Войти через SSO' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Central Auth временно недоступен.')
     expect(screen.queryByText(/private auth details/)).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Войти через SDLC' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Войти через SSO' }))
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
   })
 })

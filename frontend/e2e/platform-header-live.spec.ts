@@ -201,7 +201,7 @@ test('Admin global header preserves navigation, runtime services, focus and cent
   await profile.click()
   await menu.getByRole('menuitem', { name: 'Выйти', exact: true }).click()
   await expect(page).toHaveURL(/localhost:7701\/oidc\/logout\?client_id=admin-panel/)
-  await page.getByRole('button', { name: 'Выйти из всех приложений', exact: true }).click()
+  await page.getByRole('button', { name: 'Выйти', exact: true }).click()
   await expect(page).toHaveURL(/localhost:7772\/login\?logged_out/)
   await page.goto(`${base}/services`, { waitUntil: 'commit' })
   await expect(page).toHaveURL(/localhost:7701\/oidc\/authorize/)
