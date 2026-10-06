@@ -123,6 +123,7 @@ pub fn valid_public_ui_url(url: &str) -> bool {
     valid_integration_base_url(&format!("{scheme}://{authority}"))
         && !url.chars().any(|c| c.is_whitespace() || c.is_control())
         && !path.contains("//")
+        && !path.starts_with('/')
         && path.split('/').all(|segment| {
             !matches!(segment, "." | "..")
                 && segment
@@ -503,15 +504,26 @@ mod tests {
 
     #[test]
     fn public_ui_url_supports_safe_deployment_prefixes() {
-        for url in ["https://pdlc.example.test", "https://pdlc.example.test/admin/",
-            "https://pdlc.example.test/fleet/", "http://localhost:7772/admin/"] {
+        for url in [
+            "https://pdlc.example.test",
+            "https://pdlc.example.test/admin/",
+            "https://pdlc.example.test/fleet/",
+            "http://localhost:7772/admin/",
+        ] {
             assert!(valid_public_ui_url(url), "{url}");
         }
-        for url in ["https://u:p@pdlc.test/admin/", "http://remote.test/fleet/",
-            "https://pdlc.test/fleet/?next=x", "https://pdlc.test/fleet/#x",
-            "https://pdlc.test/../auth", "https://pdlc.test/%2e%2e/auth",
-            "https://pdlc.test//fleet", "https://pdlc.test/fleet\\auth",
-            "https://pdlc.test/fleet /", "javascript:alert(1)"] {
+        for url in [
+            "https://u:p@pdlc.test/admin/",
+            "http://remote.test/fleet/",
+            "https://pdlc.test/fleet/?next=x",
+            "https://pdlc.test/fleet/#x",
+            "https://pdlc.test/../auth",
+            "https://pdlc.test/%2e%2e/auth",
+            "https://pdlc.test//fleet",
+            "https://pdlc.test/fleet\\auth",
+            "https://pdlc.test/fleet /",
+            "javascript:alert(1)",
+        ] {
             assert!(!valid_public_ui_url(url), "{url}");
         }
         assert!(!valid_integration_base_url("https://pdlc.test/admin/"));
