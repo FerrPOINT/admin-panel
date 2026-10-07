@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/FerrPOINT/admin-panel/ci.yml?branch=main&style=flat-square&label=CI" alt="CI" />
-  <img src="https://img.shields.io/badge/Rust-1.88-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 1.88" />
+  <img src="https://img.shields.io/badge/Rust-1.98.1-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 1.98.1" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111827" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9" />
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 17" />
@@ -192,8 +192,10 @@ pnpm typecheck
 pnpm test
 pnpm build
 
-# Backend: Rust 1.88, pinned Base checked out as a sibling
-cd ../backend
+# Backend: Rust 1.98.1 release gate; MSRV 1.88.0 checked separately
+cd ..
+python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision
+cd backend
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
@@ -206,7 +208,19 @@ python3 scripts/test_ai_foundation.py
 docker compose -f docker-compose.dev.yml config -q
 ```
 
-GitHub Actions executes independent backend, frontend, minimum-Rust, foundation-integration and Compose-config gates. It also regenerates OpenAPI and fails if [openapi/openapi.json](openapi/openapi.json) drifts. AI foundation E2E runs in Chromium, Firefox and WebKit using explicit auth/API fixtures. These fixtures do not prove live SSO or provider access. The README gate validates local links, images, explicit navigation anchors, placeholders, local paths and CI badge workflow references.
+Backend-команды выполняются в Rust 1.98.1 среде с проверенным соседним Base.
+Для контейнерных проверок используйте временный Compose project с явными
+`sdlc.task`/`sdlc.purpose` и обязательным `down --remove-orphans` в finally,
+согласно [Base LOCAL_GROUPS](https://github.com/FerrPOINT/services-base/blob/main/deploy/LOCAL_GROUPS.md).
+Постоянный локальный стенд запускается из корня workspace через `start-local.ps1`.
+
+GitHub Actions проверяет backend, frontend, minimum-Rust,
+foundation-integration и Compose config независимо. OpenAPI генерируется
+повторно; drift [openapi/openapi.json](openapi/openapi.json) завершает gate
+ошибкой. AI foundation E2E использует Chromium, Firefox и WebKit с явными
+auth/API fixtures; они не доказывают живой SSO или доступ к провайдеру.
+README gate проверяет локальные ссылки, изображения, navigation anchors,
+placeholders, локальные пути и ссылки CI badges на workflow.
 
 ## Security Boundary
 

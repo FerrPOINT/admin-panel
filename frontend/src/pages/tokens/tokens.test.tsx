@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TokensPage } from './index'
 import { useAuth } from '@/shared/auth/auth-context'
@@ -12,6 +13,97 @@ beforeEach(() => {
 })
 
 describe('TokensPage', () => {
+  function renderRevocation(deleteRequest: () => Promise<Response>) {
+    const revoked = new Set<string>()
+    const tokens = [1, 2].map((index) => ({
+      id: `t-${index}`,
+      label: `Own QA ${index}`,
+      scopes: ['wiki:read'],
+      expires_at: '2099-01-01T00:00:00Z',
+      created_at: '2026-09-19T00:00:00Z',
+      last_used_at: null,
+      revoked_at: null,
+    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (init?.method === 'DELETE') {
+          const response = await deleteRequest()
+          if (response.ok) revoked.add(url.split('/').at(-1)!)
+          return response
+        }
+        if (url.endsWith('/api/v1/token-services')) return Response.json([])
+        return Response.json(
+          tokens.map((token) => ({
+            ...token,
+            revoked_at: revoked.has(token.id) ? '2026-10-04T00:00:00Z' : null,
+          })),
+        )
+      }),
+    )
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <TokensPage />
+      </QueryClientProvider>,
+    )
+  }
+
+  it('keeps confirmation visible and blocks Cancel/Escape while revocation is pending', async () => {
+    let finish!: (response: Response) => void
+    const deletion = vi.fn(() => new Promise<Response>((resolve) => (finish = resolve)))
+    renderRevocation(deletion)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Отозвать Own QA 1' }))
+    const dialog = screen.getByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Отозвать' }))
+    expect(within(dialog).getByRole('button', { name: 'Отмена' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Отозвать' })).toBeDisabled()
+    await user.keyboard('{Escape}')
+    expect(dialog).toBeInTheDocument()
+    expect(deletion).toHaveBeenCalledTimes(1)
+    await act(async () => finish(new Response(null, { status: 204 })))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  })
+
+  it('restores focus after Cancel and clears an error before another confirmation', async () => {
+    renderRevocation(() =>
+      Promise.resolve(Response.json({ error: { code: 'NOT_FOUND' } }, { status: 404 })),
+    )
+    const user = userEvent.setup()
+    const first = await screen.findByRole('button', { name: 'Отозвать Own QA 1' })
+    await user.click(first)
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Отозвать',
+      }),
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось отозвать токен')
+    await user.click(screen.getByRole('button', { name: 'Отмена' }))
+    await waitFor(() => expect(first).toHaveFocus())
+    await user.click(screen.getByRole('button', { name: 'Отозвать Own QA 2' }))
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('returns focus to Create after an active token disappears on successful revocation', async () => {
+    renderRevocation(() => Promise.resolve(new Response(null, { status: 204 })))
+    const user = userEvent.setup()
+    await screen.findByText('Own QA 1')
+    fireEvent.change(screen.getByRole('combobox', { name: 'Статус токена' }), {
+      target: { value: 'active' },
+    })
+    await user.click(screen.getByRole('button', { name: 'Отозвать Own QA 1' }))
+    await user.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Отозвать',
+      }),
+    )
+    await waitFor(() => expect(screen.queryByText('Own QA 1')).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Создать' })).toHaveFocus())
+  })
+
   it('keeps token metadata readable without create or revoke controls', async () => {
     vi.mocked(useAuth).mockReturnValue({ canMutate: false } as ReturnType<typeof useAuth>)
     const token = {

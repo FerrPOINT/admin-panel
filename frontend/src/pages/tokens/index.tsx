@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Copy, KeyRound, Plus, Search, Trash2 } from 
 import { toast } from 'sonner'
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -51,7 +52,6 @@ export function TokensPage() {
   const queryClient = useQueryClient()
   const createButtonRef = useRef<HTMLButtonElement>(null)
   const revokeButtonRef = useRef<HTMLButtonElement | null>(null)
-  const revokeSucceededRef = useRef(false)
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState('')
   const [days, setDays] = useState(30)
@@ -96,7 +96,7 @@ export function TokensPage() {
   const revoke = useMutation({
     mutationFn: (id: string) => api.delete<void>(`/api/v1/tokens/${id}`),
     onSuccess: () => {
-      revokeSucceededRef.current = true
+      revokeButtonRef.current = createButtonRef.current
       setRevokeTarget(null)
       refresh()
       toast.success('Токен отозван')
@@ -203,7 +203,8 @@ export function TokensPage() {
           <div key={token.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-sm font-medium">
-                <KeyRound className="h-4 w-4" /> {token.label}
+                <KeyRound className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">{token.label}</span>
               </p>
               <p className="text-xs text-text-muted">
                 {token.scopes.join(', ')} · До{' '}
@@ -220,7 +221,7 @@ export function TokensPage() {
                 title="Отозвать"
                 onClick={(event) => {
                   revokeButtonRef.current = event.currentTarget
-                  revokeSucceededRef.current = false
+                  revoke.reset()
                   setRevokeTarget(token)
                 }}
               >
@@ -366,41 +367,25 @@ export function TokensPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog
+      <ConfirmDialog
         open={canMutate && Boolean(revokeTarget)}
         onOpenChange={(next) => {
-          if (!next && !revoke.isPending) setRevokeTarget(null)
+          if (!next) {
+            setRevokeTarget(null)
+            revoke.reset()
+          }
         }}
-      >
-        <DialogContent
-          className="text-text-primary"
-          onCloseAutoFocus={(event) => {
-            event.preventDefault()
-            const trigger = revokeButtonRef.current
-            if (!revokeSucceededRef.current && trigger?.isConnected) trigger.focus()
-            else createButtonRef.current?.focus()
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>Отозвать токен?</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-text-muted">
-            {revokeTarget?.label} перестанет работать сразу.
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRevokeTarget(null)}>
-              Отмена
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={revoke.isPending}
-              onClick={() => revokeTarget && revoke.mutate(revokeTarget.id)}
-            >
-              {revoke.isPending ? 'Отзываем...' : 'Отозвать'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title="Отозвать токен?"
+        description={`${revokeTarget?.label ?? ''} перестанет работать сразу.`}
+        confirmLabel="Отозвать"
+        cancelLabel="Отмена"
+        pendingLabel="Отзываем..."
+        isPending={revoke.isPending}
+        error={revoke.isError ? 'Не удалось отозвать токен' : null}
+        returnFocusRef={revokeButtonRef}
+        fallbackFocusRef={createButtonRef}
+        onConfirm={() => revokeTarget && !revoke.isPending && revoke.mutate(revokeTarget.id)}
+      />
     </div>
   )
 }

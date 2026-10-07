@@ -25,7 +25,7 @@ def prepare(directory: Path, project: str) -> Path:
     bind = lambda source, target: {'type': 'bind', 'source': str(source.resolve()), 'target': target,
                                    'read_only': True, 'bind': {'create_host_path': False}}
     check = config['services']['check']
-    check['image'] = 'rust:1.88-bookworm'
+    check['image'] = 'rust:1.88.0-bookworm'
     check['working_dir'] = '/workspace/admin-panel/backend'
     check['volumes'][0:1] = [bind(ROOT, '/workspace/admin-panel'), bind(BASE, '/workspace/services-base')]
     urls = '\n'.join(f'export {name}="postgres://messaging:$password@postgres:5432/{database}"' for name, database in [

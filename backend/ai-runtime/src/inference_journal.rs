@@ -1084,19 +1084,19 @@ pub(crate) fn append_cost_overrun(
     request_id: Uuid,
     now: DateTime<Utc>,
 ) -> Result<(), RuntimeError> {
-    if let Some(reservation) = budget.reservations.get(&request_id) {
-        if reservation.status == crate::budget::ReservationStatus::CostOverrun {
-            append(
-                run,
-                JournalEventKind::CostCeilingExceeded {
-                    actual_microdollars: reservation
-                        .actual_microdollars
-                        .ok_or(RuntimeError::Protocol)?,
-                    ceiling_microdollars: reservation.ceiling_microdollars,
-                },
-                now,
-            )?;
-        }
+    if let Some(reservation) = budget.reservations.get(&request_id)
+        && reservation.status == crate::budget::ReservationStatus::CostOverrun
+    {
+        append(
+            run,
+            JournalEventKind::CostCeilingExceeded {
+                actual_microdollars: reservation
+                    .actual_microdollars
+                    .ok_or(RuntimeError::Protocol)?,
+                ceiling_microdollars: reservation.ceiling_microdollars,
+            },
+            now,
+        )?;
     }
     Ok(())
 }

@@ -10,17 +10,20 @@ cp .env.example .env 2>/dev/null || true
 
 ## 2. Development Setup
 
-Backend (Rust 1.88 и соседний Base на SHA из `.base-revision`):
+Backend: Rust 1.98.1 для release; отдельный MSRV gate — 1.88.0.
+Проверенный Base checkout должен находиться рядом, см. [BASE_INTEGRATION](docs/BASE_INTEGRATION.md).
 
 ```bash
 python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision
 cd backend
+cargo fmt --all -- --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 cd ..
 python3 scripts/test_ai_foundation.py
 ```
 
-Frontend:
+Frontend: Node 26.10.0 / pnpm 10.28.1 (из корня продукта):
 
 ```bash
 cd frontend
@@ -28,10 +31,14 @@ pnpm install --frozen-lockfile
 pnpm test
 ```
 
-Для полного workspace используйте его штатный helper и профиль. Standalone
-Compose описан в `docs/LOCAL_SETUP.md`; не запускайте его рядом с действующим
-стендом как дополнительную постоянную группу. Интеграционный harness выше
-создаёт собственный временный Compose project и очищает свои контейнеры.
+Постоянный локальный стенд запускается из корня workspace через `start-local.ps1`.
+Контейнерные проверки выполняются только через отдельный временный Compose
+project с task/purpose labels, собственными ресурсами и cleanup в finally;
+правила принадлежат [Base LOCAL_GROUPS](https://github.com/FerrPOINT/services-base/blob/main/deploy/LOCAL_GROUPS.md).
+Standalone Compose описан в `docs/LOCAL_SETUP.md`; не запускайте его рядом
+с действующим стендом как дополнительную постоянную группу. Интеграционный
+harness выше создаёт собственный временный Compose project и очищает свои
+контейнеры.
 
 ## 3. Гейты перед PR
 

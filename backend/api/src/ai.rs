@@ -127,12 +127,15 @@ async fn audit_intent(
     operation: Uuid,
     provider: ProviderId,
     action: &str,
-) -> Result<(), Response> {
+) -> Result<(), Box<Response>> {
     if !caller.can_mutate {
-        return Err(failure(StatusCode::FORBIDDEN, "write_capability_required"));
+        return Err(Box::new(failure(
+            StatusCode::FORBIDDEN,
+            "write_capability_required",
+        )));
     }
     if state.ai.is_none() || state.ai_runtime.is_none() {
-        return Err(unavailable());
+        return Err(Box::new(unavailable()));
     }
     state
         .audit
@@ -148,7 +151,12 @@ async fn audit_intent(
             metadata: json!({"provider":provider,"operation_id":operation,"phase":"intent"}),
         })
         .await
-        .map_err(|_| failure(StatusCode::INTERNAL_SERVER_ERROR, "ai_audit_unavailable"))
+        .map_err(|_| {
+            Box::new(failure(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "ai_audit_unavailable",
+            ))
+        })
 }
 
 #[utoipa::path(put,path="/api/v1/ai/providers/openrouter/credentials",tag="ai",request_body=serde_json::Value,responses((status=200,description="Credential generation; secret is write-only"),(status=403,description="Write capability required"),(status=409,description="Operation conflict"),(status=422,description="Invalid credential"),(status=503,description="Runtime unavailable; read back operation before retry")))]
@@ -178,7 +186,7 @@ pub async fn credentials(
     )
     .await
     {
-        return response;
+        return *response;
     }
     match state.ai_runtime.as_ref().unwrap().credentials(&input).await {
         Ok(connection) => no_store(Json(connection).into_response()),
@@ -218,7 +226,7 @@ pub async fn start_login(
     )
     .await
     {
-        return response;
+        return *response;
     }
     match state
         .ai_runtime
@@ -261,7 +269,7 @@ pub async fn cancel_login(
     )
     .await
     {
-        return response;
+        return *response;
     }
     match state
         .ai_runtime
@@ -303,7 +311,7 @@ pub async fn disconnect(
     )
     .await
     {
-        return response;
+        return *response;
     }
     match state
         .ai_runtime

@@ -494,12 +494,12 @@ async fn connection_operation(
             json!({"schema_version":1,"operation_id":id,"provider":provider_id,"kind":"disconnect","status":operation.status,"generation":operation.generation}),
         ));
     }
-    if provider_id == ProviderId::Openrouter {
-        if let Some(operation) = vault.state().operations.get(&id) {
-            return Ok(Json(
-                json!({"schema_version":1,"operation_id":id,"provider":provider_id,"kind":"credentials","status":"completed","generation":operation.generation}),
-            ));
-        }
+    if provider_id == ProviderId::Openrouter
+        && let Some(operation) = vault.state().operations.get(&id)
+    {
+        return Ok(Json(
+            json!({"schema_version":1,"operation_id":id,"provider":provider_id,"kind":"credentials","status":"completed","generation":operation.generation}),
+        ));
     }
     Err(RuntimeError::InvalidRequest)
 }
