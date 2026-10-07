@@ -1,0 +1,24 @@
+//! Workspace-owned AI credentials and provider protocol boundary.
+pub mod budget;
+pub mod codex;
+pub mod config;
+pub mod error;
+pub mod execution_grant;
+pub mod http;
+pub mod inference_journal;
+pub mod inference_tools;
+pub mod native_conversation;
+pub mod native_error;
+mod native_filesystem;
+mod native_model_policy;
+pub mod openrouter;
+pub mod openrouter_output;
+pub mod openrouter_pricing;
+pub mod openrouter_reasoning;
+pub mod openrouter_request;
+pub mod openrouter_stream;
+pub mod openrouter_transport;
+pub mod publication;
+pub mod schema_validation;
+mod scoped_readback;
+pub mod vault;

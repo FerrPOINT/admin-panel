@@ -1,5 +1,5 @@
 [workspace]
-members = ["api", "app", "domain", "infra", "shared", "server", "migration"]
+members = ["api", "app", "domain", "infra", "shared", "server", "migration", "ai-runtime"]
 resolver = "3"
 
 [workspace.package]
@@ -11,6 +11,7 @@ license-file = "LICENSE"
 repository = "https://github.com/FerrPOINT/admin-panel"
 
 [workspace.dependencies]
+sdlc-messaging = { path = "../../services-base/crates/sdlc-messaging", features = ["postgres"] }
 # runtime
 axum = { version = "0.8.3", features = ["macros"] }
 tokio = { version = "1.44", features = ["full"] }
@@ -26,8 +27,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "derive"] }
 # auth
 jsonwebtoken = "9.3"
-# time pinned: newer releases require a newer rustc than the pinned 1.88 toolchain
-time = "=0.3.41"
+# Patched time remains compatible with the independently checked Rust 1.88 MSRV.
+time = "=0.3.47"
 sha2 = "0.10"
 hex = "0.4"
 # validation

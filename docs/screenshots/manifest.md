@@ -21,3 +21,13 @@ document-overflow assertion. Theme is the product default.
 
 The full operational route and breakpoint matrix is asserted by the browser
 tests under `frontend/e2e/`; this manifest describes the checked-in captures.
+
+## AI foundation — 2026-10-05
+
+Кадр [ai-foundation.png](ai-foundation.png): `/ai?provider=openrouter`, wide,
+Chromium, 1920×1080 viewport, full-page, default theme. Собственный Playwright
+context, явные OIDC/API fixtures без реальных аккаунтов или секретов.
+Проверены Chromium/Firefox/WebKit и ширины 320, 375, 767, 768, 1279, 1280,
+1440, 1920, 2560; responsive кадры хранятся в приватном QA output.
+Команда: `pnpm exec playwright test e2e/ai-foundation.spec.ts`.
+Fixture приёмка не подтверждает live SSO/provider availability.

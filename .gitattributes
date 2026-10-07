@@ -1,0 +1,2 @@
+* text=auto eol=lf
+backend/migration/migrations/*.sql whitespace=-blank-at-eof

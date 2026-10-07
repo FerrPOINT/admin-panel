@@ -14,10 +14,13 @@ Backend: Rust 1.98.1 для release; отдельный MSRV gate — 1.88.0.
 Проверенный Base checkout должен находиться рядом, см. [BASE_INTEGRATION](docs/BASE_INTEGRATION.md).
 
 ```bash
+python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision
 cd backend
 cargo fmt --all -- --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
+cd ..
+python3 scripts/test_ai_foundation.py
 ```
 
 Frontend: Node 26.10.0 / pnpm 10.28.1 (из корня продукта):
@@ -32,13 +35,17 @@ pnpm test
 Контейнерные проверки выполняются только через отдельный временный Compose
 project с task/purpose labels, собственными ресурсами и cleanup в finally;
 правила принадлежат [Base LOCAL_GROUPS](https://github.com/FerrPOINT/services-base/blob/main/deploy/LOCAL_GROUPS.md).
+Standalone Compose описан в `docs/LOCAL_SETUP.md`; не запускайте его рядом
+с действующим стендом как дополнительную постоянную группу. Интеграционный
+harness выше создаёт собственный временный Compose project и очищает свои
+контейнеры.
 
 ## 3. Гейты перед PR
 
 - Backend: `cargo fmt --all -- --check`, `cargo clippy --locked --workspace --all-targets -- -D warnings`, `cargo test --locked --workspace`.
 - Frontend: typecheck, tests, lint, build.
 - Docs: `python3 scripts/verify_readme.py`.
-- CI: лёгкий пайп docs + backend + frontend (см. Base CI_CONVENTION).
+- CI: docs, backend, frontend, minimum-Rust, foundation-integration и Compose config.
 
 ## 4. Соглашения
 
