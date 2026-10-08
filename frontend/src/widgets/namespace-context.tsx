@@ -24,7 +24,7 @@ export function NamespaceShellContext() {
         const [registry_instance_id, namespace_id] = next.split('/')
         navigate(
           withNamespaceLocation(
-            location.pathname + location.search,
+            next ? `/namespaces/${namespace_id}` : '/namespaces',
             next ? { registry_instance_id, namespace_id } : null,
           ),
         )
