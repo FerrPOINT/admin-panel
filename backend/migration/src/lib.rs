@@ -156,7 +156,10 @@ mod tests {
                     .fetch_all(&pool)
                     .await
                     .unwrap();
-            assert_eq!(before.len(), 10);
+            assert_eq!(
+                before.iter().map(|row| row.0).collect::<Vec<_>>(),
+                (1..=11).collect::<Vec<_>>()
+            );
             // Test both historical CRLF -> LF and fresh LF -> CRLF without ledger writes.
             for entry in std::fs::read_dir(directory.path()).unwrap() {
                 let path = entry.unwrap().path();
