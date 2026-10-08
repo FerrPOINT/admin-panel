@@ -7,6 +7,8 @@ license-file.workspace = true
 repository.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+admin-panel-app = { path = "../app" }
 sdlc-messaging.workspace = true
 admin-panel-domain = { path = "../domain" }
 sqlx = { workspace = true }

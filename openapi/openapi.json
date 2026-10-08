@@ -3,6 +3,9 @@
   "info": {
     "title": "Base Admin Panel API",
     "description": "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit.",
+    "license": {
+      "name": ""
+    },
     "version": "1.0.0"
   },
   "paths": {
@@ -679,6 +682,322 @@
         }
       }
     },
+    "/api/v1/namespace-operations/{id}": {
+      "get": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "operation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Operation"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Operation not found"
+          }
+        }
+      }
+    },
+    "/api/v1/namespace-operations/{id}/reconcile": {
+      "post": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "reconcile",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Operation"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Operation"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/namespace-owners": {
+      "get": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "owners",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OwnerInstance"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Registry unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/namespaces": {
+      "get": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Namespace"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Namespace registry not configured"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateNamespace"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Original-key payload conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/namespaces/{id}": {
+      "patch": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateNamespace"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Namespace"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Revision conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/namespaces/{id}/context": {
+      "get": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "context",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NamespaceContext"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Namespace not found"
+          }
+        }
+      }
+    },
+    "/api/v1/namespaces/{id}/operations": {
+      "post": {
+        "tags": [
+          "namespaces"
+        ],
+        "operationId": "execute",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NamespaceCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Operation"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Operation"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Resource reserved or original readback required"
+          }
+        }
+      }
+    },
     "/api/v1/platform-events": {
       "get": {
         "tags": [
@@ -1318,6 +1637,74 @@
           }
         }
       },
+      "Binding": {
+        "type": "object",
+        "required": [
+          "namespace",
+          "resource",
+          "operation_id",
+          "generation",
+          "desired_state",
+          "confirmed"
+        ],
+        "properties": {
+          "confirmed": {
+            "type": "boolean"
+          },
+          "create_spec": {},
+          "desired_state": {
+            "type": "string"
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "namespace": {
+            "$ref": "#/components/schemas/NamespaceRef"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceRef"
+          }
+        }
+      },
+      "CreateNamespace": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "slug",
+          "name",
+          "responsible_subject"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responsible_subject": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateRoleBindingRequest": {
         "type": "object",
         "required": [
@@ -1518,6 +1905,285 @@
           }
         }
       },
+      "Namespace": {
+        "type": "object",
+        "required": [
+          "id",
+          "registry_instance_id",
+          "slug",
+          "name",
+          "description",
+          "responsible_subject",
+          "state",
+          "revision",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "registry_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responsible_subject": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "NamespaceCommand": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "operation_id",
+              "expected_revision",
+              "resources",
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "provision"
+                ]
+              },
+              "expected_revision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "operation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "resources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ResourceIntent"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "operation_id",
+              "expected_revision",
+              "resource",
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "attach"
+                ]
+              },
+              "create_spec": {},
+              "expected_revision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "operation_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "resource": {
+                "$ref": "#/components/schemas/ResourceRef"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "operation_id",
+              "expected_revision",
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "archive"
+                ]
+              },
+              "expected_revision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "operation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "operation_id",
+              "expected_revision",
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "restore"
+                ]
+              },
+              "expected_revision": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "operation_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ]
+      },
+      "NamespaceContext": {
+        "type": "object",
+        "required": [
+          "namespace",
+          "bindings"
+        ],
+        "properties": {
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Binding"
+            }
+          },
+          "namespace": {
+            "$ref": "#/components/schemas/Namespace"
+          }
+        }
+      },
+      "NamespaceRef": {
+        "type": "object",
+        "required": [
+          "registry_instance_id",
+          "namespace_id"
+        ],
+        "properties": {
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registry_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Operation": {
+        "type": "object",
+        "required": [
+          "id",
+          "namespace_id",
+          "state",
+          "command"
+        ],
+        "properties": {
+          "command": {},
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "namespace_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "OwnerInstance": {
+        "type": "object",
+        "required": [
+          "kind",
+          "instance_id"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ResourceKind"
+          }
+        }
+      },
+      "OwnerReadback": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "namespace",
+          "resource",
+          "operation_id",
+          "generation",
+          "state",
+          "drained"
+        ],
+        "properties": {
+          "drained": {
+            "type": "boolean"
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "namespace": {
+            "$ref": "#/components/schemas/NamespaceRef"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceRef"
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "PatchServiceRequest": {
         "type": "object",
         "properties": {
@@ -1545,6 +2211,90 @@
           }
         }
       },
+      "ResourceCatalogItem": {
+        "type": "object",
+        "required": [
+          "resource",
+          "label",
+          "resource_key"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceRef"
+          },
+          "resource_key": {
+            "type": "string"
+          }
+        }
+      },
+      "ResourceIntent": {
+        "type": "object",
+        "required": [
+          "resource"
+        ],
+        "properties": {
+          "create_spec": {},
+          "resource": {
+            "$ref": "#/components/schemas/ResourceRef"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResourceKind": {
+        "type": "string",
+        "enum": [
+          "tracker_project",
+          "wiki_space",
+          "git_group"
+        ]
+      },
+      "ResourceRef": {
+        "type": "object",
+        "required": [
+          "kind",
+          "instance_id",
+          "resource_id"
+        ],
+        "properties": {
+          "instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ResourceKind"
+          },
+          "resource_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResourceStats": {
+        "type": "object",
+        "required": [
+          "binding",
+          "counters"
+        ],
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/OwnerReadback"
+          },
+          "counters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "RunCheckRequest": {
         "type": "object",
         "required": [
@@ -1555,6 +2305,31 @@
             "type": "string"
           }
         }
+      },
+      "UpdateNamespace": {
+        "type": "object",
+        "required": [
+          "expected_revision",
+          "name",
+          "description",
+          "responsible_subject"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "responsible_subject": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       }
     }
   },

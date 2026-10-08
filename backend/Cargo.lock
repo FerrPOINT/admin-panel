@@ -65,6 +65,7 @@ version = "0.1.0"
 dependencies = [
  "admin-panel-domain",
  "anyhow",
+ "async-trait",
  "chrono",
  "serde",
  "serde_json",
@@ -78,9 +79,11 @@ name = "admin-panel-domain"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "sdlc-shared",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "utoipa",
  "uuid",
 ]
 
@@ -88,8 +91,10 @@ dependencies = [
 name = "admin-panel-infra"
 version = "0.1.0"
 dependencies = [
+ "admin-panel-app",
  "admin-panel-domain",
  "anyhow",
+ "async-trait",
  "chrono",
  "reqwest",
  "sdlc-messaging",
@@ -119,6 +124,7 @@ name = "admin-panel-server"
 version = "0.1.0"
 dependencies = [
  "admin-panel-api",
+ "admin-panel-app",
  "admin-panel-domain",
  "admin-panel-infra",
  "admin-panel-migration",
@@ -2545,6 +2551,7 @@ dependencies = [
  "thiserror 2.0.20",
  "tower-http 0.7.1",
  "tracing",
+ "utoipa",
  "uuid",
 ]
 

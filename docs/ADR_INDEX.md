@@ -31,3 +31,4 @@
 | 0019 | [Messaging retention](adr/0019-messaging-retention-diagnostics.md) | Принят | 2026-10-03 |
 | 0020 | [Scoped AI execution journal](adr/0020-scoped-ai-execution-journal.md) | Принят | 2026-10-04 |
 | 0021 | [Checksum миграций LF/CRLF](adr/0021-migration-line-ending-compatibility.md) | Принят | 2026-10-05 |
+| 0022 | [Сквозной Namespace](adr/0022-shared-namespace.md) | Принят | 2026-10-08 |

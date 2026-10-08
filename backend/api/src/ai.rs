@@ -594,6 +594,7 @@ mod tests {
             .connect_lazy("postgres://fixture:fixture@127.0.0.1:1/unused")
             .unwrap();
         let state = Arc::new(crate::AppState {
+            namespaces: None,
             ai: None,
             ai_runtime: None,
             messaging: Arc::new(admin_panel_infra::messaging::MessagingRuntime::new(false)),

@@ -31,6 +31,7 @@ import {
   PlatformHeader,
   ThemeToggle,
 } from '@sdlc/ui/ui'
+import { NamespaceShellContext } from './namespace-context'
 import { useAuth } from '@/shared/auth/auth-context'
 
 type NavItem = {
@@ -41,6 +42,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { to: '/', icon: Home, label: 'Обзор' },
+  ...(import.meta.env.VITE_NAMESPACE_ENABLED === 'true'
+    ? [{ to: '/namespaces', icon: Users, label: 'Проекты' }]
+    : []),
   { to: '/branding', icon: Palette, label: 'Брендинг' },
   { to: '/services', icon: Server, label: 'Каталог сервисов' },
   { to: '/revisions', icon: Table2, label: 'Конфигурации' },
@@ -67,6 +71,9 @@ export function AppShell() {
     <div className="min-h-screen bg-background text-text-primary">
       <PlatformHeader
         currentServiceKey="admin-panel"
+        context={
+          import.meta.env.VITE_NAMESPACE_ENABLED === 'true' ? <NamespaceShellContext /> : undefined
+        }
         leading={
           <>
             <MobileNavigation items={navItems} />

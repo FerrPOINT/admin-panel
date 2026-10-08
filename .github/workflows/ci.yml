@@ -51,7 +51,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: admin-panel
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - name: Check out services-base sibling (sdlc-auth-core path dep)
         uses: actions/checkout@v7
         with:
@@ -61,7 +65,7 @@ jobs:
           ref: ${{ steps.base.outputs.sha }}
       - name: Verify pinned Base checkout
         working-directory: admin-panel
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.98.1"
@@ -102,7 +106,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: admin-panel
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - name: Check out services-base sibling (@sdlc/ui file dep)
         uses: actions/checkout@v7
         with:
@@ -112,7 +120,7 @@ jobs:
           ref: ${{ steps.base.outputs.sha }}
       - name: Verify pinned Base checkout
         working-directory: admin-panel
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - uses: pnpm/action-setup@v6
         with:
           version: 10.28.1
@@ -166,7 +174,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: admin-panel
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
@@ -175,7 +187,7 @@ jobs:
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - name: Verify pinned Base checkout
         working-directory: admin-panel
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - name: Owned disposable PostgreSQL and NATS, no provider credentials
         working-directory: admin-panel
         run: python3 scripts/test_ai_foundation.py
@@ -197,7 +209,11 @@ jobs:
       - name: Read pinned Base revision
         id: base
         working-directory: admin-panel
-        run: echo "sha=$(cat .base-revision)" >> "$GITHUB_OUTPUT"
+        run: |
+          pin=.base-revision
+          if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+          echo "sha=$(cat "$pin")" >> "$GITHUB_OUTPUT"
+          echo "pin=$pin" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: FerrPOINT/services-base
@@ -206,7 +222,7 @@ jobs:
           token: ${{ secrets.SERVICES_BASE_TOKEN }}
       - name: Verify pinned Base checkout
         working-directory: admin-panel
-        run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
+        run: python3 ../services-base/scripts/verify_base_revision.py --revision "${{ steps.base.outputs.pin }}" --base ../services-base
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.88.0"

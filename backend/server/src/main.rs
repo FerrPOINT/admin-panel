@@ -54,6 +54,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let state: SharedState = Arc::new(AppState {
+        namespaces: match std::env::var("ADMINP_NAMESPACE_INSTANCE_ID") {
+            Ok(instance) => {
+                let instance: Uuid = instance.parse()?;
+                if instance.is_nil() {
+                    return Err("namespace registry instance must not be nil".into());
+                }
+                let owners = admin_panel_infra::namespace_owner::OwnerClient::from_deployment(
+                    &std::env::var("ADMINP_NAMESPACE_OWNERS")?,
+                )?;
+                let registry =
+                    admin_panel_infra::namespace::NamespaceStore::new(pool.clone(), instance);
+                registry.verify_instance().await?;
+                Some(admin_panel_app::namespace::NamespaceService::new(
+                    Arc::new(registry),
+                    Arc::new(owners),
+                ))
+            }
+            Err(std::env::VarError::NotPresent) => None,
+            Err(error) => return Err(error.into()),
+        },
         ai,
         ai_runtime: match std::env::var("ADMINP_AI_RUNTIME_URL") {
             Ok(endpoint) => {

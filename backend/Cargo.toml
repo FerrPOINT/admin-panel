@@ -11,6 +11,7 @@ license-file = "LICENSE"
 repository = "https://github.com/FerrPOINT/admin-panel"
 
 [workspace.dependencies]
+async-trait = "0.1"
 sdlc-messaging = { path = "../../services-base/crates/sdlc-messaging", features = ["postgres"] }
 # runtime
 axum = { version = "0.8.3", features = ["macros"] }

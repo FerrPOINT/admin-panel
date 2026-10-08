@@ -6,4 +6,6 @@ pub mod ai_runtime;
 pub mod audit;
 pub mod branding;
 pub mod messaging;
+pub mod namespace;
+pub mod namespace_owner;
 pub mod registry;

@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter, useLocation } from 'react-router'
 import { AppShell } from '@/widgets/app-shell'
 import { AiPage } from '@/pages/live/ai'
 import { AiWorkspace, AiLeaveGuard } from '@/shared/ai-ui/workspace'
+import { NamespacesPage, NamespacePage } from '@/pages/namespaces'
 import { OverviewPage } from '@/pages/overview'
 import { BrandingPage } from '@/pages/branding'
 import { ServicesPage } from '@/pages/services'
@@ -40,6 +41,8 @@ export const router = createBrowserRouter([
     element: <ProtectedApp />,
     children: [
       { path: '/', element: <OverviewPage /> },
+      { path: '/namespaces', element: <NamespacesPage /> },
+      { path: '/namespaces/:id', element: <NamespacePage /> },
       { path: '/branding', element: <BrandingPage /> },
       { path: '/services', element: <ServicesPage /> },
       { path: '/services/:serviceKey', element: <ServiceDetailPage /> },

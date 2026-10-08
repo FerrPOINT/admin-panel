@@ -13,6 +13,8 @@ ENV CI=true
 RUN pnpm install --frozen-lockfile
 
 COPY admin-panel/frontend/ ./
+ARG VITE_NAMESPACE_ENABLED="false"
+ENV VITE_NAMESPACE_ENABLED=${VITE_NAMESPACE_ENABLED}
 ARG VITE_PLATFORM_BRANDING_URL=""
 ENV VITE_PLATFORM_BRANDING_URL=${VITE_PLATFORM_BRANDING_URL}
 ARG VITE_PLATFORM_SERVICES_URL=""
@@ -22,6 +24,8 @@ ENV VITE_AUTH_ISSUER=${VITE_AUTH_ISSUER}
 RUN pnpm build
 
 FROM nginx:1.31-alpine
+ARG VITE_NAMESPACE_ENABLED="false"
+LABEL io.pdlc.namespace-ui.enabled=${VITE_NAMESPACE_ENABLED}
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY admin-panel/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

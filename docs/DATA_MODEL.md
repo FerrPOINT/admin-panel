@@ -192,3 +192,8 @@ erDiagram
 - `docs/API.md`
 - `docs/MIGRATIONS.md`
 - `docs/SECURITY.md`
+
+
+## Сквозной Namespace
+
+Версионированные API, данные, ownership и совместимость описаны в [Namespace](NAMESPACE.md).

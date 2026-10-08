@@ -7,6 +7,8 @@ license-file.workspace = true
 repository.workspace = true
 
 [dependencies]
+sdlc-shared = { path = "../../../services-base/crates/sdlc-shared", default-features = false, features = ["openapi"] }
+utoipa = { version = "5", features = ["uuid", "chrono"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
