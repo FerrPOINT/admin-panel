@@ -17,7 +17,7 @@ import { LoginPage } from '@/pages/login'
 import { SsoCallbackPage } from '@/pages/sso-callback'
 import { useAuth } from '@/shared/auth/auth-context'
 
-function ProtectedApp() {
+export function ProtectedApp() {
   const { status } = useAuth()
   const location = useLocation()
 
@@ -29,7 +29,13 @@ function ProtectedApp() {
     )
   }
   if (status === 'anonymous') {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search + location.hash }}
+      />
+    )
   }
   return <AppShell />
 }

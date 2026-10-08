@@ -15,7 +15,7 @@ export function NamespaceShellContext() {
       unavailable={catalog.isError}
       options={(catalog.data ?? []).map((n) => ({
         value: `${n.registry_instance_id}/${n.id}`,
-        label: n.name,
+        label: `${n.name} · ${n.slug}`,
       }))}
       manageUrl={
         ref ? withNamespaceLocation(`/namespaces/${ref.namespace_id}`, ref) : '/namespaces'
