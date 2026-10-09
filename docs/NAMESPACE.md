@@ -43,5 +43,7 @@ Responsible subject должен иметь active профиль у Tracker/Wik
 
 Registry outage не останавливает confirmed product resources. Новые bindings
 и смена ownership закрываются; ошибки owner counters показываются unavailable.
+Если продукт отсутствует в runtime-каталоге, выбор ресурсов и показатели сразу
+показывают недоступность; повторное чтение доступно после появления endpoint.
 Раскатывается отдельный exact compatible cohort. Legacy SDK/skills pins,
 pdlc-common, соседние stacks и Base-v3 gates сохраняются.

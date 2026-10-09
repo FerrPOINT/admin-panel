@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- Отсутствующий в runtime-каталоге владелец Namespace больше не оставляет выбор
+  ресурсов и показатели в бесконечной загрузке; запрос без endpoint запрещён.
+
 - Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
  — AI/messaging foundation
 

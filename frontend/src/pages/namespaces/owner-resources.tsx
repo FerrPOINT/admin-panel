@@ -79,12 +79,12 @@ export function ExistingResourcePicker({
   })
   return (
     <div className="space-y-3">
-      {query.isPending ? (
-        <p role="status">Загружаем доступные ресурсы…</p>
-      ) : query.isError ? (
+      {!origin || query.isError ? (
         <p role="alert" className="text-danger">
           Каталог продукта недоступен. Проверьте SSO-сессию и подключение.
         </p>
+      ) : query.isPending ? (
+        <p role="status">Загружаем доступные ресурсы…</p>
       ) : (
         <label className="block text-sm">
           Существующий ресурс
@@ -129,7 +129,12 @@ export function ExistingResourcePicker({
         >
           Далее
         </Button>
-        <Button type="button" variant="outline" onClick={() => void query.refetch()}>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={!origin}
+          onClick={() => void query.refetch()}
+        >
           Обновить
         </Button>
       </div>
@@ -179,19 +184,19 @@ export function OwnerCounters({
       return result
     },
   })
-  if (query.isPending)
+  if (origin && query.isPending)
     return (
       <p role="status" className="mt-3 text-sm text-text-muted">
         Читаем показатели…
       </p>
     )
-  if (query.isError || !query.data)
+  if (!origin || query.isError || !query.data)
     return (
       <div className="mt-3 space-y-2">
         <p role="alert" className="text-sm text-danger">
           Показатели источника недоступны.
         </p>
-        <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+        <Button variant="outline" size="sm" disabled={!origin} onClick={() => void query.refetch()}>
           Обновить
         </Button>
       </div>
