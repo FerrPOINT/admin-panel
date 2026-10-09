@@ -29,7 +29,7 @@ import {
   PageFrame,
   PlatformMark,
   PlatformHeader,
-  ThemeToggle,
+  ThemeMenuItems,
 } from '@sdlc/ui/ui'
 import { useAuth } from '@/shared/auth/auth-context'
 
@@ -81,7 +81,6 @@ export function AppShell() {
         }
         actions={
           <>
-            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -98,6 +97,7 @@ export function AppShell() {
                 <div className="break-words px-2 py-2 text-sm font-medium text-text-primary">
                   {operatorName}
                 </div>
+                <ThemeMenuItems />
                 <DropdownMenuItem onSelect={logout} className="min-h-11 gap-2 md:min-h-10">
                   <LogOut className="h-4 w-4" aria-hidden />
                   Выйти
