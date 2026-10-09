@@ -3,10 +3,9 @@
 ## [Unreleased]
 
 - Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
- — AI/messaging foundation
+  — AI/messaging foundation
 
 - Добавлены AI registry/runtime, утверждённая консоль и messaging consumer. Внутренний клиент принимает canonical ai-backend и совместимый ai-runtime endpoint (BF-006). Реальный inference остаётся закрыт.
-
 
 Все заметные изменения проекта фиксируются в этом файле.
 
@@ -15,7 +14,6 @@
 ## [Unreleased]
 
 - Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
-
 
 - Инструменты Docker и release CI согласованы: Rust 1.98.1, Node 26.10.0,
   pnpm 10.28.1. Frontend Docker устанавливает pnpm явно и не требует
@@ -33,6 +31,7 @@
   Central Auth контракта; product-specific scopes больше не зашиты во frontend.
 
 ### Fixed
+
 - Создание центрального пользователя записывает его UUID в `central_user.created`,
   чтобы аудит был связан с учёткой. Невалидный успешный ответ Central Auth
   возвращает 502 без ложного success audit; исходные ошибки upstream сохраняются.
@@ -60,15 +59,20 @@
 - Подтверждение branding revision actions (#10); service switcher на mobile (#9).
 - Управление пользователями: честная граница страниц каталога, скрытие устаревшего списка при ошибке, блокировка форм во время запросов и отдельное состояние повторной отправки письма.
 - Журнал аудита: понятный фильтр действий и пользователей, точный `total` для фильтрованной пагинации без пустой последней страницы; увеличены цели checkbox, исправлены контраст и возврат фокуса в диалогах токенов.
+
 ### Added
+
 - В форме личных API-токенов доступны продуктовые scopes
   `service-pulse:read/write`; Service Pulse при этом не добавляется в системный
   каталог сервисов.
 - Workspace overview и audit UX (#8).
 - CHANGELOG, CONTRIBUTING, THIRD_PARTY_NOTICES; LICENSE → FerrPOINT Proprietary v1.0.
+
 ### Fixed
+
 - .pnpm-store (2888 файлов) выведен из git.
 - Журнал аудита скрывает устаревшие события и счётчик при повторной загрузке или ошибке; фильтры и страница сохраняются для retry.
+
 ### Added
 
 - Каталог v1.2 (ADR-0007): опциональный `public_ui_url` в декларациях; каталог отдаёт его как `ui_url` (fallback `integration_base_url`) — TLS-фасадные инсталляции сохраняют переключатель сервисов на публичном origin. Миграция `0005`, план `docs/plans/010`.
@@ -107,3 +111,7 @@
 ## Документация AI Hub — 2026-10-09
 
 Описано будущее выделение раздела /ai; текущие endpoints/runtime/data не переключены.
+
+## 2026-10-09 — Уточнение handoff AI Hub
+
+Target consumer signing/revocation и currency-aware pricing согласованы с Hub `45508cb53430c2f85d11a45b973672da81d36e84`. Текущий /ai и ai-runtime сохраняются до отдельного cutover; документационный status не равен main/runtime integration.

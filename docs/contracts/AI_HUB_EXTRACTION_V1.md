@@ -17,3 +17,9 @@ Compatibility adapter и отключение source writes — отдельна
 Полный mapping fields/API/stores, unit conversions и stop gates:
 [AI Hub handoff](https://github.com/FerrPOINT/ai-hub/blob/main/docs/contracts/ADMIN_HANDOFF_V1.md).
 Owner plan: [выделение](../plans/2026-10-09-ai-hub-extraction.md).
+
+## Уточнение target transport и расходов
+
+Reviewed Hub docs `45508cb53430c2f85d11a45b973672da81d36e84`: [SERVICE_ADAPTER_V1](https://github.com/FerrPOINT/ai-hub/blob/45508cb53430c2f85d11a45b973672da81d36e84/docs/contracts/SERVICE_ADAPTER_V1.md). Новый audience/domain, signed raw-body binding, exact Namespace/V2/profile revision/request identity, lease/fencing и revoke tombstones. Legacy runtime envelope/ordinal/workspace не принимается автоматически. Перенос signer trust и подключение consumer требует отдельной owner acceptance.
+
+Project tariffs/source currencies/effective intervals и CAS принадлежат Hub; default 20% за 1M не создаёт receipt. Старые Admin microdollar aggregate/reserve сохраняются без выдуманной истории; actual source writes остаются до accepted cutover. Документационная ветка не меняет main/runtime.
