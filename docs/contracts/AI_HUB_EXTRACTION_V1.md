@@ -23,3 +23,7 @@ Owner plan: [выделение](../plans/2026-10-09-ai-hub-extraction.md).
 Reviewed Hub docs `45508cb53430c2f85d11a45b973672da81d36e84`: [SERVICE_ADAPTER_V1](https://github.com/FerrPOINT/ai-hub/blob/45508cb53430c2f85d11a45b973672da81d36e84/docs/contracts/SERVICE_ADAPTER_V1.md). Новый audience/domain, signed raw-body binding, exact Namespace/V2/profile revision/request identity, lease/fencing и revoke tombstones. Legacy runtime envelope/ordinal/workspace не принимается автоматически. Перенос signer trust и подключение consumer требует отдельной owner acceptance.
 
 Project tariffs/source currencies/effective intervals и CAS принадлежат Hub; default 20% за 1M не создаёт receipt. Старые Admin microdollar aggregate/reserve сохраняются без выдуманной истории; actual source writes остаются до accepted cutover. Документационная ветка не меняет main/runtime.
+
+## Финальная готовность target packet
+
+Hub `28098a573ca99b5f7d8551e3a30f5aef12ea2e82`: S2a accounts proof before S2b; unconfigured price state does not invent history, late trusted receipt keeps old tariff/config absence. Service path requires nonnull equal client/claim/body Namespace; unbound SDK key is not delegation wildcard. [Readiness audit](https://github.com/FerrPOINT/ai-hub/blob/28098a573ca99b5f7d8551e3a30f5aef12ea2e82/docs/READINESS_AUDIT.md) and signed contract govern future extraction. Current /ai and runtime remain until accepted cutover.

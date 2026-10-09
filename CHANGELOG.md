@@ -115,3 +115,7 @@
 ## 2026-10-09 — Уточнение handoff AI Hub
 
 Target consumer signing/revocation и currency-aware pricing согласованы с Hub `45508cb53430c2f85d11a45b973672da81d36e84`. Текущий /ai и ai-runtime сохраняются до отдельного cutover; документационный status не равен main/runtime integration.
+
+## 2026-10-09 — AI Hub readiness handoff
+
+Target extraction references reviewed Hub `28098a573ca99b5f7d8551e3a30f5aef12ea2e82`. No current /ai, grants, database or runtime migration.
