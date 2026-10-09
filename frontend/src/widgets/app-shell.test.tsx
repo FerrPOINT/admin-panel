@@ -61,7 +61,10 @@ describe('AppShell', () => {
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
     }
-    expect(screen.getByRole('link', { name: 'Каталог сервисов' })).toHaveClass('bg-surface-raised')
+    expect(screen.getByRole('link', { name: 'Каталог сервисов' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
   it('closes the mobile drawer with Escape and returns focus to its trigger', async () => {
@@ -70,8 +73,9 @@ describe('AppShell', () => {
 
     fireEvent.click(trigger)
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('link', { name: 'Каталог сервисов' })).toHaveClass(
-      'bg-surface-raised',
+    expect(within(dialog).getByRole('link', { name: 'Каталог сервисов' })).toHaveAttribute(
+      'aria-current',
+      'page',
     )
 
     fireEvent.keyDown(document, { key: 'Escape' })
