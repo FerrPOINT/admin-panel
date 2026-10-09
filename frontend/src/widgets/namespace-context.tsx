@@ -17,9 +17,6 @@ export function NamespaceShellContext() {
         value: `${n.registry_instance_id}/${n.id}`,
         label: `${n.name} · ${n.slug}`,
       }))}
-      manageUrl={
-        ref ? withNamespaceLocation(`/namespaces/${ref.namespace_id}`, ref) : '/namespaces'
-      }
       onChange={(next) => {
         const [registry_instance_id, namespace_id] = next.split('/')
         navigate(
