@@ -42,3 +42,7 @@ login-тестами; локальные fixture-проверки не заме�
 вызывала `Element.matches(':fullscreen')` при вычислении стилей меню.
 Регрессия проверяет fullscreen/modal и computed style без моков селектора.
 Полный Vitest запускается одним worker, стандартный timeout не увеличен.
+
+## Будущее выделение AI Hub
+
+[Переход AI Hub](contracts/AI_HUB_EXTRACTION_V1.md) описывает целевое владение; текущая реализация остаётся до accepted cutover.

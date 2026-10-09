@@ -308,3 +308,7 @@ Auth/scopes и own issuer; readonly PAT; credential/log redaction; exact evidenc
 native metadata overwrite; model switching/reasoning replay; JSON/tool arguments;
 stream partial error/cancel; quota и paid-call reservation; crash/connection
 reconciliation; restart persistence; own backup/restore без внешних вызовов.
+
+## Будущее выделение AI Hub
+
+[Переход AI Hub](AI_HUB_EXTRACTION_V1.md) описывает целевое владение; текущая реализация остаётся до accepted cutover.
