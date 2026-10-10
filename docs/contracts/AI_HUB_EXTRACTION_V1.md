@@ -27,3 +27,11 @@ Project tariffs/source currencies/effective intervals и CAS принадлеж�
 ## Финальная готовность target packet
 
 Hub `28098a573ca99b5f7d8551e3a30f5aef12ea2e82`: S2a accounts proof before S2b; unconfigured price state does not invent history, late trusted receipt keeps old tariff/config absence. Service path requires nonnull equal client/claim/body Namespace; unbound SDK key is not delegation wildcard. [Readiness audit](https://github.com/FerrPOINT/ai-hub/blob/28098a573ca99b5f7d8551e3a30f5aef12ea2e82/docs/READINESS_AUDIT.md) and signed contract govern future extraction. Current /ai and runtime remain until accepted cutover.
+
+Повторное ревью 2026-10-10 опубликовано в Hub
+`b266e158b33e6cc70e02a9df3ba1d21c74b983af`:
+[отчёт и evidence](https://github.com/FerrPOINT/ai-hub/blob/b266e158b33e6cc70e02a9df3ba1d21c74b983af/docs/reviews/2026-10-10/README.md).
+20 исходных поверхностей/хранилищ сопоставлены; свежие 204 geometry/146 flow
+assertions относятся к prototype. Новых блокирующих замечаний к документам/design
+нет; source /ai, действующий runtime и future backup/mapping/qualification/
+financial/rollback gates сохраняют прежние правила до accepted cutover.
