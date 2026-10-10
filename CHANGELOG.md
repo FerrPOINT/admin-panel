@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Base обновлён для удержания focus в `ConfirmDialog` во время pending.
+
 - Активный Namespace Base pin согласован с общим кандидатом; Cargo.lock
   обновлён до `time 0.3.55` перед locked сборкой. Выбор pin документирован
   одинаково с CI и standalone build; финальная приёмка продолжается.
