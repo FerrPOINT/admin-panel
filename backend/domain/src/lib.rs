@@ -10,6 +10,7 @@ use uuid::Uuid;
 
 pub mod ai;
 pub mod inference;
+pub mod namespace;
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
 

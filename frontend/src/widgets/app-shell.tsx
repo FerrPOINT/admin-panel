@@ -1,3 +1,4 @@
+import { SidebarItem } from '@sdlc/ui/ui'
 import { useEffect, useState, type ElementType } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import {
@@ -31,6 +32,7 @@ import {
   PlatformHeader,
   ThemeMenuItems,
 } from '@sdlc/ui/ui'
+import { NamespaceShellContext } from './namespace-context'
 import { useAuth } from '@/shared/auth/auth-context'
 
 type NavItem = {
@@ -41,6 +43,9 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { to: '/', icon: Home, label: 'Обзор' },
+  ...(import.meta.env.VITE_NAMESPACE_ENABLED === 'true'
+    ? [{ to: '/namespaces', icon: Users, label: 'Проекты' }]
+    : []),
   { to: '/branding', icon: Palette, label: 'Брендинг' },
   { to: '/services', icon: Server, label: 'Каталог сервисов' },
   { to: '/revisions', icon: Table2, label: 'Конфигурации' },
@@ -67,6 +72,9 @@ export function AppShell() {
     <div className="min-h-screen bg-background text-text-primary">
       <PlatformHeader
         currentServiceKey="admin-panel"
+        context={
+          import.meta.env.VITE_NAMESPACE_ENABLED === 'true' ? <NamespaceShellContext /> : undefined
+        }
         leading={
           <>
             <MobileNavigation items={navItems} />
@@ -133,22 +141,18 @@ function ShellNavigation({
   return (
     <nav className="space-y-1" aria-label="Разделы">
       {items.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.to === '/'}
-          onClick={onNavigate}
-          aria-label={compact ? item.label : undefined}
-          title={compact ? item.label : undefined}
-          className={({ isActive }) =>
-            `flex min-h-11 items-center gap-3 rounded-md px-3 text-sm text-text-secondary transition-colors hover:bg-surface-raised hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus md:min-h-10 ${
-              compact ? 'justify-center xl:justify-start' : ''
-            } ${isActive ? 'bg-surface-raised text-text-primary' : ''}`
-          }
-        >
-          <item.icon className="h-4 w-4 shrink-0" aria-hidden />
-          <span className={compact ? 'hidden xl:inline' : undefined}>{item.label}</span>
-        </NavLink>
+        <SidebarItem key={item.to} asChild compact={compact ? 'responsive' : false}>
+          <NavLink
+            to={item.to}
+            end={item.to === '/'}
+            onClick={onNavigate}
+            aria-label={item.label}
+            title={item.label}
+          >
+            <item.icon aria-hidden />
+            <span className="base-sidebar-item-label">{item.label}</span>
+          </NavLink>
+        </SidebarItem>
       ))}
     </nav>
   )

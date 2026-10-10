@@ -71,6 +71,7 @@ async fn product_feed_api() {
         .unwrap();
     assert_eq!(name, "admin_messaging_transport_test");
     let state = Arc::new(admin_panel_api::AppState {
+        namespaces: None,
         ai_runtime: None,
         ai: None,
         registry: admin_panel_infra::registry::RegistryStore::new(pool.clone()),

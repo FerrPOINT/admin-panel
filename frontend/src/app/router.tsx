@@ -2,6 +2,7 @@ import { Navigate, createBrowserRouter, useLocation } from 'react-router'
 import { AppShell } from '@/widgets/app-shell'
 import { AiPage } from '@/pages/live/ai'
 import { AiWorkspace, AiLeaveGuard } from '@/shared/ai-ui/workspace'
+import { NamespacesPage, NamespacePage } from '@/pages/namespaces'
 import { OverviewPage } from '@/pages/overview'
 import { BrandingPage } from '@/pages/branding'
 import { ServicesPage } from '@/pages/services'
@@ -16,7 +17,7 @@ import { LoginPage } from '@/pages/login'
 import { SsoCallbackPage } from '@/pages/sso-callback'
 import { useAuth } from '@/shared/auth/auth-context'
 
-function ProtectedApp() {
+export function ProtectedApp() {
   const { status } = useAuth()
   const location = useLocation()
 
@@ -28,7 +29,13 @@ function ProtectedApp() {
     )
   }
   if (status === 'anonymous') {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search + location.hash }}
+      />
+    )
   }
   return <AppShell />
 }
@@ -40,6 +47,8 @@ export const router = createBrowserRouter([
     element: <ProtectedApp />,
     children: [
       { path: '/', element: <OverviewPage /> },
+      { path: '/namespaces', element: <NamespacesPage /> },
+      { path: '/namespaces/:id', element: <NamespacePage /> },
       { path: '/branding', element: <BrandingPage /> },
       { path: '/services', element: <ServicesPage /> },
       { path: '/services/:serviceKey', element: <ServiceDetailPage /> },

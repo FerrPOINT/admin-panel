@@ -1,11 +1,15 @@
 # Интеграция admin-panel с Base
 
-Base SHA закреплён в [`.base-revision`](../.base-revision); `main` Base не является
-воспроизводимой зависимостью. Checkout Base должен лежать соседним каталогом
+Активный Base SHA закреплён в [`.namespace-base-revision`](../.namespace-base-revision).
+При отсутствии этого файла CI и `scripts/build.py` используют legacy
+[`.base-revision`](../.base-revision). `main` Base не является воспроизводимой
+зависимостью. Checkout Base должен лежать соседним каталогом
 `services-base`. Перед standalone build выполнить из корня продукта:
 
 ```sh
-python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision
+pin=.base-revision
+if [ -f .namespace-base-revision ]; then pin=.namespace-base-revision; fi
+python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision "$pin"
 python3 scripts/build.py
 ```
 
@@ -42,3 +46,13 @@ login-тестами; локальные fixture-проверки не заме�
 вызывала `Element.matches(':fullscreen')` при вычислении стилей меню.
 Регрессия проверяет fullscreen/modal и computed style без моков селектора.
 Полный Vitest запускается одним worker, стандартный timeout не увеличен.
+
+Квалификация общего кандидата описана в [плане](plans/2026-10-10-final-base-qualification.md).
+Cargo.lock намеренно обновлён до `time 0.3.55` перед locked сборкой.
+
+Закреплённый Base сохраняет focus внутри общего `ConfirmDialog`, когда запрос
+переводит все действия в pending: Tab/Shift+Tab остаются в диалоге, Escape не
+закрывает незавершённую операцию. После её завершения действуют прежние правила
+закрытия и возврата focus. Продуктовые операции и HTTP-контракты не меняются.
+Обновление pin требует повторных frontend/package/theme и живых UI-проверок;
+исторические результаты прежнего Base не подтверждают эту приёмку.

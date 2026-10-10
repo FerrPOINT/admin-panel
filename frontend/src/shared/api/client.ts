@@ -47,7 +47,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
   getStatus: async (path: string): Promise<number> => {
     const response = await requestResponse(path)
     if (response.headers.get('content-type')?.includes('text/html')) {

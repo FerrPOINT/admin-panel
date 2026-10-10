@@ -1,6 +1,18 @@
 # Журнал изменений
 
-## [Unreleased] — AI/messaging foundation
+## [Unreleased]
+
+- Base обновлён для удержания focus в `ConfirmDialog` во время pending.
+
+- Активный Namespace Base pin согласован с общим кандидатом; Cargo.lock
+  обновлён до `time 0.3.55` перед locked сборкой. Выбор pin документирован
+  одинаково с CI и standalone build; финальная приёмка продолжается.
+
+- Отсутствующий в runtime-каталоге владелец Namespace больше не оставляет выбор
+  ресурсов и показатели в бесконечной загрузке; запрос без endpoint запрещён.
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+ — AI/messaging foundation
 
 - Добавлены AI registry/runtime, утверждённая консоль и messaging consumer. Внутренний клиент принимает canonical ai-backend и совместимый ai-runtime endpoint (BF-006). Реальный inference остаётся закрыт.
 
@@ -10,6 +22,9 @@
 Формат ориентирован на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), а версии будут следовать [Semantic Versioning](https://semver.org/lang/ru/).
 
 ## [Unreleased]
+
+- Namespace cohort: стабильные refs, локальные binding projections и lifecycle guards; аддитивные migrations, совместимый rollback и отдельные execution v2 gates. Runtime-приёмка ещё не завершена.
+
 
 - Инструменты Docker и release CI согласованы: Rust 1.98.1, Node 26.10.0,
   pnpm 10.28.1. Frontend Docker устанавливает pnpm явно и не требует

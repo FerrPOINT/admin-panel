@@ -11,6 +11,7 @@ name = "admin-panel-server"
 path = "src/main.rs"
 
 [dependencies]
+admin-panel-app = { path = "../app" }
 sdlc-telemetry = { path = "../../../services-base/crates/sdlc-telemetry" }
 sdlc-messaging.workspace = true
 chrono.workspace = true

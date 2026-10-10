@@ -6,6 +6,7 @@ pub mod ai;
 pub mod auth;
 mod managed_users;
 pub mod messaging;
+pub mod namespace;
 use managed_users::{
     create_managed_user, list_managed_users, resend_managed_user_link, set_managed_user_status,
     update_managed_user,
@@ -21,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub struct AppState {
+    pub namespaces: Option<admin_panel_app::namespace::NamespaceService>,
     pub ai: Option<admin_panel_infra::ai::AiStore>,
     pub ai_runtime: Option<admin_panel_infra::ai_runtime::RuntimeClient>,
     pub messaging: Arc<admin_panel_infra::messaging::MessagingRuntime>,
@@ -103,6 +105,15 @@ async fn bearer_auth(
 
     let caller = match auth::check_token(&token).await {
         auth::CentralCheck::Validated(ctx) => {
+            // Registered machine subjects never acquire the trusted human panel role.
+            if ctx.role.as_deref() == Some("service_account")
+                || std::env::var("ADMINP_NAMESPACE_MACHINE_SUBJECTS")
+                    .unwrap_or_default()
+                    .split(',')
+                    .any(|subject| !subject.trim().is_empty() && subject.trim() == ctx.user_id)
+            {
+                return Err(StatusCode::FORBIDDEN);
+            }
             if !ctx.allows_service("admin-panel", req.method().as_str()) {
                 return Err(StatusCode::FORBIDDEN);
             }
@@ -148,6 +159,28 @@ pub fn router(state: SharedState) -> Router {
         .with_state(state.clone());
 
     let operator_gated = Router::new()
+        .route("/api/v1/namespace-owners", get(namespace::owners))
+        .route(
+            "/api/v1/namespaces",
+            get(namespace::list).post(namespace::create),
+        )
+        .route(
+            "/api/v1/namespaces/{id}",
+            axum::routing::patch(namespace::update),
+        )
+        .route("/api/v1/namespaces/{id}/context", get(namespace::context))
+        .route(
+            "/api/v1/namespaces/{id}/operations",
+            post(namespace::execute),
+        )
+        .route(
+            "/api/v1/namespace-operations/{id}",
+            get(namespace::operation),
+        )
+        .route(
+            "/api/v1/namespace-operations/{id}/reconcile",
+            post(namespace::reconcile),
+        )
         .route("/api/v1/services", get(list_services).post(create_service))
         .route(
             "/api/v1/services/{service_key}",
@@ -283,6 +316,14 @@ pub fn router(state: SharedState) -> Router {
         description = "Platform control plane: branding revisions, service registry, runtime catalog, roles, audit."
     ),
     paths(
+        namespace::owners,
+        namespace::list,
+        namespace::create,
+        namespace::context,
+        namespace::update,
+        namespace::execute,
+        namespace::operation,
+        namespace::reconcile,
         ai::providers,
         ai::models,
         ai::account,
@@ -326,6 +367,7 @@ pub fn router(state: SharedState) -> Router {
         messaging::status,
         messaging::contracts,
     ),
+    components(schemas(sdlc_shared::resource_context::ResourceCatalogItem,sdlc_shared::resource_context::ResourceStats)),
     tags(
         (name = "ai", description = "Authenticated AI configuration; credentials are write-only in ai-runtime"),
         (name = "auth", description = "Login proxy and caller identity"),

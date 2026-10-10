@@ -381,6 +381,7 @@ mod tests {
                 "auth": {"jwks_uri": "", "issuer": "", "audience": "", "central_api_url": format!("http://{address}")},
             })).unwrap();
             let state = Arc::new(AppState {
+                namespaces: None,
                 ai: None,
                 ai_runtime: None,
                 messaging: Arc::new(admin_panel_infra::messaging::MessagingRuntime::new(false)),

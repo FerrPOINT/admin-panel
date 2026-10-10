@@ -332,6 +332,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/namespace-operations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["operation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespace-operations/{id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconcile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespace-owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["owners"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/api/v1/namespaces/{id}/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["context"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/namespaces/{id}/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["execute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform-events": {
         parameters: {
             query?: never;
@@ -584,6 +696,26 @@ export interface components {
             /** Format: uuid */
             declaration_id: string;
         };
+        Binding: {
+            confirmed: boolean;
+            create_spec?: unknown;
+            desired_state: string;
+            /** Format: int64 */
+            generation: number;
+            last_error?: string | null;
+            namespace: components["schemas"]["NamespaceRef"];
+            /** Format: uuid */
+            operation_id: string;
+            resource: components["schemas"]["ResourceRef"];
+        };
+        CreateNamespace: {
+            description?: string;
+            name: string;
+            /** Format: uuid */
+            operation_id: string;
+            responsible_subject: string;
+            slug: string;
+        };
         CreateRoleBindingRequest: {
             claim_name: string;
             claim_value: string;
@@ -643,13 +775,128 @@ export interface components {
             email: string;
             password: string;
         };
+        Namespace: {
+            /** Format: date-time */
+            created_at: string;
+            description: string;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uuid */
+            registry_instance_id: string;
+            responsible_subject: string;
+            /** Format: int64 */
+            revision: number;
+            slug: string;
+            state: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NamespaceCommand: {
+            /** @enum {string} */
+            action: "provision";
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            operation_id: string;
+            resources: components["schemas"]["ResourceIntent"][];
+        } | {
+            /** @enum {string} */
+            action: "attach";
+            create_spec?: unknown;
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            operation_id: string;
+            resource: components["schemas"]["ResourceRef"];
+        } | {
+            /** @enum {string} */
+            action: "archive";
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            operation_id: string;
+        } | {
+            /** @enum {string} */
+            action: "restore";
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: uuid */
+            operation_id: string;
+        };
+        NamespaceContext: {
+            bindings: components["schemas"]["Binding"][];
+            namespace: components["schemas"]["Namespace"];
+        };
+        NamespaceRef: {
+            /** Format: uuid */
+            namespace_id: string;
+            /** Format: uuid */
+            registry_instance_id: string;
+        };
+        Operation: {
+            command: unknown;
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            namespace_id: string;
+            state: string;
+        };
+        OwnerInstance: {
+            /** Format: uuid */
+            instance_id: string;
+            kind: components["schemas"]["ResourceKind"];
+        };
+        OwnerReadback: {
+            drained: boolean;
+            /** Format: int64 */
+            generation: number;
+            namespace: components["schemas"]["NamespaceRef"];
+            /** Format: uuid */
+            operation_id: string;
+            resource: components["schemas"]["ResourceRef"];
+            /** Format: int32 */
+            schema_version: number;
+            state: string;
+        };
         PatchServiceRequest: {
             declaration?: null | components["schemas"]["DeclarationInput"];
             display_name?: string | null;
             owner_team?: string | null;
         };
+        ResourceCatalogItem: {
+            label: string;
+            resource: components["schemas"]["ResourceRef"];
+            resource_key: string;
+        };
+        ResourceIntent: {
+            create_spec?: unknown;
+            resource: components["schemas"]["ResourceRef"];
+        };
+        /** @enum {string} */
+        ResourceKind: "tracker_project" | "wiki_space" | "git_group";
+        ResourceRef: {
+            /** Format: uuid */
+            instance_id: string;
+            kind: components["schemas"]["ResourceKind"];
+            /** Format: uuid */
+            resource_id: string;
+        };
+        ResourceStats: {
+            binding: components["schemas"]["OwnerReadback"];
+            counters: {
+                [key: string]: number;
+            };
+        };
         RunCheckRequest: {
             capability: string;
+        };
+        UpdateNamespace: {
+            description: string;
+            /** Format: int64 */
+            expected_revision: number;
+            name: string;
+            responsible_subject: string;
         };
     };
     responses: never;
@@ -1439,6 +1686,248 @@ export interface operations {
                 content?: never;
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    operation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            /** @description Operation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reconcile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+        };
+    };
+    owners: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerInstance"][];
+                };
+            };
+            /** @description Registry unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list: {
+        parameters: {
+            query?: {
+                limit?: number | null;
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Namespace"][];
+                };
+            };
+            /** @description Namespace registry not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNamespace"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Namespace"];
+                };
+            };
+            /** @description Original-key payload conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNamespace"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Namespace"];
+                };
+            };
+            /** @description Revision conflict */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    context: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamespaceContext"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    execute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NamespaceCommand"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Operation"];
+                };
+            };
+            /** @description Resource reserved or original readback required */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
