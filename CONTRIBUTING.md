@@ -10,7 +10,7 @@ cp .env.example .env 2>/dev/null || true
 
 ## 2. Development Setup
 
-Backend: Rust 1.98.1 для release; отдельный MSRV gate — 1.88.0.
+Backend: Rust 1.99.0 для release; отдельный MSRV gate — 1.88.0.
 Проверенный Base checkout должен находиться рядом, см. [BASE_INTEGRATION](docs/BASE_INTEGRATION.md).
 
 ```bash

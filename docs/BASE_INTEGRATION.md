@@ -13,7 +13,7 @@ Docker standalone и umbrella используют соседние checkout к�
 CI получает Base на том же SHA. Forge runner sources формируются штатным
 `materialize_runner_sources.py` из чистого delivery candidate, с manifest происхождения.
 
-Rust build toolchain: 1.98.1; Node: 26.10.0; pnpm: 10.28.1.
+Rust build toolchain: 1.99.0; Node: 26.10.0; pnpm: 10.28.1.
 Docker устанавливает точную версию pnpm через npm; наличие Corepack в образе
 Node не требуется. CI использует те же версии Rust/Node/pnpm.
 Cargo использует `--locked`; pnpm — `--frozen-lockfile`. MSRV 1.88.0
