@@ -11,7 +11,7 @@
 
 ## [Unreleased]
 
-- Инструменты Docker и release CI согласованы: Rust 1.98.1, Node 26.10.0,
+- Инструменты Docker и release CI согласованы: Rust 1.99.0, Node 26.10.0,
   pnpm 10.28.1. Frontend Docker устанавливает pnpm явно и не требует
   отсутствующий Corepack; отдельная проверка MSRV остаётся на Rust 1.88.0.
 

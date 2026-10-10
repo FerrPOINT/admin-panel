@@ -1,5 +1,5 @@
 # Build from the fleet root with the verified sibling Base checkout.
-FROM rust:1.98.1-slim-bookworm AS builder
+FROM rust:1.99.0-slim-bookworm AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace/admin-panel/backend
 COPY services-base/Cargo.toml /workspace/services-base/Cargo.toml

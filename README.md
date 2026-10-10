@@ -12,7 +12,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/FerrPOINT/admin-panel/ci.yml?branch=main&style=flat-square&label=CI" alt="CI" />
-  <img src="https://img.shields.io/badge/Rust-1.98.1-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 1.98.1" />
+  <img src="https://img.shields.io/badge/Rust-1.99.0-000000?style=flat-square&logo=rust&logoColor=white" alt="Rust 1.99.0" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111827" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9" />
   <img src="https://img.shields.io/badge/PostgreSQL-17-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 17" />
@@ -192,7 +192,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 
-# Backend: Rust 1.98.1 release gate; MSRV 1.88.0 checked separately
+# Backend: Rust 1.99.0 release gate; MSRV 1.88.0 checked separately
 cd ..
 python3 ../services-base/scripts/verify_base_revision.py --base ../services-base --revision .base-revision
 cd backend
@@ -208,7 +208,7 @@ python3 scripts/test_ai_foundation.py
 docker compose -f docker-compose.dev.yml config -q
 ```
 
-Backend-команды выполняются в Rust 1.98.1 среде с проверенным соседним Base.
+Backend-команды выполняются в Rust 1.99.0 среде с проверенным соседним Base.
 Для контейнерных проверок используйте временный Compose project с явными
 `sdlc.task`/`sdlc.purpose` и обязательным `down --remove-orphans` в finally,
 согласно [Base LOCAL_GROUPS](https://github.com/FerrPOINT/services-base/blob/main/deploy/LOCAL_GROUPS.md).

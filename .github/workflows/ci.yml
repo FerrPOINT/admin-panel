@@ -64,7 +64,7 @@ jobs:
         run: python3 ../services-base/scripts/verify_base_revision.py --revision .base-revision --base ../services-base
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.99.0"
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
